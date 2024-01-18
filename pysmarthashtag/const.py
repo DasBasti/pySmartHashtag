@@ -6,8 +6,9 @@ SERVER_URL = "https://awsapi.future.smart.com/login-app/api/v1/authorize?uiLocal
 CONTEXT_URL = "https://awsapi.future.smart.com/login-app/api/v1/authorize?uiLocales=de-DE&uiLocales=de-DE"
 AUTH_URL = f"https://auth.smart.com/oidc/op/v1.0/{API_KEY}/authorize/continue"
 LOGIN_URL = "https://auth.smart.com/accounts.login"
-
+SESSION_URL = "https://api.ecloudeu.com/auth/account/session/secure"
 API_BASE_URL = "https://api.ecloudeu.com"
 API_CARS_URL = "/device-platform/user/vehicle/secure"
+API_SESION_URL = "/auth/account/session/secure"
 
 HTTPX_TIMEOUT = 30.0

@@ -8,6 +8,7 @@ from dataclasses import InitVar, dataclass, field
 from typing import List, Optional
 
 import httpx
+from pysmarthashtag.api import utils
 
 from pysmarthashtag.api.authentication import SmartAuthentication, SmartLoginClient
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
@@ -52,18 +53,21 @@ class SmartAccount:
         fetched_at = datetime.datetime.now(datetime.timezone.utc)
 
         async with SmartClient(self.config) as client:
-            header = client.generate_default_header(
-                params = {
-                    "needSharedCar": 1,
-                    "userId": self.username,
-                },
-                method="GET",
-                url=API_CARS_URL,
-            )
             vehicles_responses: List[httpx.Response] = [
                 await client.get(
                     API_BASE_URL + API_CARS_URL + "?needSharedCar=1&userId=" + self.username,
-                    headers=header,
+                    headers={
+                        **utils.generate_default_header(
+                            client.config.authentication.device_id,
+                            client.config.authentication.access_token,
+                            params = {
+                                "needSharedCar": 1,
+                                "userId": self.username,
+                            },
+                            method="GET",
+                            url=API_CARS_URL,
+                        )
+                    },
                 )
             ]
 
