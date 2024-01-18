@@ -1,11 +1,12 @@
 """Battery models for pysmarthashtag."""
 
-import datetime
 import logging
 from dataclasses import dataclass
 from typing import Any, Dict, Optional
 
-from pysmarthashtag.models import StrEnum, VehicleDataBase, ValueWithUnit
+from pysmarthashtag.models import StrEnum, ValueWithUnit, VehicleDataBase
+
+_LOGGER = logging.getLogger(__name__)
 
 class ChargingState(StrEnum):
     """Charging state of electric vehicle."""

@@ -1,15 +1,15 @@
 """Generals models used for pysmarthastag."""
 
 import logging
-from dataclasses import InitVar, dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Dict, List, NamedTuple, Optional, Tuple, Union
+from typing import Dict, List, NamedTuple, Optional, Union
 
 _LOGGER = logging.getLogger(__name__)
 
 class StrEnum(str, Enum):
     """Enumerate strings."""
-    
+
     @classmethod
     def _missing_(cls, value):
         has_unknown = False
@@ -21,8 +21,7 @@ class StrEnum(str, Enum):
         if has_unknown:
             _LOGGER.warning("Unknown value %s for enum %s", value, cls.__name__)
             return getattr(cls, 'UNKNOWN')
-        raise ValueError("%s is not a valid %s" % (value, cls.__name__))
-    
+        raise ValueError(f"{value} is not a valid {cls.__name__}")
 
 @dataclass
 class VehicleDataBase:
@@ -35,7 +34,7 @@ class VehicleDataBase:
         if len(parsed) > 0:
             return cls(**parsed)
         return None
-    
+
     def update_from_vehicle_data(self, vehicle_data: Dict):
         """Update the instance with data from API."""
         parsed = self._parse_vehicle_data(vehicle_data) or {}
@@ -47,7 +46,7 @@ class VehicleDataBase:
     def _parse_vehicle_data(cls, vehicle_data: Dict) -> Optional[Dict]:
         """Parse the vehicle data."""
         raise NotImplementedError()
-    
+
     def _update_after_parse(self, parsed: Dict) -> Dict:
         """Update the instance with data from API."""
         return parsed

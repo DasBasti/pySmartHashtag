@@ -10,7 +10,7 @@ _LOGGER = logging.getLogger(__name__)
 
 class SmartVehicle:
     """Models state and remote services of one vehicle.
-    
+
     :param account: The account associated with the vehicle.
     :param attributes: attributes of the vehicle as provided by the server.
     """
@@ -26,6 +26,3 @@ class SmartVehicle:
         """Initialize the vehicle."""
         self.account = account
         self.data = self.combine_data(account, vehicle_base, vehicle_state, charging_settings, fetched_at)
-        #self.remote_services = 
-
-        

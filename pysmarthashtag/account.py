@@ -1,18 +1,16 @@
 """Access to Smart account for your vehicles therin."""
 
 import datetime
-import json
 import logging
-import secrets
 from dataclasses import InitVar, dataclass, field
-from typing import List, Optional
+from typing import List
 
 import httpx
-from pysmarthashtag.api import utils
 
-from pysmarthashtag.api.authentication import SmartAuthentication, SmartLoginClient
+from pysmarthashtag.api import utils
+from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
-from pysmarthashtag.const import API_BASE_URL, API_CARS_URL, SERVER_URL
+from pysmarthashtag.const import API_BASE_URL, API_CARS_URL
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
 
 VALID_UNTIL_OFFSET = datetime.timedelta(seconds=10)

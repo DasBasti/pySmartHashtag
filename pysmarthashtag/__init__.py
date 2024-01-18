@@ -1,6 +1,4 @@
-"""Library to read data from the Smart API.
-
-"""
+"""Library to read data from the Smart API."""
 
 from importlib.metadata import version
 
