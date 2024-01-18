@@ -13,6 +13,7 @@ import httpx
 
 from pysmarthashtag.account import SmartAccount
 
+
 def main_parser() -> argparse.ArgumentParser:
     """Create argument parser."""
     logging.basicConfig(level=logging.DEBUG)
@@ -34,12 +35,12 @@ async def get_status(args) -> None:
     await account.get_vehicles()
 
     print(f"Found {len(account.vehicles)} vehicles:{','.join([v.name for v in account.vehicles])}")
-    
+
     for vehicle in account.vehicles:
         print(f"VIN: {vehicle.vin}")
         print(f"Mileage: {vehicle.mileage.value} {vehicle.mileage.unit}")
         print("Vehicle data:")
-    
+
 def _add_default_args(parser: argparse.ArgumentParser):
     """Add the default arguments username, password to the parser."""
     parser.add_argument("username", help="Smart username")

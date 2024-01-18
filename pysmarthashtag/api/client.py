@@ -1,4 +1,10 @@
+import base64
+import hashlib
+import hmac
+import json
 import logging
+import secrets
+import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
 from typing import Deque, Dict, Optional
@@ -6,11 +12,11 @@ from typing import Deque, Dict, Optional
 import httpx
 
 from pysmarthashtag.api.authentication import SmartAuthentication
-from pysmarthashtag.models import AnonymizedResponse
 from pysmarthashtag.const import (
     HTTPX_TIMEOUT,
     SERVER_URL,
 )
+from pysmarthashtag.models import AnonymizedResponse
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -77,14 +83,53 @@ class SmartClient(httpx.AsyncClient):
 
         super().__init__(*args, **kwargs)
 
-    def generate_default_header(self) -> Dict[str, str]:
+    def generate_default_header(self, params, method: str, url: str) -> Dict[str, str]:
         """Generate a header for HTTP requests to the server."""
-        return {
-            "accept": "*/*",
-            "accept-language": "de",
-            "content-type": "application/x-www-form-urlencoded",
-            "x-requested-with": "com.smart.hellosmart",
-            #"cookie":"gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",
-            "origin": "https://app.id.smart.com",
-            "user-agent": "Hello smart/1.4.0 (iPhone; iOS 17.1; Scale/3.00)"
+        timestamp = int(time.time())
+        nonce = secrets.token_hex(8)
+        sign = self._create_sign(nonce, params, timestamp, method, url)
+        header = {
+            "x-app-id": "SmartAPPEU",
+            "accept": "application/json;responseformat=3",
+            "x-agent-type": "iOS",
+            "x-device-type": "mobile",
+            "x-operator-code": "SMART",
+            "x-device-identifier": self.config.authentication.device_id,
+            "x-env-type": "production",
+            "x-version": "smartNew",
+            "accept-language": "en_US",
+            "x-api-signature-version": "1.0",
+            "x-api-signature-nonce": nonce,
+            "x-device-manufacture": "Apple",
+            "x-device-brand": "Apple",
+            "x-device-model": "iPhone",
+            "x-agent-version": "17.1",
+            "authorization": self.config.authentication.access_token or "",
+            "content-type": "application/json; charset=utf-8",
+            "user-agent": "Hello smart/1.4.0 (iPhone; iOS 17.1; Scale/3.00)",
+            "x-signature": sign,
+            "x-timestamp": str(timestamp)
         }
+        _LOGGER.debug("Header: %s", header)
+        return header
+
+    def _create_sign(self, nonce, params, timestamp, method, url, body=None):
+        """Create a signature for the request."""
+        md5sum = hashlib.md5(json.dumps(body).encode('utf-8')) if body else "1B2M2Y8AsgTpgAmY7PhCfg=="
+        url_params = "&".join([f"{key}={value}" for key, value in params.items()])
+        payload = f"""application/json;responseformat=3
+x-api-signature-nonce:{nonce}
+x-api-signature-version:1.0
+
+{url_params}
+{md5sum}
+{timestamp}
+{method}
+{url}"""
+        _LOGGER.debug("Payload: %s", payload)
+        secret = base64.b64decode("NzRlNzQ2OWFmZjUwNDJiYmJlZDdiYmIxYjM2YzE1ZTk=")
+        payload = payload.encode("utf-8")
+        hashed = hmac.new(secret, payload, hashlib.sha1).digest()
+        signature = base64.b64encode(hashed)
+        _LOGGER.debug("Signature: %s", signature)
+        return signature

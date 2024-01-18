@@ -4,6 +4,7 @@ import asyncio
 import datetime
 import logging
 import math
+import secrets
 from collections import defaultdict
 from typing import AsyncGenerator, Generator, Optional
 
@@ -28,8 +29,8 @@ class SmartAuthentication(httpx.Auth):
     """Authentication and Retry Handler for the Smart API."""
 
     def __init__(
-            self, 
-            username: str, 
+            self,
+            username: str,
             password: str,
             access_token: Optional[str] = None,
             expires_at: Optional[datetime.datetime] = None,
@@ -40,8 +41,9 @@ class SmartAuthentication(httpx.Auth):
         self.access_token: Optional[str] = access_token
         self.expires_at: Optional[datetime.datetime] = expires_at
         self.refresh_token: Optional[str] = refresh_token
-
+        self.device_id: str = secrets.token_hex(8)
         self._lock: Optional[asyncio.Lock] = None
+        _LOGGER.debug("Device ID: %s", self.device_id)
 
     @property
     def login_lock(self) -> asyncio.Lock:
@@ -51,10 +53,13 @@ class SmartAuthentication(httpx.Auth):
         return self._lock
 
     def sync_auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
+        """Synchronous authentication flow for handling requests."""
         raise RuntimeError("Cannot use a async authentication class with httpx.Client")
 
     async def async_auth_flow(self, request: Request) -> AsyncGenerator[Request, Response]:
-        # Get an ionitila login on first call
+        """Asynchronous authentication flow for handling requests."""
+        _LOGGER.debug("Handling request %s", request.url)
+        # Get an initial login on first call
         async with self.login_lock:
             if not self.access_token:
                 await self.login()
@@ -224,14 +229,6 @@ class SmartLoginClient(httpx.AsyncClient):
 
         kwargs["auth"] = SmartLoginRetry()
 
-        kwargs["headers"] = {
-        "x-app-id": "SmartAPPEU",
-        "accept": "application/json;responseformat=3",
-        "x-requested-with": "com.smart.hellosmart",
-        "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",
-        "content-type": "application/json; charset=utf-8",
-        }
-
         # Register event hooks
         kwargs["event_hooks"] = defaultdict(list, **kwargs.get("event_hooks", {}))
 
@@ -254,7 +251,7 @@ class SmartLoginClient(httpx.AsyncClient):
 
         kwargs["event_hooks"]["response"].append(raise_for_status_handler)
 
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
 
 class SmartLoginRetry(httpx.Auth):
