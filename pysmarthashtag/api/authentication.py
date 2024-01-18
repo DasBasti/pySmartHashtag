@@ -56,8 +56,8 @@ class SmartAuthentication(httpx.Auth):
         return self._lock
 
     def sync_auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
-        """Synchronous authentication flow for handling requests."""
-        raise RuntimeError("Cannot use a async authentication class with httpx.Client")
+        """Handle synchronous authentication flow for requests."""
+        raise RuntimeError("Cannot use an async authentication class with httpx.Client")
 
     async def async_auth_flow(self, request: Request) -> AsyncGenerator[Request, Response]:
         """Asynchronous authentication flow for handling requests."""
