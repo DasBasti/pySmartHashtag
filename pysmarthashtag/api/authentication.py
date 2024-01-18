@@ -67,7 +67,7 @@ class SmartAuthentication(httpx.Auth):
 
         await response.aread()
 
-        retry_count = 0 
+        retry_count = 0
         while (
             response.status_code == 429 or (response.status_code == 403 and "quota" in response.text.lower())
         ) and retry_count < 3:
@@ -119,12 +119,7 @@ class SmartAuthentication(httpx.Auth):
         try:
             async with SmartLoginClient() as client:
                 _LOGGER.debug("Refreshing access token")
-                response = await self._request_token(
-                    {
-                        "grant_type": "refresh_token",
-                        "refresh_token": self.refresh_token,
-                    }
-                )
+                raise NotImplementedError
         except SmartAPIError:
             _LOGGER.debug("Refreshing access token failed. Logging in again")
             return {}
@@ -148,7 +143,7 @@ class SmartAuthentication(httpx.Auth):
                 follow_redirects=True,
             )
             context = r_context.url.params["context"]
-            _LOGGER.info("Context: %s", context)
+            _LOGGER.debug("Context: %s", context)
 
             # Get login token from Smart API
             r_login = await client.post(
@@ -182,45 +177,40 @@ class SmartAuthentication(httpx.Auth):
             )
             login_result = r_login.json()
             login_token = login_result["sessionInfo"]["login_token"]
-            #expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=login_result["sessionInfo"]["expires_in"])
-            _LOGGER.info("Login result: %s", login_token)
+            expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=int(login_result["sessionInfo"]["expires_in"]))
+            _LOGGER.debug("Login result: %s", login_token)
 
+            auth_url = AUTH_URL + "?context=" + context + "&login_token=" + login_token
+            cookie = f"gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4; glt_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a={login_token}"
+            _LOGGER.debug("Auth url: %s", auth_url)
             r_auth = await client.get(
-                AUTH_URL +
-                    "?context=" + context +
-                    "&login_token=" + login_token,
+                auth_url,
                 headers={
                     "accept": "*/*",
-                    "cookie": 'gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4; glt_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=' + 
-                        login_token,
+                    "cookie": cookie,
                     "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
                     "x-requested-with": "com.smart.hellosmart",
-                    "user-agent": "Hello smart/1.4.0 (iPhone; iOS 17.1; Scale/3.00)"
+                    "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36"
                 },
-                #follow_redirects=True,
             )
-            _LOGGER.info("Auth location: %s", r_auth.headers["location"])
+            _LOGGER.debug("Auth location: %s", r_auth.headers["location"])
             r_auth = await client.get(
                 r_auth.headers["location"],
                 headers={
                     "accept": "*/*",
-                    "cookie": 'gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4; glt_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=' + 
-                        login_token,
+                    "cookie": cookie,
                     "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
                     "x-requested-with": "com.smart.hellosmart",
-                    "user-agent": "Hello smart/1.4.0 (iPhone; iOS 17.1; Scale/3.00)"
+                    "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36"
                 },
-                #follow_redirects=True,
             )
-            auth_result = r_auth.headers["location"]
-            _LOGGER.info("Auth result: %s", auth_result)
-            quit()
-
-
-
+            auth_result = httpx.URL(r_auth.headers["location"])
+            access_token = auth_result.params["access_token"]
+            refresh_token = auth_result.params["refresh_token"]
 
         return {
             "access_token": access_token,
+            "refresh_token": refresh_token,
             "expires_at": expires_at,
         }
 
