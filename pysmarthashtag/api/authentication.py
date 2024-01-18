@@ -20,7 +20,8 @@ from pysmarthashtag.const import (
     CONTEXT_URL,
     HTTPX_TIMEOUT,
     LOGIN_URL,
-    SESSION_URL,
+    SESSION_ACCOUNT_URL,
+    SESSION_BASE_URL,
 )
 from pysmarthashtag.models import SmartAPIError
 
@@ -216,7 +217,7 @@ class SmartAuthentication(httpx.Auth):
 
             data = {"accessToken": access_token}
             r_api_access = await client.post(
-                SESSION_URL +"?identity_type=smart",
+                SESSION_BASE_URL + SESSION_ACCOUNT_URL +"?identity_type=smart",
                 headers={
                     **utils.generate_default_header(
                             self.device_id,
@@ -225,7 +226,7 @@ class SmartAuthentication(httpx.Auth):
                             "identity_type": "smart",
                         },
                         method="POST",
-                        url=SESSION_URL,
+                        url=SESSION_ACCOUNT_URL,
                         body=data,
                     )
                 },
