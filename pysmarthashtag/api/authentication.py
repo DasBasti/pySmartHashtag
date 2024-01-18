@@ -2,6 +2,7 @@
 
 import asyncio
 import datetime
+import json
 import logging
 import math
 import secrets
@@ -20,8 +21,6 @@ from pysmarthashtag.const import (
     CONTEXT_URL,
     HTTPX_TIMEOUT,
     LOGIN_URL,
-    SESSION_ACCOUNT_URL,
-    SESSION_BASE_URL,
 )
 from pysmarthashtag.models import SmartAPIError
 
@@ -217,7 +216,7 @@ class SmartAuthentication(httpx.Auth):
 
             data = {"accessToken": access_token}
             r_api_access = await client.post(
-                SESSION_BASE_URL + SESSION_ACCOUNT_URL +"?identity_type=smart",
+                API_BASE_URL + API_SESION_URL +"?identity_type=smart",
                 headers={
                     **utils.generate_default_header(
                             self.device_id,
@@ -226,7 +225,7 @@ class SmartAuthentication(httpx.Auth):
                             "identity_type": "smart",
                         },
                         method="POST",
-                        url=SESSION_ACCOUNT_URL,
+                        url=API_SESION_URL,
                         body=data,
                     )
                 },
