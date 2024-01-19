@@ -32,7 +32,7 @@ x-api-signature-version:1.0
 
 def generate_default_header(device_id, access_token, params, method: str, url: str, body=None) -> Dict[str, str]:
     """Generate a header for HTTP requests to the server."""
-    timestamp = int(time.time())
+    timestamp = int(time.time()*1000)
     nonce = secrets.token_hex(8)
     sign = _create_sign(nonce, params, timestamp, method, url, body)
     header = {
