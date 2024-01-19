@@ -4,9 +4,18 @@
 import argparse
 import asyncio
 import logging
+import os
 
 from pysmarthashtag.account import SmartAccount
 
+
+def environ_or_required(key):
+    """Return default or required argument based on the existence of an environment variable."""
+    print("key: ", key)
+    return (
+        {'default': os.environ.get(key)} if os.environ.get(key)
+        else {'required': True}
+    )
 
 def main_parser() -> argparse.ArgumentParser:
     """Create argument parser."""
@@ -37,9 +46,8 @@ async def get_status(args) -> None:
 
 def _add_default_args(parser: argparse.ArgumentParser):
     """Add the default arguments username, password to the parser."""
-    parser.add_argument("username", help="Smart username")
-    parser.add_argument("password", help="Smart password")
-
+    parser.add_argument("--username", help="Smart username", **environ_or_required("SMART_USERNAME"))
+    parser.add_argument("--password", help="Smart password", **environ_or_required("SMART_PASSWORD"))
 
 def main():
     """Get arguments from parser and run function in event loop."""
