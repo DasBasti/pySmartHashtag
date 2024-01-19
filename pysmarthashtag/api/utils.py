@@ -11,7 +11,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def _create_sign(nonce, params, timestamp, method, url, body=None):
     """Create a signature for the request."""
-    md5sum = base64.b64encode(hashlib.md5(json.dumps(body).replace(' ', '').encode()).digest()).decode() if body else "1B2M2Y8AsgTpgAmY7PhCfg=="
+    md5sum = base64.b64encode(hashlib.md5(body.encode()).digest()).decode() if body else "1B2M2Y8AsgTpgAmY7PhCfg=="
     url_params = "&".join([f"{key}={value}" for key, value in params.items()])
     payload = f"""application/json;responseformat=3
 x-api-signature-nonce:{nonce}

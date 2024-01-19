@@ -3,7 +3,7 @@
 
 import argparse
 import asyncio
-import logging
+import logging.config
 import os
 
 from pysmarthashtag.account import SmartAccount
@@ -19,7 +19,46 @@ def environ_or_required(key):
 
 def main_parser() -> argparse.ArgumentParser:
     """Create argument parser."""
-    logging.basicConfig(level=logging.DEBUG)
+
+    LOGGING_CONFIG = {
+        "version": 1,
+        "handlers": {
+            "default": {
+                "class": "logging.StreamHandler",
+                "formatter": "http",
+                "stream": "ext://sys.stderr"
+            },
+            "file": {
+                "class": "logging.handlers.RotatingFileHandler",
+                "formatter": "http",
+                "filename": "pysmarthashtag.log",
+                "maxBytes": 1024 * 1024 * 10,
+                "backupCount": 10,
+            },
+        },
+        "formatters": {
+            "http": {
+                "format": "%(levelname)s [%(asctime)s] %(name)s - %(message)s",
+                "datefmt": "%Y-%m-%d %H:%M:%S",
+            }
+        },
+        'loggers': {
+            'httpx': {
+                'handlers': ['default'],
+                'level': 'DEBUG',
+            },
+            'httpcore': {
+                'handlers': ['default'],
+                'level': 'ERROR',
+            },
+            'pysmarthashtag': {
+                'handlers': ['default', 'file'],
+                'level': 'DEBUG',
+            },
+        }
+    }
+
+    logging.config.dictConfig(LOGGING_CONFIG)
 
     parser = argparse.ArgumentParser(description="Smart API demo")
     subparsers = parser.add_subparsers(dest="command")

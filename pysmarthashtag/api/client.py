@@ -48,13 +48,20 @@ class SmartClient(httpx.AsyncClient):
         # Register event hooks
         kwargs["event_hooks"] = defaultdict(list, **kwargs.get("event_hooks", {}))
 
-        # Event hook for logging content
-        async def log_response(response: httpx.Response):
-            await response.aread()
-            RESPONSE_STORE.append(response)
+        async def log_request(request):
+            if request.method == "POST":
+                await request.aread()
+                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.content.decode()}")
+            else:
+                _LOGGER.debug(f"Request: {request.method} {request.url}")
 
-        if config.log_responses:
-            kwargs["event_hooks"]["response"].append(log_response)
+        async def log_response(response):
+            await response.aread()
+            request = response.request
+            _LOGGER.debug(f"Response: {request.method} {request.url} - Status {response.status_code}")
+
+        kwargs["event_hooks"]["response"].append(log_response)
+        kwargs["event_hooks"]["request"].append(log_request)
 
         # Event hook which calls raise_for_status on all requests
         async def raise_for_status_event_handler(response: httpx.Response):

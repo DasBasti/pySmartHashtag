@@ -2,6 +2,7 @@
 
 import asyncio
 import datetime
+import json
 import logging
 import math
 import secrets
@@ -225,10 +226,10 @@ class SmartAuthentication(httpx.Auth):
                         },
                         method="POST",
                         url=API_SESION_URL,
-                        body=data,
+                        body=json.dumps(data),
                     )
                 },
-                data=data,
+                data=json.dumps(data),
             )
             _LOGGER.debug("API access result: %s", r_api_access.json())
             quit()
@@ -269,6 +270,21 @@ class SmartLoginClient(httpx.AsyncClient):
                     raise
 
         kwargs["event_hooks"]["response"].append(raise_for_status_handler)
+
+        async def log_request(request):
+            if request.method == "POST":
+                await request.aread()
+                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.content.decode()}")
+            else:
+                _LOGGER.debug(f"Request: {request.method} {request.url}")
+
+        async def log_response(response):
+            await response.aread()
+            request = response.request
+            _LOGGER.debug(f"Response: {request.method} {request.url} - Status {response.status_code}")
+
+        kwargs["event_hooks"]["response"].append(log_response)
+        kwargs["event_hooks"]["request"].append(log_request)
 
         super().__init__(**kwargs)
 
