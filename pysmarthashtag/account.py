@@ -45,25 +45,26 @@ class SmartAccount:
             )
 
     async def _init_vehicles(self) -> None:
-        """Initialize vehicles from BMW servers."""
+        """Initialize vehicles from Smart servers."""
         _LOGGER.debug("Getting initial vehicle list")
 
         fetched_at = datetime.datetime.now(datetime.timezone.utc)
 
         async with SmartClient(self.config) as client:
+            params = {
+                "needSharedCar": 1,
+                "userId": self.config.authentication.api_user_id,
+            }
             vehicles_responses: List[httpx.Response] = [
                 await client.get(
-                    API_BASE_URL + API_CARS_URL + "?needSharedCar=1&userId=" + self.username,
+                    API_BASE_URL + API_CARS_URL + "?" + utils.join_url_params(params),
                     headers={
                         **utils.generate_default_header(
                             client.config.authentication.device_id,
-                            client.config.authentication.access_token,
-                            params = {
-                                "needSharedCar": 1,
-                                "userId": self.username,
-                            },
-                            method="GET",
-                            url=API_CARS_URL,
+                            client.config.authentication.api_access_token,
+                            params = params,
+                            method = "GET",
+                            url = API_CARS_URL,
                         )
                     },
                 )
@@ -77,6 +78,9 @@ class SmartAccount:
 
     async def get_vehicles(self, force_init: bool = False) -> None:
         """Get the vehicles associated with the account."""
+        if self.config.authentication.api_user_id is None:
+            await self.config.authentication.login()
+
         _LOGGER.debug("Getting vehicles for account %s", self.username)
         fetched_at = datetime.datetime.now(datetime.timezone.utc)
 

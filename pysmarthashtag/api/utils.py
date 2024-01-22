@@ -9,10 +9,14 @@ from typing import Dict
 
 _LOGGER = logging.getLogger(__name__)
 
+def join_url_params(args) -> str:
+    """Join params for adding to URL."""
+    return "&".join([f"{key}={value}" for key, value in args.items()])
+
 def _create_sign(nonce, params, timestamp, method, url, body=None):
     """Create a signature for the request."""
     md5sum = base64.b64encode(hashlib.md5(body.encode()).digest()).decode() if body else "1B2M2Y8AsgTpgAmY7PhCfg=="
-    url_params = "&".join([f"{key}={value}" for key, value in params.items()])
+    url_params = join_url_params(params)
     payload = f"""application/json;responseformat=3
 x-api-signature-nonce:{nonce}
 x-api-signature-version:1.0
@@ -59,5 +63,5 @@ def generate_default_header(device_id, access_token, params, method: str, url: s
     if access_token:
         header["authorization"] = access_token
 
-    _LOGGER.debug("Header: %s", header)
+    _LOGGER.debug(f"Constructed Login: {join_url_params(params)} - {access_token} - {method} - {url} - {body}")
     return header

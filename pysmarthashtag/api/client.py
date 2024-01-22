@@ -51,9 +51,9 @@ class SmartClient(httpx.AsyncClient):
         async def log_request(request):
             if request.method == "POST":
                 await request.aread()
-                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.content.decode()}")
+                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.headers} - {request.content.decode()}")
             else:
-                _LOGGER.debug(f"Request: {request.method} {request.url}")
+                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.headers}")
 
         async def log_response(response):
             await response.aread()

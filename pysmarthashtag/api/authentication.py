@@ -47,6 +47,9 @@ class SmartAuthentication(httpx.Auth):
         self.refresh_token: Optional[str] = refresh_token
         self.device_id: str = secrets.token_hex(8)
         self._lock: Optional[asyncio.Lock] = None
+        self.api_access_token: Optional[str] = None
+        self.api_refresh_token: Optional[str] = None
+        self.api_user_id: Optional[str] = None
         _LOGGER.debug("Device ID: %s", self.device_id)
 
     @property
@@ -121,7 +124,11 @@ class SmartAuthentication(httpx.Auth):
 
         self.access_token = token_data["access_token"]
         self.refresh_token = token_data["refresh_token"]
+        self.api_access_token = token_data["api_access_token"]
+        self.api_refresh_token = token_data["api_refresh_token"]
+        self.api_user_id = token_data["api_user_id"]
         self.expires_at = token_data["expires_at"]
+        _LOGGER.debug(f"Login successful: {token_data}")
 
     async def _refresh_access_token(self):
         """Refresh the access token."""
@@ -231,11 +238,17 @@ class SmartAuthentication(httpx.Auth):
                 },
                 data=json.dumps(data),
             )
-            _LOGGER.debug("API access result: %s", r_api_access.json())
-            quit()
+            api_result = r_api_access.json()
+            _LOGGER.debug("API access result: %s", api_result)
+            api_access_token = api_result["data"]["accessToken"]
+            api_refresh_token = api_result["data"]["refreshToken"]
+            api_user_id = api_result["data"]["userId"]
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
+            "api_access_token": api_access_token,
+            "api_refresh_token": api_refresh_token,
+            "api_user_id": api_user_id,
             "expires_at": expires_at,
         }
 
