@@ -45,16 +45,21 @@ class Battery(VehicleDataBase):
     """Charging target state of charge."""
 
     @classmethod
-    def from_vehicle_data(cls, vehicle_data: Dict):
+    def from_vehicle_data(self, vehicle_data: Dict):
         """Create a new instance based on data from API."""
-        parsed = cls._parse_vehicle_data(vehicle_data) or {}
+        parsed = self._parse_vehicle_data(vehicle_data) or {}
         if len(parsed) > 0:
-            return cls(**parsed)
+            return self(**parsed)
         return None
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: Dict) -> Optional[Dict]:
+    def _parse_vehicle_data(self, vehicle_data: Dict) -> Optional[Dict]:
         """Parse the battery data based on Ids."""
+        _LOGGER.debug(f"Parsing battery data: {vehicle_data}")
         retval: Dict[str, Any] = {}
-        _LOGGER.debug("Parsing battery data: {}".format(vehicle_data))
+        retval["remaining_range"] = vehicle_data["additionalVehicleStatus"]["electricVehicleStatus"]["distanceToEmptyOnBatteryOnly"]
+        retval["remaining_battery_percent"] = vehicle_data["additionalVehicleStatus"]["electricVehicleStatus"]["chargeLevel"]
+        retval["charging_status"] = ChargingState(vehicle_data["additionalVehicleStatus"]["electricVehicleStatus"]["chargeSts"])
+        retval["is_charger_connected"] = retval["charging_status"] == ChargingState.PLUGGED_IN
+        #retval["charging_target_soc"] = raise NotImplementedError()
         raise NotImplementedError()
