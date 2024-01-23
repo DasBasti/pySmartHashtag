@@ -67,18 +67,15 @@ class SmartClient(httpx.AsyncClient):
         async def raise_for_status_event_handler(response: httpx.Response):
             """Event handler that automatically raises HTTPStatusErrors when attached.
 
-            Will only raise on 4xx/5xx errors but not 401/429 which are handled `self.auth`.
+            Will read out response JSON for code and message
             """
-            if response.is_error and response.status_code not in [401, 429]:
-                try:
-                    response.raise_for_status()
-                except httpx.HTTPStatusError as ex:
-                    _LOGGER.error(
-                        "Error handling request %s: %s",
-                        response.url,
-                        ex,
-                    )
-                    raise
+            response_data = response.json()
+            if "code" in response_data and "message" in response_data:
+                raise httpx.HTTPStatusError(
+                    response=response,
+                    request=response.request,
+                    message=f"{response_data['code']}: {response_data['message']}",
+                )
 
         kwargs["event_hooks"]["response"].append(raise_for_status_event_handler)
 
