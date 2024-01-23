@@ -37,7 +37,7 @@ class SmartClient(httpx.AsyncClient):
         self.config = config
 
         # Add authentication
-        kwargs["auth"] = self.config.authentication
+        #kwargs["auth"] = self.config.authentication
 
         # Increase timeout
         kwargs["timeout"] = httpx.Timeout(HTTPX_TIMEOUT)
@@ -70,7 +70,7 @@ class SmartClient(httpx.AsyncClient):
             Will read out response JSON for code and message
             """
             response_data = response.json()
-            if "code" in response_data and "message" in response_data:
+            if "code" in response_data and response_data["code"] != "1000" and "message" in response_data:
                 raise httpx.HTTPStatusError(
                     response=response,
                     request=response.request,

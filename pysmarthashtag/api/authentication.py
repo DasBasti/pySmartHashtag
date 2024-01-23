@@ -260,8 +260,6 @@ class SmartLoginClient(httpx.AsyncClient):
         # Increase timeout to 30 seconds
         kwargs["timeout"] = httpx.Timeout(HTTPX_TIMEOUT)
 
-        kwargs["auth"] = SmartLoginRetry()
-
         # Register event hooks
         kwargs["event_hooks"] = defaultdict(list, **kwargs.get("event_hooks", {}))
 
@@ -287,7 +285,7 @@ class SmartLoginClient(httpx.AsyncClient):
         async def log_request(request):
             if request.method == "POST":
                 await request.aread()
-                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.content.decode()}")
+                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.content.decode()} - {request.headers}")
             else:
                 _LOGGER.debug(f"Request: {request.method} {request.url}")
 
