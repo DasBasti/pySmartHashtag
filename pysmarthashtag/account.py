@@ -6,8 +6,6 @@ import logging
 from dataclasses import InitVar, dataclass, field
 from typing import List
 
-import httpx
-
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration

@@ -1,7 +1,6 @@
 import base64
 import hashlib
 import hmac
-import json
 import logging
 import secrets
 import time

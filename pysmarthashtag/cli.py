@@ -11,7 +11,6 @@ from pysmarthashtag.account import SmartAccount
 
 def environ_or_required(key):
     """Return default or required argument based on the existence of an environment variable."""
-    print("key: ", key)
     return (
         {'default': os.environ.get(key)} if os.environ.get(key)
         else {'required': True}
@@ -45,7 +44,7 @@ def main_parser() -> argparse.ArgumentParser:
         'loggers': {
             'httpx': {
                 'handlers': ['default'],
-                'level': 'DEBUG',
+                'level': 'ERROR',
             },
             'httpcore': {
                 'handlers': ['default'],

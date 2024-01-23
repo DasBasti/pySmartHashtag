@@ -3,6 +3,7 @@
 import datetime
 import logging
 from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type
+from pysmarthashtag.account import SmartAccount
 
 from pysmarthashtag.models import StrEnum
 
@@ -17,7 +18,7 @@ class SmartVehicle:
 
     def __init__(
         self,
-        account: "SmartAccount",
+        account: SmartAccount,
         vehicle_base: dict,
         vehicle_state: Optional[dict] = None,
         charging_settings: Optional[dict] = None,

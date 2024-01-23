@@ -51,7 +51,7 @@ class Battery(VehicleDataBase):
         if len(parsed) > 0:
             return cls(**parsed)
         return None
-    
+
     @classmethod
     def _parse_vehicle_data(cls, vehicle_data: Dict) -> Optional[Dict]:
         """Parse the battery data based on Ids."""
