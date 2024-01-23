@@ -221,7 +221,7 @@ class SmartAuthentication(httpx.Auth):
             access_token = auth_result.params["access_token"]
             refresh_token = auth_result.params["refresh_token"]
 
-            data = {"accessToken": access_token}
+            data = json.dumps({"accessToken": access_token}).replace(" ", "")
             r_api_access = await client.post(
                 API_BASE_URL + API_SESION_URL +"?identity_type=smart",
                 headers={
@@ -233,10 +233,10 @@ class SmartAuthentication(httpx.Auth):
                         },
                         method="POST",
                         url=API_SESION_URL,
-                        body=json.dumps(data),
+                        body=data,
                     )
                 },
-                data=json.dumps(data),
+                data=data,
             )
             api_result = r_api_access.json()
             _LOGGER.debug("API access result: %s", api_result)
