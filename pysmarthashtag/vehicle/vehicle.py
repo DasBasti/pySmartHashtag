@@ -25,4 +25,21 @@ class SmartVehicle:
     ) -> None:
         """Initialize the vehicle."""
         self.account = account
-        self.data = self.combine_data(account, vehicle_base, vehicle_state, charging_settings, fetched_at)
+        self.data = self.combine_data(vehicle_base, vehicle_state, charging_settings, fetched_at)
+
+    def combine_data(
+        self,
+        vehicle_base: dict,
+        vehicle_state: Optional[dict] = None,
+        charging_settings: Optional[dict] = None,
+        fetched_at: Optional[datetime.datetime] = None,
+    ) -> dict:
+        """Combine all data into one dictionary."""
+        data = vehicle_base.copy()
+        if vehicle_state:
+            data.update(vehicle_state)
+        if charging_settings:
+            data.update(charging_settings)
+        if fetched_at:
+            data["fetched_at"] = fetched_at
+        return data
