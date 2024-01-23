@@ -63,5 +63,5 @@ def generate_default_header(device_id, access_token, params, method: str, url: s
     if access_token:
         header["authorization"] = access_token
 
-    _LOGGER.debug(f"Constructed Login: {join_url_params(params)} - {access_token} - {method} - {url} - {body}")
+    _LOGGER.debug(f"Constructed Login: {join_url_params(params)} - {access_token} - {method} - {url} - {body} -> {header}")
     return header
