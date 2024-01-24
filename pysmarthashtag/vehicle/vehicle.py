@@ -2,10 +2,9 @@
 
 import datetime
 import logging
-from typing import TYPE_CHECKING, Dict, List, Optional, Tuple, Type
-from pysmarthashtag.account import SmartAccount
+from typing import Optional
 
-from pysmarthashtag.models import StrEnum
+from pysmarthashtag.vehicle.battery import Battery
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -18,7 +17,7 @@ class SmartVehicle:
 
     def __init__(
         self,
-        account: SmartAccount,
+        account: "SmartAccount",  # noqa: F821
         vehicle_base: dict,
         vehicle_state: Optional[dict] = None,
         charging_settings: Optional[dict] = None,
@@ -27,6 +26,7 @@ class SmartVehicle:
         """Initialize the vehicle."""
         self.account = account
         self.data = self.combine_data(vehicle_base, vehicle_state, charging_settings, fetched_at)
+        self.battery = Battery.from_vehicle_data(self.data)
 
     def combine_data(
         self,
@@ -43,4 +43,9 @@ class SmartVehicle:
             data.update(charging_settings)
         if fetched_at:
             data["fetched_at"] = fetched_at
+        self._parse_data(data)
         return data
+
+    def _parse_data(self, data) -> None:
+        self.vin = data.get("vin")
+        self.name = data.get("modelName")

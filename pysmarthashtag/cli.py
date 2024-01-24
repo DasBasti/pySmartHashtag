@@ -75,12 +75,18 @@ async def get_status(args) -> None:
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
 
-    print(f"Found {len(account.vehicles)} vehicles:{','.join([v.name for v in account.vehicles])}")
+    print(f"Found {len(account.vehicles)} vehicles:{','.join([v.data.get('vin') for v in account.vehicles])}")
 
     for vehicle in account.vehicles:
         print(f"VIN: {vehicle.vin}")
-        print(f"Mileage: {vehicle.mileage.value} {vehicle.mileage.unit}")
-        print("Vehicle data:")
+
+async def get_vehicle_information(args) -> None:
+    """Get status of vehicle."""
+    account = SmartAccount(args.username, args.password)
+    await account.get_vehicle_information()
+
+    print(f"Found {len(account.vehicles)} vehicles:{','.join([v.name for v in account.vehicles])}")
+
 
 def _add_default_args(parser: argparse.ArgumentParser):
     """Add the default arguments username, password to the parser."""

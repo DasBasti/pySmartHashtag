@@ -2,6 +2,7 @@
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from enum import Enum
 from typing import Dict, List, NamedTuple, Optional, Union
 
@@ -26,6 +27,8 @@ class StrEnum(str, Enum):
 @dataclass
 class VehicleDataBase:
     """Base class for vehicle data."""
+
+    timestamp: Optional[datetime] = None
 
     @classmethod
     def from_vehicle_data(cls, vehicle_data: Dict):

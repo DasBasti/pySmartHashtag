@@ -85,11 +85,11 @@ class SmartAccount:
         if len(self.vehicles) ==0 or force_init:
             await self._init_vehicles()
 
-        async with SmartClient(self.config) as client:
-            for vehicle in self.vehicles:
-                _LOGGER.debug(f"Getting vehicle {vehicle.data}")
-                await self.select_active_vehicle(vehicle.data.get("vin"))
-                await self.get_vehicle_information(vehicle.data.get("vin"))
+        for vehicle in self.vehicles:
+            _LOGGER.debug(f"Getting vehicle {vehicle.data}")
+            await self.select_active_vehicle(vehicle.data.get("vin"))
+            vehicle_info = await self.get_vehicle_information(vehicle.data.get("vin"))
+            vehicle.combine_data(vehicle_info)
 
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
@@ -138,3 +138,4 @@ class SmartAccount:
                 },
             )
             _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+        return r_car_info.json()["data"]

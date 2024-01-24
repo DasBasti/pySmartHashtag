@@ -2,28 +2,29 @@
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from typing import Any, Dict, Optional
 
-from pysmarthashtag.models import StrEnum, ValueWithUnit, VehicleDataBase
+from pysmarthashtag.models import ValueWithUnit, VehicleDataBase
 
 _LOGGER = logging.getLogger(__name__)
 
-class ChargingState(StrEnum):
-    """Charging state of electric vehicle."""
-
-    DEFAULT = "DEFAULT"
-    CHARGING = "CHARGING"
-    ERROR = "ERROR"
-    COMPLETE = "COMPLETE"
-    FULLY_CHARGED = "FULLY_CHARGED"
-    FINISHED_FULLY_CHARGED = "FINISHED_FULLY_CHARGED"
-    FINISHED_NOT_FULL = "FINISHED_NOT_FULL"
-    INVALID = "INVALID"
-    NOT_CHARGING = "NOT_CHARGING"
-    PLUGGED_IN = "PLUGGED_IN"
-    WAITING_FOR_CHARGING = "WAITING_FOR_CHARGING"
-    TARGET_REACHED = "TARGET_REACHED"
-    UNKNOWN = "UNKNOWN"
+"""Charging state of electric vehicle."""
+ChargingState = [
+    "NOT_CHARGING",
+    "DEFAULT",
+    "CHARGING",
+    "ERROR",
+    "COMPLETE",
+    "FULLY_CHARGED",
+    "FINISHED_FULLY_CHARGED",
+    "FINISHED_NOT_FULL",
+    "INVALID",
+    "PLUGGED_IN",
+    "WAITING_FOR_CHARGING",
+    "TARGET_REACHED",
+    "UNKNOWN"
+]
 
 @dataclass
 class Battery(VehicleDataBase):
@@ -35,7 +36,7 @@ class Battery(VehicleDataBase):
     remaining_battery_percent: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """Remaining battery percent of the vehicle."""
 
-    charging_status: Optional[ChargingState] = None
+    charging_status: Optional[int] = None
     """Charging status of the vehicle."""
 
     is_charger_connected: bool = False
@@ -57,9 +58,14 @@ class Battery(VehicleDataBase):
         """Parse the battery data based on Ids."""
         _LOGGER.debug(f"Parsing battery data: {vehicle_data}")
         retval: Dict[str, Any] = {}
-        retval["remaining_range"] = vehicle_data["additionalVehicleStatus"]["electricVehicleStatus"]["distanceToEmptyOnBatteryOnly"]
-        retval["remaining_battery_percent"] = vehicle_data["additionalVehicleStatus"]["electricVehicleStatus"]["chargeLevel"]
-        retval["charging_status"] = ChargingState(vehicle_data["additionalVehicleStatus"]["electricVehicleStatus"]["chargeSts"])
-        retval["is_charger_connected"] = retval["charging_status"] == ChargingState.PLUGGED_IN
-        #retval["charging_target_soc"] = raise NotImplementedError()
-        raise NotImplementedError()
+        try:
+            evStatus = vehicle_data["additionalVehicleStatus"]["electricVehicleStatus"]
+            retval["remaining_range"] = evStatus["distanceToEmptyOnBatteryOnly"]
+            retval["remaining_battery_percent"] = evStatus["chargeLevel"]
+            retval["charging_status"] = ChargingState(evStatus["chargeSts"])
+            retval["is_charger_connected"] = retval["charging_status"] == ChargingState["PLUGGED_IN"]
+            retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]))
+            #retval["charging_target_soc"] = raise NotImplementedError()
+        except KeyError:
+            _LOGGER.debug("No battery data found")
+        return retval
