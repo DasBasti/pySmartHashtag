@@ -1,0 +1,20 @@
+{
+  "code": 1000,
+  "data": {
+    "expiresIn": 4579200,
+    "deviceType": "mobile",
+    "clientId": "APPLE0000APP00IPHONE241P10804023",
+    "idToken": "",
+    "resultCode": "0",
+    "alias": "",
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9.eyJ1aWQiOiIxMjM0NTY3OCIsImNsaWVudElkIjoiQVBQTEUwMDAwQVBQMDBJUEhPTkUyNDFQMTA4MDIwMjMiLCJtb2R1bGVUeXBlIjoibW9iaWxlIiwiYXBwSWQiOiJTbWFydEFQUEVVIiwiYnVzaW5lc3NJZCI6IiIsImV4cCI6MTcxMzk5NjgwOSwiZW52IjoicHJvZHVjdGlvbiJ9.QumGTnQwOiYLj45iyAX4cd_0zIsVlkH8cpnbYo1ksSM",
+    "tcToken": "",
+    "resultMessage": "Success",
+    "userId": "112233",
+    "refreshToken": "ODMxREJENDIzMEJDNjc5NkEyNENCRDYxRjY3MjAwQzQ="
+  },
+  "success": true,
+  "hint": null,
+  "sessionId": null,
+  "message": "Successful."
+}

@@ -1,0 +1,50 @@
+{
+  "code": "1000",
+  "message": null,
+  "hint": null,
+  "httpStatus": "OK",
+  "data": {
+    "list": [
+      {
+        "factoryCode": "1234",
+        "colorName": "G68 SPECTRUM BLUE",
+        "isIHUConfirm": false,
+        "temId": "123456789abcdef123456789",
+        "ihuPlatform": "tsp",
+        "ihuId": "abcdef123456789123456789",
+        "carProveStatus": "N",
+        "fuelTankCapacity": "0",
+        "seriesCodeVs": "HX11",
+        "iccid": "01234567890123456789",
+        "current": false,
+        "modelCode": "HX11_EUL_Premium+_RWD_000",
+        "vehicleOwnerLastTime": 1706216341000,
+        "vin": "TestVIN0000000001",
+        "fccode": "1234",
+        "id": 1234567,
+        "msisdn": "112233445566770",
+        "vehicleType": 0,
+        "engineNo": "ABCDEFABC",
+        "temType": "",
+        "plateNo": "",
+        "tboxPlatform": "tsp",
+        "seriesName": "HX11",
+        "updateTime": 1706199500000,
+        "vehiclePhotoSmall": "",
+        "modelName": "HX11_EUL_Premium+_RWD_000",
+        "proprietaryPlatform": 0,
+        "recordTime": 1682381083000,
+        "createTime": 1682381083000,
+        "simActivited": 0,
+        "vehiclePhotoBig": "",
+        "loginInfo": { "isLogined": 0, "loginUid": "" },
+        "colorCode": "087",
+        "defaultVehicle": true,
+        "matCode": "TestVIN0000000001",
+        "shareStatus": "N"
+      }
+    ]
+  },
+  "sessionId": "52920016631f24376223dd0c1cd926e9",
+  "success": true
+}

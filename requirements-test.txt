@@ -1,0 +1,13 @@
+pytest
+pytest-cov
+pytest-timeout
+pytest-asyncio
+respx
+black
+mypy
+types-setuptools
+pbr
+time_machine<2.13.0
+pre-commit
+backports.zoneinfo;python_version<"3.9"
+ruff
