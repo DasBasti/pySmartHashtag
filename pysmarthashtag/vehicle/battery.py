@@ -59,13 +59,14 @@ class Battery(VehicleDataBase):
         _LOGGER.debug(f"Parsing battery data: {vehicle_data}")
         retval: Dict[str, Any] = {}
         try:
-            evStatus = vehicle_data["additionalVehicleStatus"]["electricVehicleStatus"]
-            retval["remaining_range"] = evStatus["distanceToEmptyOnBatteryOnly"]
-            retval["remaining_battery_percent"] = evStatus["chargeLevel"]
-            retval["charging_status"] = ChargingState(evStatus["chargeSts"])
-            retval["is_charger_connected"] = retval["charging_status"] == ChargingState["PLUGGED_IN"]
-            retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]))
+            evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["electricVehicleStatus"]
+            retval["remaining_range"] = ValueWithUnit(evStatus["distanceToEmptyOnBatteryOnly"], "km")
+            retval["remaining_battery_percent"] = ValueWithUnit(evStatus["chargeLevel"],"%")
+            retval["charging_status"] = ChargingState[int(evStatus["chargeSts"])]
+            retval["is_charger_connected"] = retval["charging_status"] == "PLUGGED_IN"
+            retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"])/1000)
             #retval["charging_target_soc"] = raise NotImplementedError()
-        except KeyError:
-            _LOGGER.debug("No battery data found")
-        return retval
+        except KeyError as e:
+            _LOGGER.debug(f"Battery info not available: {e}")
+        finally:
+            return retval

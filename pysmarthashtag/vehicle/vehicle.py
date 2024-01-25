@@ -15,6 +15,10 @@ class SmartVehicle:
     :param attributes: attributes of the vehicle as provided by the server.
     """
 
+    data: dict = {}
+
+    battery: Optional[Battery] = None
+
     def __init__(
         self,
         account: "SmartAccount",  # noqa: F821
@@ -25,8 +29,11 @@ class SmartVehicle:
     ) -> None:
         """Initialize the vehicle."""
         self.account = account
-        self.data = self.combine_data(vehicle_base, vehicle_state, charging_settings, fetched_at)
+        self.combine_data(vehicle_base, vehicle_state, charging_settings, fetched_at)
         self.battery = Battery.from_vehicle_data(self.data)
+        _LOGGER.debug(
+            "Initialized vehicle %s (%s)", self.name, self.vin,
+        )
 
     def combine_data(
         self,
@@ -36,16 +43,16 @@ class SmartVehicle:
         fetched_at: Optional[datetime.datetime] = None,
     ) -> dict:
         """Combine all data into one dictionary."""
-        data = vehicle_base.copy()
+        self.data.update(vehicle_base)
         if vehicle_state:
-            data.update(vehicle_state)
+            self.data.update(vehicle_state)
         if charging_settings:
-            data.update(charging_settings)
+            self.data.update(charging_settings)
         if fetched_at:
-            data["fetched_at"] = fetched_at
-        self._parse_data(data)
-        return data
+            self.data["fetched_at"] = fetched_at
+        self._parse_data()
+        self.battery = Battery.from_vehicle_data(self.data)
 
-    def _parse_data(self, data) -> None:
-        self.vin = data.get("vin")
-        self.name = data.get("modelName")
+    def _parse_data(self) -> None:
+        self.vin = self.data.get("vin")
+        self.name = self.data.get("modelName")
