@@ -4,10 +4,12 @@ import datetime
 import logging
 from typing import Optional
 
+from pysmarthashtag.models import ValueWithUnit, get_element_from_dict_maybe
 from pysmarthashtag.vehicle.battery import Battery
 from pysmarthashtag.vehicle.tires import Tires
 
 _LOGGER = logging.getLogger(__name__)
+
 
 class SmartVehicle:
     """Models state and remote services of one vehicle.
@@ -18,6 +20,9 @@ class SmartVehicle:
 
     data: dict = {}
     """The raw data of the vehicle."""
+
+    odometer: Optional[ValueWithUnit] = None
+    """The odometer of the vehicle."""
 
     battery: Optional[Battery] = None
     """The battery of the vehicle."""
@@ -39,7 +44,9 @@ class SmartVehicle:
         self.battery = Battery.from_vehicle_data(self.data)
         self.tires = Tires.from_vehicle_data(self.data)
         _LOGGER.debug(
-            "Initialized vehicle %s (%s)", self.name, self.vin,
+            "Initialized vehicle %s (%s)",
+            self.name,
+            self.vin,
         )
 
     def combine_data(
@@ -64,3 +71,6 @@ class SmartVehicle:
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
         self.name = self.data.get("modelName")
+        self.odometer = ValueWithUnit(int(get_element_from_dict_maybe(
+            self.data, "vehicleStatus", "additionalVehicleStatus", "maintenanceStatus", "odometer"
+        )), "km")
