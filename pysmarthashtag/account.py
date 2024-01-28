@@ -138,4 +138,5 @@ class SmartAccount:
                 },
             )
             _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+        self.vehicles[0].combine_data(r_car_info.json()["data"])
         return r_car_info.json()["data"]
