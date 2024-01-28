@@ -71,6 +71,11 @@ class SmartVehicle:
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
         self.name = self.data.get("modelName")
-        self.odometer = ValueWithUnit(int(get_element_from_dict_maybe(
+        odometer = get_element_from_dict_maybe(
             self.data, "vehicleStatus", "additionalVehicleStatus", "maintenanceStatus", "odometer"
-        )), "km")
+        )
+        if odometer:
+            self.odometer = ValueWithUnit(
+                int(float(odometer)),
+                "km",
+            )
