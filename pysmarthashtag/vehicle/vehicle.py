@@ -6,6 +6,7 @@ from typing import Optional
 
 from pysmarthashtag.models import ValueWithUnit, get_element_from_dict_maybe
 from pysmarthashtag.vehicle.battery import Battery
+from pysmarthashtag.vehicle.position import Position
 from pysmarthashtag.vehicle.tires import Tires
 
 _LOGGER = logging.getLogger(__name__)
@@ -29,6 +30,9 @@ class SmartVehicle:
 
     tires: Optional[Tires] = None
     """The tires of the vehicle."""
+
+    position: Optional[Position] = None
+    """The position of the vehicle."""
 
     def __init__(
         self,
@@ -67,6 +71,7 @@ class SmartVehicle:
         self._parse_data()
         self.battery = Battery.from_vehicle_data(self.data)
         self.tires = Tires.from_vehicle_data(self.data)
+        self.position = Position.from_vehicle_data(self.data)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
