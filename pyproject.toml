@@ -5,6 +5,7 @@ authors = [
     {"name" = "Bastian Neumann", "email" = "neumann.bastian@gmail.com"},
 ]
 description = "A python library to get information from Smart #1 and #3 web API"
+license = {file = "LICENSE"}
 readme = "README.md"
 requires-python = ">=3.8"
 classifiers = [
