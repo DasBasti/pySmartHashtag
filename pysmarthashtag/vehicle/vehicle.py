@@ -45,8 +45,6 @@ class SmartVehicle:
         """Initialize the vehicle."""
         self.account = account
         self.combine_data(vehicle_base, vehicle_state, charging_settings, fetched_at)
-        self.battery = Battery.from_vehicle_data(self.data)
-        self.tires = Tires.from_vehicle_data(self.data)
         _LOGGER.debug(
             "Initialized vehicle %s (%s)",
             self.name,
