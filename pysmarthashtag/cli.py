@@ -7,9 +7,9 @@ import logging.config
 import os
 import time
 
-from pysmarthashtag.account import SmartAccount
-
 from influxdb_client_3 import InfluxDBClient3, Point
+
+from pysmarthashtag.account import SmartAccount
 
 
 def environ_or_required(key):

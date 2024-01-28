@@ -28,10 +28,10 @@ class Tires(VehicleDataBase):
     temperature: Optional[List[ValueWithUnit]] = None
     """Temperature of the tires."""
 
-    temperature_waring: Optional[List[bool]] = None
+    temperature_warning: Optional[List[bool]] = None
     """Temperature warning of the tires."""
 
-    temperature_pre_waring: Optional[List[bool]] = None
+    temperature_pre_warning: Optional[List[bool]] = None
     """Temperature pre warning of the tires."""
 
     temperature_status: Optional[List[ValueWithUnit]] = None
@@ -51,27 +51,26 @@ class Tires(VehicleDataBase):
         _LOGGER.debug(f"Parsing battery data: {vehicle_data}")
         retval: Dict[str, Any] = {}
         try:
-            tire_status = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]
+            maintenance_status = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["maintenanceStatus"]
             retval["temperature"] = [
-                ValueWithUnit(float(tire_status["tyreTempDriver"]), "C"),
-                ValueWithUnit(float(tire_status["tyreTempDriverRear"]), "C"),
-                ValueWithUnit(float(tire_status["tyreTempPassenger"]), "C"),
-                ValueWithUnit(float(tire_status["tyreTempPassengerRear"]), "C"),
+                ValueWithUnit(float(maintenance_status["tyreTempDriver"]), "C"),
+                ValueWithUnit(float(maintenance_status["tyreTempDriverRear"]), "C"),
+                ValueWithUnit(float(maintenance_status["tyreTempPassenger"]), "C"),
+                ValueWithUnit(float(maintenance_status["tyreTempPassengerRear"]), "C"),
             ]
             retval["temperature_pre_warning"] = [
-                True if tire_status["tyrePreWarningDriver"] == "1" else False,
-                True if tire_status["tyrePreWarningDriverRear"] == "1" else False,
-                True if tire_status["tyrePreWarningPassenger"] == "1" else False,
-                True if tire_status["tyrePreWarningPassengerRear"] == "1" else False,
+                True if maintenance_status["tyrePreWarningDriver"] == "1" else False,
+                True if maintenance_status["tyrePreWarningDriverRear"] == "1" else False,
+                True if maintenance_status["tyrePreWarningPassenger"] == "1" else False,
+                True if maintenance_status["tyrePreWarningPassengerRear"] == "1" else False,
             ]
             retval["temperature_status"] = [
-                ValueWithUnit(float(tire_status["tyreStatusDriver"]), "psi"),
-                ValueWithUnit(float(tire_status["tyreStatusDriverRear"]), "psi"),
-                ValueWithUnit(float(tire_status["tyreStatusPassenger"]), "psi"),
-                ValueWithUnit(float(tire_status["tyreStatusPassengerRear"]), "psi"),
+                ValueWithUnit(float(maintenance_status["tyreStatusDriver"]), "psi"),
+                ValueWithUnit(float(maintenance_status["tyreStatusDriverRear"]), "psi"),
+                ValueWithUnit(float(maintenance_status["tyreStatusPassenger"]), "psi"),
+                ValueWithUnit(float(maintenance_status["tyreStatusPassengerRear"]), "psi"),
             ]
-            maintenance_status = vehicle_data["vehicleStatus"]["additionalVehicleStatus"][",maintenanceStatus"]
-            retval["temperature_pre_warning"] = [
+            retval["temperature_warning"] = [
                 True if maintenance_status["tyreTempWarningDriver"] == "1" else False,
                 True if maintenance_status["tyreTempWarningDriverRear"] == "1" else False,
                 True if maintenance_status["tyreTempWarningPassenger"] == "1" else False,
