@@ -26,16 +26,16 @@ class TireLocation(Enum):
 class Tires(VehicleDataBase):
     """Provides an accessible version of the vehicle's battery data."""
 
-    temperature: Optional[List[ValueWithUnit]] = [ValueWithUnit(None, None)] * 4
+    temperature: Optional[List[ValueWithUnit]] = None
     """Temperature of the tires."""
 
-    temperature_waring: Optional[List[bool]] = [False] * 4
+    temperature_waring: Optional[List[bool]] = None
     """Temperature warning of the tires."""
 
-    temperature_pre_waring: Optional[List[bool]] = [False] * 4
+    temperature_pre_waring: Optional[List[bool]] = None
     """Temperature pre warning of the tires."""
 
-    temperature_status: Optional[List[ValueWithUnit]] = [ValueWithUnit(None, None)] * 4
+    temperature_status: Optional[List[ValueWithUnit]] = None
     """Temperature status of the tires."""
 
     @classmethod
