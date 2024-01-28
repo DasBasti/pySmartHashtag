@@ -5,6 +5,7 @@ import logging
 from typing import Optional
 
 from pysmarthashtag.vehicle.battery import Battery
+from pysmarthashtag.vehicle.tires import Tires
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -16,8 +17,13 @@ class SmartVehicle:
     """
 
     data: dict = {}
+    """The raw data of the vehicle."""
 
     battery: Optional[Battery] = None
+    """The battery of the vehicle."""
+
+    tires: Optional[Tires] = None
+    """The tires of the vehicle."""
 
     def __init__(
         self,
@@ -31,6 +37,7 @@ class SmartVehicle:
         self.account = account
         self.combine_data(vehicle_base, vehicle_state, charging_settings, fetched_at)
         self.battery = Battery.from_vehicle_data(self.data)
+        self.tires = Tires.from_vehicle_data(self.data)
         _LOGGER.debug(
             "Initialized vehicle %s (%s)", self.name, self.vin,
         )
@@ -52,6 +59,7 @@ class SmartVehicle:
             self.data["fetched_at"] = fetched_at
         self._parse_data()
         self.battery = Battery.from_vehicle_data(self.data)
+        self.tires = Tires.from_vehicle_data(self.data)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
