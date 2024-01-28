@@ -8,6 +8,7 @@ from typing import Dict, List, NamedTuple, Optional, Union
 
 _LOGGER = logging.getLogger(__name__)
 
+
 class StrEnum(str, Enum):
     """Enumerate strings."""
 
@@ -15,14 +16,15 @@ class StrEnum(str, Enum):
     def _missing_(cls, value):
         has_unknown = False
         for member in cls:
-            if member.value.upper() == 'UNKNOWN':
+            if member.value.upper() == "UNKNOWN":
                 has_unknown = True
             if member.value.upper() == value.upper():
                 return member
         if has_unknown:
             _LOGGER.warning("Unknown value %s for enum %s", value, cls.__name__)
-            return getattr(cls, 'UNKNOWN')
+            return getattr(cls, "UNKNOWN")
         raise ValueError(f"{value} is not a valid {cls.__name__}")
+
 
 @dataclass
 class VehicleDataBase:
@@ -54,6 +56,7 @@ class VehicleDataBase:
         """Update the instance with data from API."""
         return parsed
 
+
 class ValueWithUnit(NamedTuple):
     """A value with a corresponding unit."""
 
@@ -83,6 +86,7 @@ class SmartQuotaError(SmartAPIError):
 
 class SmartRemoteServiceError(SmartAPIError):
     """Error when executing web services."""
+
 
 def get_element_from_dict_maybe(data: dict, *path: str) -> Optional[Union[dict, str, int, float]]:
     """Get an element from a dict by path."""

@@ -23,6 +23,7 @@ def smart_fixture(request: pytest.FixtureRequest) -> Generator[respx.MockRouter,
     with router:
         yield router
 
+
 async def prepare_account_with_vehicles():
     """Initialize account and get vehicles."""
     account = SmartAccount(TEST_USERNAME, TEST_PASSWORD)

@@ -10,6 +10,7 @@ _LOGGER = logging.getLogger(__name__)
 
 """Position of electric vehicle."""
 
+
 @dataclass
 class Position(VehicleDataBase):
     """Provides an accessible version of the vehicle's battery data."""

@@ -33,15 +33,15 @@ class SmartAuthentication(httpx.Auth):
     """Authentication and Retry Handler for the Smart API."""
 
     def __init__(
-            self,
-            username: str,
-            password: str,
-            access_token: Optional[str] = None,
-            expires_at: Optional[datetime.datetime] = None,
-            refresh_token: Optional[str] = None,
-        ):
-        self.username:str = username
-        self.password:str = password
+        self,
+        username: str,
+        password: str,
+        access_token: Optional[str] = None,
+        expires_at: Optional[datetime.datetime] = None,
+        refresh_token: Optional[str] = None,
+    ):
+        self.username: str = username
+        self.password: str = password
         self.access_token: Optional[str] = access_token
         self.expires_at: Optional[datetime.datetime] = expires_at
         self.refresh_token: Optional[str] = refresh_token
@@ -133,7 +133,7 @@ class SmartAuthentication(httpx.Auth):
     async def _refresh_access_token(self):
         """Refresh the access token."""
         try:
-            async with SmartLoginClient() as client:
+            async with SmartLoginClient() as _:
                 _LOGGER.debug("Refreshing access token")
                 raise NotImplementedError
         except SmartAPIError:
@@ -165,35 +165,37 @@ class SmartAuthentication(httpx.Auth):
             r_login = await client.post(
                 LOGIN_URL,
                 data={
-                "loginID" : self.username,
-                "password" : self.password,
-                "sessionExpiration" : 2592000,
-                "targetEnv":"jssdk",
-                "include" : "profile%2Cdata%2Cemails%2Csubscriptions%2Cpreferences%2C",
-                "includeUserInfo": True,
-                "loginMode":"standard",
-                "lang":"de",
-                "APIKey":API_KEY,
-                "source":"showScreenSet",
-                "sdk":"js_latest",
-                "pageURL":"https%3A%2F%2Fapp.id.smart.com%2Flogin%3Fgig_ui_locales%3Dde-DE",
-                "sdkBuild":15482,
-                "format":"json",
-                "riskContext":"%7B%22b0%22%3A41187%2C%22b1%22%3A%5B0%2C2%2C3%2C1%5D%2C%22b2%22%3A4%2C%22b3%22%3A%5B%22-23%7C0.383%22%2C%22-81.33333587646484%7C0.236%22%5D%2C%22b4%22%3A3%2C%22b5%22%3A1%2C%22b6%22%3A%22Mozilla%2F5.0%20%28Linux%3B%20Android%209%3B%20ANE-LX1%20Build%2FHUAWEIANE-L21%3B%20wv%29%20AppleWebKit%2F537.36%20%28KHTML%2C%20like%20Gecko%29%20Version%2F4.0%20Chrome%2F118.0.0.0%20Mobile%20Safari%2F537.36%22%2C%22b7%22%3A%5B%5D%2C%22b8%22%3A%2216%3A33%3A26%22%2C%22b9%22%3A-60%2C%22b10%22%3Anull%2C%22b11%22%3Afalse%2C%22b12%22%3A%7B%22charging%22%3Atrue%2C%22chargingTime%22%3Anull%2C%22dischargingTime%22%3Anull%2C%22level%22%3A0.58%7D%2C%22b13%22%3A%5B5%2C%22360%7C760%7C24%22%2Cfalse%2Ctrue%5D%7D",
+                    "loginID": self.username,
+                    "password": self.password,
+                    "sessionExpiration": 2592000,
+                    "targetEnv": "jssdk",
+                    "include": "profile%2Cdata%2Cemails%2Csubscriptions%2Cpreferences%2C",
+                    "includeUserInfo": True,
+                    "loginMode": "standard",
+                    "lang": "de",
+                    "APIKey": API_KEY,
+                    "source": "showScreenSet",
+                    "sdk": "js_latest",
+                    "pageURL": "https%3A%2F%2Fapp.id.smart.com%2Flogin%3Fgig_ui_locales%3Dde-DE",
+                    "sdkBuild": 15482,
+                    "format": "json",
+                    "riskContext": "%7B%22b0%22%3A41187%2C%22b1%22%3A%5B0%2C2%2C3%2C1%5D%2C%22b2%22%3A4%2C%22b3%22%3A%5B%22-23%7C0.383%22%2C%22-81.33333587646484%7C0.236%22%5D%2C%22b4%22%3A3%2C%22b5%22%3A1%2C%22b6%22%3A%22Mozilla%2F5.0%20%28Linux%3B%20Android%209%3B%20ANE-LX1%20Build%2FHUAWEIANE-L21%3B%20wv%29%20AppleWebKit%2F537.36%20%28KHTML%2C%20like%20Gecko%29%20Version%2F4.0%20Chrome%2F118.0.0.0%20Mobile%20Safari%2F537.36%22%2C%22b7%22%3A%5B%5D%2C%22b8%22%3A%2216%3A33%3A26%22%2C%22b9%22%3A-60%2C%22b10%22%3Anull%2C%22b11%22%3Afalse%2C%22b12%22%3A%7B%22charging%22%3Atrue%2C%22chargingTime%22%3Anull%2C%22dischargingTime%22%3Anull%2C%22level%22%3A0.58%7D%2C%22b13%22%3A%5B5%2C%22360%7C760%7C24%22%2Cfalse%2Ctrue%5D%7D",
                 },
                 headers={
                     "accept": "*/*",
                     "accept-language": "de",
                     "content-type": "application/x-www-form-urlencoded",
                     "x-requested-with": "com.smart.hellosmart",
-                    "cookie":"gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",
+                    "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",
                     "origin": "https://app.id.smart.com",
                     "user-agent": "Hello smart/1.4.0 (iPhone; iOS 17.1; Scale/3.00)",
                 },
             )
             login_result = r_login.json()
             login_token = login_result["sessionInfo"]["login_token"]
-            expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=int(login_result["sessionInfo"]["expires_in"]))
+            expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+                seconds=int(login_result["sessionInfo"]["expires_in"])
+            )
 
             auth_url = AUTH_URL + "?context=" + context + "&login_token=" + login_token
             cookie = f"gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4; glt_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a={login_token}"
@@ -204,7 +206,7 @@ class SmartAuthentication(httpx.Auth):
                     "cookie": cookie,
                     "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
                     "x-requested-with": "com.smart.hellosmart",
-                    "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36"
+                    "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36",
                 },
             )
             r_auth = await client.get(
@@ -214,7 +216,7 @@ class SmartAuthentication(httpx.Auth):
                     "cookie": cookie,
                     "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
                     "x-requested-with": "com.smart.hellosmart",
-                    "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36"
+                    "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36",
                 },
             )
             auth_result = httpx.URL(r_auth.headers["location"])
@@ -223,12 +225,12 @@ class SmartAuthentication(httpx.Auth):
 
             data = json.dumps({"accessToken": access_token}).replace(" ", "")
             r_api_access = await client.post(
-                API_BASE_URL + API_SESION_URL +"?identity_type=smart",
+                API_BASE_URL + API_SESION_URL + "?identity_type=smart",
                 headers={
                     **utils.generate_default_header(
-                            self.device_id,
-                            None,
-                        params = {
+                        self.device_id,
+                        None,
+                        params={
                             "identity_type": "smart",
                         },
                         method="POST",
@@ -285,7 +287,9 @@ class SmartLoginClient(httpx.AsyncClient):
         async def log_request(request):
             if request.method == "POST":
                 await request.aread()
-                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.content.decode()} - {request.headers}")
+                _LOGGER.debug(
+                    f"Request: {request.method} {request.url} - {request.content.decode()} - {request.headers}"
+                )
             else:
                 _LOGGER.debug(f"Request: {request.method} {request.url}")
 
@@ -318,7 +322,7 @@ class SmartLoginRetry(httpx.Auth):
                 await asyncio.sleep(wait_time)
                 response = yield request
 
-        # Only checking for 429 errors, all other errors are raised in SmartLoginClient
+                # Only checking for 429 errors, all other errors are raised in SmartLoginClient
                 if response.status_code == 429:
                     try:
                         response.raise_for_status()
@@ -330,7 +334,8 @@ class SmartLoginRetry(httpx.Auth):
                         )
                         raise
 
-def get_retry_wait_time(response: httpx.Response)->int:
+
+def get_retry_wait_time(response: httpx.Response) -> int:
     """Get the wait time to wait twice as long before retrying."""
     try:
         retry_after = next(iter([int(i) for i in response.json().get("message", "") if i.isdigit()]))

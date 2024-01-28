@@ -8,9 +8,11 @@ from typing import Dict
 
 _LOGGER = logging.getLogger(__name__)
 
+
 def join_url_params(args) -> str:
     """Join params for adding to URL."""
     return "&".join([f"{key}={value}" for key, value in args.items()])
+
 
 def _create_sign(nonce, params, timestamp, method, url, body=None):
     """Create a signature for the request."""
@@ -33,9 +35,10 @@ x-api-signature-version:1.0
     _LOGGER.debug("Signature: %s", signature)
     return signature
 
+
 def generate_default_header(device_id, access_token, params, method: str, url: str, body=None) -> Dict[str, str]:
     """Generate a header for HTTP requests to the server."""
-    timestamp = int(time.time()*1000)
+    timestamp = int(time.time() * 1000)
     nonce = secrets.token_hex(8)
     sign = _create_sign(nonce, params, timestamp, method, url, body)
     header = {
@@ -57,10 +60,12 @@ def generate_default_header(device_id, access_token, params, method: str, url: s
         "content-type": "application/json; charset=utf-8",
         "user-agent": "Hello smart/1.4.0 (iPhone; iOS 17.1; Scale/3.00)",
         "x-signature": sign,
-        "x-timestamp": str(timestamp)
+        "x-timestamp": str(timestamp),
     }
     if access_token:
         header["authorization"] = access_token
 
-    _LOGGER.debug(f"Constructed Login: {join_url_params(params)} - {access_token} - {method} - {url} - {body} -> {header}")
+    _LOGGER.debug(
+        f"Constructed Login: {join_url_params(params)} - {access_token} - {method} - {url} - {body} -> {header}"
+    )
     return header

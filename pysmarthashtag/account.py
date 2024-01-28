@@ -16,6 +16,7 @@ VALID_UNTIL_OFFSET = datetime.timedelta(seconds=10)
 
 _LOGGER = logging.getLogger(__name__)
 
+
 @dataclass
 class SmartAccount:
     """Create a new connection to the Smart web service."""
@@ -60,9 +61,9 @@ class SmartAccount:
                     **utils.generate_default_header(
                         client.config.authentication.device_id,
                         client.config.authentication.api_access_token,
-                        params = params,
-                        method = "GET",
-                        url = API_CARS_URL,
+                        params=params,
+                        method="GET",
+                        url=API_CARS_URL,
                     )
                 },
             )
@@ -82,7 +83,7 @@ class SmartAccount:
 
         _LOGGER.debug("Getting vehicles for account %s", self.username)
 
-        if len(self.vehicles) ==0 or force_init:
+        if len(self.vehicles) == 0 or force_init:
             await self._init_vehicles()
 
         for vehicle in self.vehicles:
@@ -94,11 +95,13 @@ class SmartAccount:
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
         _LOGGER.debug(f"Selecting vehicle {vin}")
-        data = json.dumps({
+        data = json.dumps(
+            {
                 "vin": vin,
                 "sessionToken": self.config.authentication.api_access_token,
                 "language": "",
-        })
+            }
+        )
         async with SmartClient(self.config) as client:
             r_car_info = await client.post(
                 API_BASE_URL + API_SELECT_CAR_URL,
@@ -106,9 +109,9 @@ class SmartAccount:
                     **utils.generate_default_header(
                         client.config.authentication.device_id,
                         client.config.authentication.api_access_token,
-                        params = {},
-                        method = "POST",
-                        url = API_SELECT_CAR_URL,
+                        params={},
+                        method="POST",
+                        url=API_SELECT_CAR_URL,
                         body=data,
                     )
                 },
@@ -120,9 +123,9 @@ class SmartAccount:
         """Get information about a vehicle."""
         _LOGGER.debug(f"Getting information for vehicle {vin}")
         params = {
-                "latest": True,
-                "target": "basic%2Cmore",
-                "userId": self.config.authentication.api_user_id,
+            "latest": True,
+            "target": "basic%2Cmore",
+            "userId": self.config.authentication.api_user_id,
         }
         async with SmartClient(self.config) as client:
             r_car_info = await client.get(
@@ -131,9 +134,9 @@ class SmartAccount:
                     **utils.generate_default_header(
                         client.config.authentication.device_id,
                         client.config.authentication.api_access_token,
-                        params = params,
-                        method = "GET",
-                        url = "/remote-control/vehicle/status/" + vin,
+                        params=params,
+                        method="GET",
+                        url="/remote-control/vehicle/status/" + vin,
                     )
                 },
             )

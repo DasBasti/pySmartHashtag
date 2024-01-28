@@ -10,6 +10,7 @@ TEST_PASSWORD = "my_secret"
 
 RESPONSE_DIR = Path(__file__).parent / "replys"
 
+
 def load_response(path: Union[Path, str]) -> Any:
     """Load a stored response."""
     with open(path, "rb") as file:
