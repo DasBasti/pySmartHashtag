@@ -45,7 +45,7 @@ class Position(VehicleDataBase):
             retval["altitude"] = ValueWithUnit(int(position["altitude"]), "m")
             retval["latitude"] = int(position["latitude"])
             retval["longitude"] = int(position["longitude"])
-            retval["position_can_be_trusted"] = True if position["positionCanBeTrusted"] == "true" else False
+            retval["position_can_be_trusted"] = True if position["posCanBeTrusted"] == "true" else False
 
         except KeyError as e:
             _LOGGER.debug(f"Position info not available: {e}")
