@@ -7,8 +7,6 @@ import logging.config
 import os
 import time
 
-from influxdb_client_3 import InfluxDBClient3, Point
-
 from pysmarthashtag.account import SmartAccount
 
 
@@ -97,17 +95,9 @@ async def watch_car(args) -> None:
                 p.field(key, value)
 
     while True:
-        car = await account.get_vehicle_information("HESXR1C47PS082239")
-        with InfluxDBClient3(
-            host="http://192.168.0.11:8086", database="Smarty", username="pysmarthashtag", passwort="pysmarthashtag"
-        ) as client:
-            point = Point("vehicle")
-            dict_to_point(car["vehicleStatus"], point)
-
-            client.write(
-                record=[point],
-                database="Smarty",
-            )
+        for vehicle in account.vehicles:
+            car = await account.get_vehicle_information(vehicle.vin)
+            print(car)
         time.sleep(60)
 
 
