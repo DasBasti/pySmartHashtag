@@ -16,6 +16,7 @@ _LOGGER = logging.getLogger(__name__)
 
 RESPONSE_STORE: Deque[AnonymizedResponse] = deque(maxlen=10)
 
+
 @dataclass
 class SmartClientConfiguration:
     """Stores global settings for SmartClient."""
@@ -37,7 +38,7 @@ class SmartClient(httpx.AsyncClient):
         self.config = config
 
         # Add authentication
-        #kwargs["auth"] = self.config.authentication
+        # kwargs["auth"] = self.config.authentication
 
         # Increase timeout
         kwargs["timeout"] = httpx.Timeout(HTTPX_TIMEOUT)
@@ -51,7 +52,9 @@ class SmartClient(httpx.AsyncClient):
         async def log_request(request):
             if request.method == "POST":
                 await request.aread()
-                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.headers} - {request.content.decode()}")
+                _LOGGER.debug(
+                    f"Request: {request.method} {request.url} - {request.headers} - {request.content.decode()}"
+                )
             else:
                 _LOGGER.debug(f"Request: {request.method} {request.url} - {request.headers}")
 
