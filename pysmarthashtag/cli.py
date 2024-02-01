@@ -39,7 +39,7 @@ def main_parser() -> argparse.ArgumentParser:
         "loggers": {
             "pysmarthashtag": {
                 "handlers": ["default", "file"],
-                "level": "DEBUG",
+                "level": "INFO",
             },
         },
     }
