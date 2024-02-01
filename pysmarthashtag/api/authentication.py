@@ -158,8 +158,11 @@ class SmartAuthentication(httpx.Auth):
                 },
                 follow_redirects=True,
             )
-            context = r_context.url.params["context"]
-            _LOGGER.debug("Context: %s", context)
+            try:
+                context = r_context.url.params["context"]
+                _LOGGER.debug("Context: %s", context)
+            except KeyError:
+                raise SmartAPIError("Could not get context from login page")
 
             # Get login token from Smart API
             r_login = await client.post(
@@ -191,11 +194,14 @@ class SmartAuthentication(httpx.Auth):
                     "user-agent": "Hello smart/1.4.0 (iPhone; iOS 17.1; Scale/3.00)",
                 },
             )
-            login_result = r_login.json()
-            login_token = login_result["sessionInfo"]["login_token"]
-            expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-                seconds=int(login_result["sessionInfo"]["expires_in"])
-            )
+            try:
+                login_result = r_login.json()
+                login_token = login_result["sessionInfo"]["login_token"]
+                expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+                    seconds=int(login_result["sessionInfo"]["expires_in"])
+                )
+            except (KeyError, ValueError):
+                raise SmartAPIError("Could not get login token from login page")
 
             auth_url = AUTH_URL + "?context=" + context + "&login_token=" + login_token
             cookie = f"gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4; glt_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a={login_token}"
@@ -209,6 +215,9 @@ class SmartAuthentication(httpx.Auth):
                     "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36",
                 },
             )
+            if "location" not in r_auth.headers:
+                raise SmartAPIError("Could not get location from auth page")
+
             r_auth = await client.get(
                 r_auth.headers["location"],
                 headers={
@@ -219,9 +228,12 @@ class SmartAuthentication(httpx.Auth):
                     "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36",
                 },
             )
-            auth_result = httpx.URL(r_auth.headers["location"])
-            access_token = auth_result.params["access_token"]
-            refresh_token = auth_result.params["refresh_token"]
+            try:
+                auth_result = httpx.URL(r_auth.headers["location"])
+                access_token = auth_result.params["access_token"]
+                refresh_token = auth_result.params["refresh_token"]
+            except KeyError:
+                raise SmartAPIError("Could not get access token from auth page")
 
             data = json.dumps({"accessToken": access_token}).replace(" ", "")
             r_api_access = await client.post(
@@ -242,9 +254,13 @@ class SmartAuthentication(httpx.Auth):
             )
             api_result = r_api_access.json()
             _LOGGER.debug("API access result: %s", api_result)
-            api_access_token = api_result["data"]["accessToken"]
-            api_refresh_token = api_result["data"]["refreshToken"]
-            api_user_id = api_result["data"]["userId"]
+            try:
+                api_access_token = api_result["data"]["accessToken"]
+                api_refresh_token = api_result["data"]["refreshToken"]
+                api_user_id = api_result["data"]["userId"]
+            except KeyError:
+                raise SmartAPIError("Could not get API access token from API")
+
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
