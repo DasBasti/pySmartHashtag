@@ -44,6 +44,12 @@ class SmartAccount:
                 log_responses=log_responses,
             )
 
+    async def login(self, force_refresh: bool = False) -> None:
+        """Get the vehicles associated with the account."""
+        if force_refresh is None:
+            self.config.authentication = None
+        await self.config.authentication.login()
+
     async def _init_vehicles(self) -> None:
         """Initialize vehicles from Smart servers."""
         _LOGGER.debug("Getting initial vehicle list")
