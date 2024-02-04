@@ -34,7 +34,7 @@ class Tires(VehicleDataBase):
     temperature_pre_warning: Optional[List[bool]] = None
     """Temperature pre warning of the tires."""
 
-    temperature_status: Optional[List[ValueWithUnit]] = None
+    tire_pressure: Optional[List[ValueWithUnit]] = None
     """Temperature status of the tires."""
 
     @classmethod
@@ -64,7 +64,7 @@ class Tires(VehicleDataBase):
                 True if maintenance_status["tyrePreWarningPassenger"] == "1" else False,
                 True if maintenance_status["tyrePreWarningPassengerRear"] == "1" else False,
             ]
-            retval["temperature_status"] = [
+            retval["tire_pressure"] = [
                 ValueWithUnit(float(maintenance_status["tyreStatusDriver"]), "psi"),
                 ValueWithUnit(float(maintenance_status["tyreStatusDriverRear"]), "psi"),
                 ValueWithUnit(float(maintenance_status["tyreStatusPassenger"]), "psi"),
