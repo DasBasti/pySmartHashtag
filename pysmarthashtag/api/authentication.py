@@ -120,15 +120,19 @@ class SmartAuthentication(httpx.Auth):
             token_data = await self._refresh_access_token()
         if not token_data:
             token_data = await self._login()
-        token_data["expires_at"] = token_data["expires_at"] - EXPIRES_AT_OFFSET
+        try:
+            token_data["expires_at"] = token_data["expires_at"] - EXPIRES_AT_OFFSET
 
-        self.access_token = token_data["access_token"]
-        self.refresh_token = token_data["refresh_token"]
-        self.api_access_token = token_data["api_access_token"]
-        self.api_refresh_token = token_data["api_refresh_token"]
-        self.api_user_id = token_data["api_user_id"]
-        self.expires_at = token_data["expires_at"]
-        _LOGGER.debug(f"Login successful: {token_data}")
+            self.access_token = token_data["access_token"]
+            self.refresh_token = token_data["refresh_token"]
+            self.api_access_token = token_data["api_access_token"]
+            self.api_refresh_token = token_data["api_refresh_token"]
+            self.api_user_id = token_data["api_user_id"]
+            self.expires_at = token_data["expires_at"]
+            _LOGGER.debug(f"Login successful: {token_data}")
+            return True
+        except KeyError:
+            raise SmartAPIError("Could not login to Smart API")
 
     async def _refresh_access_token(self):
         """Refresh the access token."""
