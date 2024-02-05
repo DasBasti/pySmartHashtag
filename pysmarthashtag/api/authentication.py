@@ -138,8 +138,8 @@ class SmartAuthentication(httpx.Auth):
         """Refresh the access token."""
         try:
             async with SmartLoginClient() as _:
-                _LOGGER.debug("Refreshing access token")
-                raise NotImplementedError
+                _LOGGER.debug("Refreshing access token via relogin because refresh token is not implemented")
+                self._login()
         except SmartAPIError:
             _LOGGER.debug("Refreshing access token failed. Logging in again")
             return {}

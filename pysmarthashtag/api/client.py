@@ -73,6 +73,9 @@ class SmartClient(httpx.AsyncClient):
             Will read out response JSON for code and message
             """
             response_data = response.json()
+            if "code" in response_data and response_data["code"] == "1402":
+                _LOGGER.debug("Token expired, refreshing token")
+                await self.config.authentication.login()
             if "code" in response_data and response_data["code"] != "1000" and "message" in response_data:
                 raise httpx.HTTPStatusError(
                     response=response,
