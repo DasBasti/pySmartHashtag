@@ -65,10 +65,10 @@ class Tires(VehicleDataBase):
                 True if maintenance_status["tyrePreWarningPassengerRear"] == "1" else False,
             ]
             retval["tire_pressure"] = [
-                ValueWithUnit(float(maintenance_status["tyreStatusDriver"]), "psi"),
-                ValueWithUnit(float(maintenance_status["tyreStatusDriverRear"]), "psi"),
-                ValueWithUnit(float(maintenance_status["tyreStatusPassenger"]), "psi"),
-                ValueWithUnit(float(maintenance_status["tyreStatusPassengerRear"]), "psi"),
+                ValueWithUnit(float(maintenance_status["tyreStatusDriver"]), "Pa"),
+                ValueWithUnit(float(maintenance_status["tyreStatusDriverRear"]), "Pa"),
+                ValueWithUnit(float(maintenance_status["tyreStatusPassenger"]), "Pa"),
+                ValueWithUnit(float(maintenance_status["tyreStatusPassengerRear"]), "Pa"),
             ]
             retval["temperature_warning"] = [
                 True if maintenance_status["tyreTempWarningDriver"] == "1" else False,
