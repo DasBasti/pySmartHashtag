@@ -34,6 +34,11 @@ class SmartVehicle:
     position: Optional[Position] = None
     """The position of the vehicle."""
 
+    last_update: Optional[datetime.datetime] = None
+    """The last time the vehicle data was updated."""
+
+    service: Optional[dict] = {}
+
     def __init__(
         self,
         account: "SmartAccount",  # noqa: F821
@@ -82,3 +87,16 @@ class SmartVehicle:
                 int(float(odometer)),
                 "km",
             )
+        last_update = get_element_from_dict_maybe(
+            self.data, "vehicleStatus", "updateTime"
+        )
+        if last_update:
+            self.last_update = datetime.datetime.fromtimestamp(int(last_update)/1000)
+        days_to_service = get_element_from_dict_maybe(
+            self.data, "vehicleStatus", "additionalVehicleStatus", "maintenanceStatus", "daysToService"
+        )
+        distance_to_service = get_element_from_dict_maybe(
+            self.data, "vehicleStatus", "additionalVehicleStatus", "maintenanceStatus", "distanceToService"
+        )
+        self.service["daysToService"] = int(days_to_service) if days_to_service else None
+        self.service["distanceToService"] = ValueWithUnit(distance_to_service, "km") if distance_to_service else None
