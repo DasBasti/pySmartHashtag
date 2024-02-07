@@ -95,8 +95,8 @@ async def watch_car(args) -> None:
                 p.field(key, value)
 
     while True:
-        for vehicle in account.vehicles:
-            car = await account.get_vehicle_information(vehicle.vin)
+        for vin, vehicle in account.vehicles.items():
+            car = await account.get_vehicle_information(vin)
             print(car)
         time.sleep(60)
 

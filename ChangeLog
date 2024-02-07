@@ -1,4 +1,110 @@
 CHANGES
 =======
 
+* Vechicles: Move from list to dict in vehicles
+
+v0.1.7
+------
+
+* bump version to v0.1.7
+* Authentication: do not raise Error on token refresh
+
+v0.1.6
+------
+
+* bump version to v0.1.6
+* Authentication: await relogin after token is invalid
+
+v0.1.5
+------
+
+* bump version to v0.1.5
+* Tires: Values in pressure data is actually kPa
+
+v0.1.4
+------
+
+* bump version to v0.1.4
+* Tires: Fix unit of pressure values
+* actions: enable pip cache
+
+v0.1.3
+------
+
+* bump version to 0.1.3
+* Vehicle: Add more data fields
+* Authentication: trigger relogin if failed with login ttoken invalid error
+* Tires: Fix name for tire pressure values
+
+v0.1.2
+------
+
+* bump version to v0.1.2
+* Authentication: wrap key access in try block
+* Account: Add login functino to just log in
+
+v0.1.1
+------
+
+* Bump version to 0.1.1
+* reduce logging to info in cli
+* Create CONTRIBUTING.md
+
+v0.1.0
+------
+
+* Create CODE\_OF\_CONDUCT.md
+* remove influxdb code from cli
+* Vehicle Position: Fix KeyError
+* Authentication: wrap results in try blocks
+* formating
+* Create dependabot.yml
+* update action versions
+* formating
+* Do not use pytest 8 yet
+* make use of helper function
+* remove redundant code
+* Position: Add position parsing
+* fix odometer parsing
+* Vehicle: Add odometer value
+* fix typos
+* remove unused import
+* Fix project settings
+* fix pytest version
+* Tires initialize no defaults
+* cli: add testing with influxdb
+* remove comment about pytest
+* Tires: Add decoding of tire information
+* Battery: Parse more information from vehicle
+* install test requirements
+* enable tests
+* Add tests
+* update Vehicle information on multiple requests
+* working on stats for battery
+* Parse battery data
+* skip pytest
+* housekeeping
+* Get all vehicle information
+* Update package information
+* Remove auth function form httpx.AsyncClient it interferes with the login
+* Create python-publish.yml
+* Create python-package.yml
+* log header during signature generation
+* raise error if message is an error json
+* build string version of request body only once and remove spaces to be equal to JS json string
+* quickly run status info
+* still getting "The access token is invalid"
+* fix the timestamp and now it works!
+* More logging and getting the last login more similar to the working JS implementation
+* Add launch config and moved args to be loaded from env file
+* wording
+* fix white space and unused imports
+* remove duplicate URLs
+* Fix some URLs for fetching api token
+* Fix hashes in JWT
+* Update README
+* Login goes futher and now shows {'code': '1442', 'message': 'The inspection date has expired'}
+* Login successful. API access fails with {"code":"1402","message":"The access token is invalid"}
+* Authentication aquires access\_token and refresh\_token
+* initial code commit
 * Initial commit
