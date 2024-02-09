@@ -4,7 +4,7 @@ import datetime
 import json
 import logging
 from dataclasses import InitVar, dataclass, field
-from typing import List
+from typing import Dict
 
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
@@ -33,7 +33,7 @@ class SmartAccount:
     log_responses: InitVar[bool] = False
     """Optional. If set, all responses from the server will be logged to this directory."""
 
-    vehicles: List[SmartVehicle] = field(default_factory=list, init=False)
+    vehicles: Dict[str, SmartVehicle] = field(default_factory=dict, init=False)
 
     def __post_init__(self, password, log_responses):
         """Initialize the account."""
@@ -80,7 +80,7 @@ class SmartAccount:
 
     def add_vehicle(self, vehicle, fetched_at):
         """Add a vehicle to the account."""
-        self.vehicles.append(SmartVehicle(self, vehicle, fetched_at=fetched_at))
+        self.vehicles[vehicle.get("vin")] = SmartVehicle(self, vehicle, fetched_at=fetched_at)
 
     async def get_vehicles(self, force_init: bool = False) -> None:
         """Get the vehicles associated with the account."""
@@ -92,10 +92,10 @@ class SmartAccount:
         if len(self.vehicles) == 0 or force_init:
             await self._init_vehicles()
 
-        for vehicle in self.vehicles:
+        for vin, vehicle in self.vehicles.items():
             _LOGGER.debug(f"Getting vehicle {vehicle.data}")
-            await self.select_active_vehicle(vehicle.data.get("vin"))
-            vehicle_info = await self.get_vehicle_information(vehicle.data.get("vin"))
+            await self.select_active_vehicle(vin)
+            vehicle_info = await self.get_vehicle_information(vin)
             vehicle.combine_data(vehicle_info)
 
     async def select_active_vehicle(self, vin) -> None:
@@ -147,5 +147,5 @@ class SmartAccount:
                 },
             )
             _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
-        self.vehicles[0].combine_data(r_car_info.json()["data"])
+        self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
         return r_car_info.json()["data"]
