@@ -29,7 +29,7 @@ class Maintenance(VehicleDataBase):
     main_battery_state_of_charge: Optional[int] = None
     """Main battery state of charge."""
 
-    main_battery_charge_level: Optional[float] = None
+    main_battery_charge_level: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """Main battery charge level."""
 
     main_battery_energy_level: Optional[int] = None
@@ -71,7 +71,9 @@ class Maintenance(VehicleDataBase):
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["maintenanceStatus"]
             _LOGGER.debug(f"Parsing maintenance data: {evStatus}")
             retval["main_battery_state_of_charge"] = int(evStatus["mainBatteryStatus"]["stateOfCharge"])
-            retval["main_battery_charge_level"] = float(evStatus["mainBatteryStatus"]["chargeLevel"])
+            retval["main_battery_charge_level"] = ValueWithUnit(
+                float(evStatus["mainBatteryStatus"]["chargeLevel"]), "%"
+            )
             retval["main_battery_energy_level"] = int(evStatus["mainBatteryStatus"]["energyLevel"])
             retval["main_battery_state_of_health"] = int(evStatus["mainBatteryStatus"]["stateOfHealth"])
             retval["main_batter_power_level"] = int(evStatus["mainBatteryStatus"]["powerLevel"])
