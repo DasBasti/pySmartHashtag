@@ -44,7 +44,7 @@ class SmartVehicle:
     maintenance: Optional[Maintenance] = None
     """The maintenance status of the vehicle."""
 
-    ruinning: Optional[Running] = None
+    running: Optional[Running] = None
     """The running status of the vehicle."""
 
     def __init__(
