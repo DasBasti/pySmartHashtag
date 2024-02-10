@@ -6,6 +6,7 @@ from typing import Optional
 
 from pysmarthashtag.models import ValueWithUnit, get_element_from_dict_maybe
 from pysmarthashtag.vehicle.battery import Battery
+from pysmarthashtag.vehicle.maintenance import Maintenance
 from pysmarthashtag.vehicle.position import Position
 from pysmarthashtag.vehicle.tires import Tires
 
@@ -38,6 +39,9 @@ class SmartVehicle:
     """The last time the vehicle data was updated."""
 
     service: Optional[dict] = {}
+
+    maintenance: Optional[Maintenance] = None
+    """The maintenance status of the vehicle."""
 
     def __init__(
         self,
@@ -75,6 +79,7 @@ class SmartVehicle:
         self.battery = Battery.from_vehicle_data(self.data)
         self.tires = Tires.from_vehicle_data(self.data)
         self.position = Position.from_vehicle_data(self.data)
+        self.maintenance = Maintenance.from_vehicle_data(self.data)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
