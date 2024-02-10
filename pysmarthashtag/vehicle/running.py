@@ -32,10 +32,10 @@ class Running(VehicleDataBase):
     stop_light: Optional[int] = None
     """Stop light."""
 
-    trip_meter1: Optional[float] = None
+    trip_meter1: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """Trip meter 1."""
 
-    trip_meter2: Optional[float] = None
+    trip_meter2: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """Trip meter 2."""
 
     approach: Optional[int] = None
@@ -77,7 +77,7 @@ class Running(VehicleDataBase):
     dbl: Optional[int] = None
     """Double light."""
 
-    average_speed: Optional[float] = None
+    average_speed: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """Average speed."""
 
     position_light_front: Optional[int] = None
@@ -115,34 +115,34 @@ class Running(VehicleDataBase):
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["runningStatus"]
             _LOGGER.debug(f"Parsing running data: {evStatus}")
-            retval["ahbc_status"] = evStatus.get("ahbcStatus")
-            retval["goodbye"] = evStatus.get("goodbye")
-            retval["home_safe"] = evStatus.get("homeSafe")
-            retval["corner_light"] = evStatus.get("cornerLight")
-            retval["front_fog_light"] = evStatus.get("frontFogLight")
-            retval["stop_light"] = evStatus.get("stopLight")
-            retval["trip_meter1"] = evStatus.get("tripMeter1")
-            retval["trip_meter2"] = evStatus.get("tripMeter2")
-            retval["approach"] = evStatus.get("approach")
-            retval["high_beam"] = evStatus.get("highBeam")
-            retval["engine_coolant_level_status"] = evStatus.get("engineCoolantLevelStatus")
-            retval["low_beam"] = evStatus.get("lowBeam")
-            retval["position_light_rear"] = evStatus.get("positionLightRear")
-            retval["light_show"] = evStatus.get("lightShow")
-            retval["welcome"] = evStatus.get("welcome")
-            retval["drl"] = evStatus.get("drl")
-            retval["ahl"] = evStatus.get("ahl")
-            retval["trun_indicator_left"] = evStatus.get("turnIndicatorLeft")
-            retval["trun_indicator_right"] = evStatus.get("turnIndicatorRight")
-            retval["adaptive_front_light"] = evStatus.get("adaptiveFrontLight")
-            retval["dbl"] = evStatus.get("dbl")
-            retval["average_speed"] = evStatus.get("averageSpeed")
-            retval["position_light_front"] = evStatus.get("positionLightFront")
-            retval["reverse_light"] = evStatus.get("reverseLight")
-            retval["highway_light"] = evStatus.get("highwayLight")
-            retval["rear_fog_light"] = evStatus.get("rearFogLight")
-            retval["flash_light"] = evStatus.get("flashLight")
-            retval["all_weather_light"] = evStatus.get("allWeatherLight")
+            retval["ahbc_status"] = int(evStatus.get("ahbcStatus"))
+            retval["goodbye"] = int(evStatus.get("goodbye"))
+            retval["home_safe"] = int(evStatus.get("homeSafe"))
+            retval["corner_light"] = int(evStatus.get("cornerLight"))
+            retval["front_fog_light"] = int(evStatus.get("frontFogLight"))
+            retval["stop_light"] = int(evStatus.get("stopLight"))
+            retval["trip_meter1"] = ValueWithUnit(float(evStatus.get("tripMeter1")),"km")
+            retval["trip_meter2"] = ValueWithUnit(float(evStatus.get("tripMeter2")),"km")
+            retval["approach"] = int(evStatus.get("approach"))
+            retval["high_beam"] = int(evStatus.get("highBeam"))
+            retval["engine_coolant_level_status"] = int(evStatus.get("engineCoolantLevelStatus"))
+            retval["low_beam"] = int(evStatus.get("lowBeam"))
+            retval["position_light_rear"] = int(evStatus.get("positionLightRear"))
+            retval["light_show"] = int(evStatus.get("lightShow"))
+            retval["welcome"] = int(evStatus.get("welcome"))
+            retval["drl"] = int(evStatus.get("drl"))
+            retval["ahl"] = int(evStatus.get("ahl"))
+            retval["trun_indicator_left"] = int(evStatus.get("turnIndicatorLeft"))
+            retval["trun_indicator_right"] = int(evStatus.get("turnIndicatorRight"))
+            retval["adaptive_front_light"] = int(evStatus.get("adaptiveFrontLight"))
+            retval["dbl"] = int(evStatus.get("dbl"))
+            retval["average_speed"] = ValueWithUnit(float(evStatus.get("averageSpeed")),"km/h")
+            retval["position_light_front"] = int(evStatus.get("positionLightFront"))
+            retval["reverse_light"] = int(evStatus.get("reverseLight"))
+            retval["highway_light"] = int(evStatus.get("highwayLight"))
+            retval["rear_fog_light"] = int(evStatus.get("rearFogLight"))
+            retval["flash_light"] = int(evStatus.get("flashLight"))
+            retval["all_weather_light"] = int(evStatus.get("allWeatherLight"))
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
         except KeyError as e:
