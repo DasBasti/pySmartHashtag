@@ -84,7 +84,7 @@ class SmartVehicle:
         self.tires = Tires.from_vehicle_data(self.data)
         self.position = Position.from_vehicle_data(self.data)
         self.maintenance = Maintenance.from_vehicle_data(self.data)
-        self.ruinning = Running.from_vehicle_data(self.data)
+        self.running = Running.from_vehicle_data(self.data)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
