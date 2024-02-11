@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import secrets
+import urllib.parse
 from collections import defaultdict
 from typing import AsyncGenerator, Generator, Optional
 
@@ -172,8 +173,8 @@ class SmartAuthentication(httpx.Auth):
             r_login = await client.post(
                 LOGIN_URL,
                 data={
-                    "loginID": self.username,
-                    "password": self.password,
+                    "loginID": urllib.parse.quote(self.username, safe=''),
+                    "password": urllib.parse.quote(self.password, safe=''),
                     "sessionExpiration": 2592000,
                     "targetEnv": "jssdk",
                     "include": "profile%2Cdata%2Cemails%2Csubscriptions%2Cpreferences%2C",
