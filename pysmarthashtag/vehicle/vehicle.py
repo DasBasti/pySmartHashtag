@@ -47,6 +47,9 @@ class SmartVehicle:
     running: Optional[Running] = None
     """The running status of the vehicle."""
 
+    engine_state: Optional[str] = None
+    """The state of the engine."""
+
     def __init__(
         self,
         account: "SmartAccount",  # noqa: F821
@@ -110,3 +113,7 @@ class SmartVehicle:
         )
         self.service["daysToService"] = int(days_to_service) if days_to_service else None
         self.service["distanceToService"] = ValueWithUnit(distance_to_service, "km") if distance_to_service else None
+
+        self.engine_state = get_element_from_dict_maybe(
+            self.data, "vehicleStatus", "basicVehicleStatus", "engineStatus"
+        )
