@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Dict, List, NamedTuple, Optional, Union
+from typing import Any, Dict, List, NamedTuple, Optional, Union
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -88,10 +88,10 @@ class SmartRemoteServiceError(SmartAPIError):
     """Error when executing web services."""
 
 
-def get_element_from_dict_maybe(data: dict, *path: str) -> Optional[Union[dict, str, int, float]]:
+def get_element_from_dict_maybe(data: dict, *path: str, default:"Any|None" = None) -> Optional[Union[dict, str, int, float]]:
     """Get an element from a dict by path."""
     if len(path) == 0:
         return data
     if path[0] not in data:
-        return None
+        return default
     return get_element_from_dict_maybe(data[path[0]], *path[1:])
