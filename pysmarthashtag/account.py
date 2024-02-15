@@ -34,6 +34,7 @@ class SmartAccount:
     """Optional. If set, all responses from the server will be logged to this directory."""
 
     vehicles: Dict[str, SmartVehicle] = field(default_factory=dict, init=False)
+    """Vehicles associated with the account."""
 
     def __post_init__(self, password, log_responses):
         """Initialize the account."""
