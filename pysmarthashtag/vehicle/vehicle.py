@@ -6,6 +6,7 @@ from typing import Optional
 
 from pysmarthashtag.models import ValueWithUnit, get_element_from_dict_maybe
 from pysmarthashtag.vehicle.battery import Battery
+from pysmarthashtag.vehicle.climate import Climate
 from pysmarthashtag.vehicle.maintenance import Maintenance
 from pysmarthashtag.vehicle.position import Position
 from pysmarthashtag.vehicle.running import Running
@@ -46,6 +47,9 @@ class SmartVehicle:
 
     running: Optional[Running] = None
     """The running status of the vehicle."""
+
+    climate: Optional[Climate] = None
+    """The climate status of the vehicle."""
 
     engine_state: Optional[str] = None
     """The state of the engine."""
@@ -88,6 +92,7 @@ class SmartVehicle:
         self.position = Position.from_vehicle_data(self.data)
         self.maintenance = Maintenance.from_vehicle_data(self.data)
         self.running = Running.from_vehicle_data(self.data)
+        self.climate = Climate.from_vehicle_data(self.data)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
