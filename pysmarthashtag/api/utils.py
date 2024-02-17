@@ -40,7 +40,7 @@ def generate_default_header(
     device_id: str, access_token: str, params: Dict, method: str, url: str, body=None
 ) -> Dict[str, str]:
     """Generate a header for HTTP requests to the server."""
-    timestamp = str(int(time.time() * 1000))
+    timestamp = create_correct_timestamp()
     nonce = secrets.token_hex(8)
     sign = _create_sign(nonce, params, timestamp, method, url, body)
     header = {
@@ -71,3 +71,7 @@ def generate_default_header(
         f"Constructed Login: {join_url_params(params)} - {access_token} - {method} - {url} - {body} -> {header}"
     )
     return header
+
+def create_correct_timestamp() -> str:
+    """Create a correct timestamp for the request."""
+    return str(int(time.time() * 1000))
