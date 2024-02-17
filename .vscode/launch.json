@@ -1,17 +1,53 @@
 {
-    // Verwendet IntelliSense zum Ermitteln möglicher Attribute.
-    // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
-    // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
-    "version": "0.2.0",
-    "configurations": [
-        {
-            "name": "Python-Modul",
-            "type": "python",
-            "request": "launch",
-            "module": "pysmarthashtag.cli",
-            "args":["status"],
-            "envFile": "${workspaceFolder}/.env",
-            "justMyCode": true
-        }
-    ]
+  // Verwendet IntelliSense zum Ermitteln möglicher Attribute.
+  // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
+  // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Engine status",
+      "type": "python",
+      "request": "launch",
+      "module": "pysmarthashtag.cli",
+      "args": ["status"],
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    },
+    {
+      "name": "Disable climate",
+      "type": "python",
+      "request": "launch",
+      "module": "pysmarthashtag.cli",
+      "args": ["climate"],
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    },
+    {
+      "name": "Enable climate",
+      "type": "python",
+      "request": "launch",
+      "module": "pysmarthashtag.cli",
+      "args": ["climate", "--active"],
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    },
+    {
+      "name": "Disable Seatheating",
+      "type": "python",
+      "request": "launch",
+      "module": "pysmarthashtag.cli",
+      "args": ["seatheating"],
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    },
+    {
+      "name": "Enable Seatheating",
+      "type": "python",
+      "request": "launch",
+      "module": "pysmarthashtag.cli",
+      "args": ["seatheating", "--active"],
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    }
+  ]
 }
