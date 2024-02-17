@@ -143,6 +143,8 @@ class Climate(VehicleDataBase):
     def _parse_vehicle_data(self, vehicle_data: Dict) -> Optional[Dict]:
         """Parse the battery data based on Ids."""
         _LOGGER.debug(f"Parsing battery data: {vehicle_data}")
+        if "vehicleStatus" not in vehicle_data:
+            return None
         retval: Dict[str, Any] = {}
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["climateStatus"]
@@ -190,8 +192,7 @@ class Climate(VehicleDataBase):
             retval["window_passenger_rear_status"] = int(evStatus["winStatusPassengerRear"])
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
-            # retval["charging_target_soc"] = raise NotImplementedError()
         except KeyError as e:
-            _LOGGER.error(f"Climate info not available: {e}")
+            _LOGGER.warning(f"Climate info not available: {e}")
         finally:
             return retval
