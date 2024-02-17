@@ -50,12 +50,28 @@ def main_parser() -> argparse.ArgumentParser:
     subparsers = parser.add_subparsers(dest="command")
     subparsers.required = True
 
-    status_parser = subparsers.add_parser("status", help="Get status of vehicle.")
-    _add_default_args(status_parser)
+    _ = subparsers.add_parser("status", help="Get status of vehicle.")
 
-    parser.set_defaults(func=watch_car)
+    _ = subparsers.add_parser("info", help="Get info of vehicle.")
+
+    watch_parser = subparsers.add_parser("watch", help="Watch vehicle.")
+    watch_parser.add_argument("-i", help="scan intervall", default=60)
+
+    _add_default_args(parser)
+    parser.set_defaults(func=parse_command)
 
     return parser
+
+async def parse_command(args) -> None:
+    """Parse command."""
+    if args.command == "status":
+        await get_status(args)
+    elif args.command == "info":
+        await get_vehicle_information(args)
+    elif args.command == "watch":
+        await watch_car(args)
+    else:
+        raise NotImplementedError(f"Command {args.command} not implemented.")
 
 
 async def get_status(args) -> None:
@@ -63,18 +79,19 @@ async def get_status(args) -> None:
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
 
-    print(f"Found {len(account.vehicles)} vehicles:{','.join([v.data.get('vin') for v in account.vehicles])}")
-
-    for vehicle in account.vehicles:
-        print(f"VIN: {vehicle.vin}")
+    for vin, vehicle in account.vehicles.items():
+        print(f"VIN: {vin} -> {vehicle.engine_state}")
 
 
 async def get_vehicle_information(args) -> None:
     """Get status of vehicle."""
     account = SmartAccount(args.username, args.password)
-    await account.get_vehicle_information()
+    await account.get_vehicles()
 
-    print(f"Found {len(account.vehicles)} vehicles:{','.join([v.name for v in account.vehicles])}")
+    for vin, vehicle in account.vehicles.items():
+        car = await account.get_vehicle_information(vin)
+        print(f"VIN: {vin}")
+        print(f"{car}")
 
 
 async def watch_car(args) -> None:
@@ -82,23 +99,11 @@ async def watch_car(args) -> None:
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
 
-    def dict_to_point(d, p):
-        for key, value in d.items():
-            if isinstance(value, dict):
-                dict_to_point(value, p)
-            else:
-                if hasattr(value, "isnumeric") and value.isnumeric():
-                    if value.isdigit():
-                        value = int(value)
-                    else:
-                        value = float(value)
-                p.field(key, value)
-
     while True:
         for vin, vehicle in account.vehicles.items():
             car = await account.get_vehicle_information(vin)
             print(car)
-        time.sleep(60)
+        time.sleep(args.i)
 
 
 def _add_default_args(parser: argparse.ArgumentParser):
