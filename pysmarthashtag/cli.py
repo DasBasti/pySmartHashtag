@@ -8,6 +8,7 @@ import os
 import time
 
 from pysmarthashtag.account import SmartAccount
+from pysmarthashtag.control.climate import ClimateControll
 
 
 def environ_or_required(key):
@@ -41,6 +42,10 @@ def main_parser() -> argparse.ArgumentParser:
                 "handlers": ["default", "file"],
                 "level": "INFO",
             },
+            "httpx": {
+                "handlers": ["default"],
+                "level": "ERROR",
+            },
         },
     }
 
@@ -57,6 +62,11 @@ def main_parser() -> argparse.ArgumentParser:
     watch_parser = subparsers.add_parser("watch", help="Watch vehicle.")
     watch_parser.add_argument("-i", help="scan intervall", default=60)
 
+    climate_parser = subparsers.add_parser("climate", help="Set climate of vehicle.")
+    climate_parser.add_argument("--vin", help="VIN of vehicle", required=True)
+    climate_parser.add_argument("--temp", help="Temperature", default=22)
+    climate_parser.add_argument("--active", help="Active", action="store_true")
+
     _add_default_args(parser)
     parser.set_defaults(func=parse_command)
 
@@ -70,6 +80,8 @@ async def parse_command(args) -> None:
         await get_vehicle_information(args)
     elif args.command == "watch":
         await watch_car(args)
+    elif args.command == "climate":
+        await set_climate(args)
     else:
         raise NotImplementedError(f"Command {args.command} not implemented.")
 
@@ -104,6 +116,15 @@ async def watch_car(args) -> None:
             car = await account.get_vehicle_information(vin)
             print(car)
         time.sleep(args.i)
+
+async def set_climate(args) -> None:
+    """Set climate of vehicle."""
+    account = SmartAccount(args.username, args.password)
+    await account.get_vehicles()
+    await account.get_vehicle_information(args.vin)
+
+    climate_ctrl = account.vehicles[args.vin].climate_control
+    await climate_ctrl.set_climate_conditioning(args.temp, args.active)
 
 
 def _add_default_args(parser: argparse.ArgumentParser):
