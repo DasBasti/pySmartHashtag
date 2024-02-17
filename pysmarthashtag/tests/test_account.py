@@ -10,6 +10,7 @@ async def test_login(smart_fixture: respx.Router):
     account = await prepare_account_with_vehicles()
     assert account is not None
 
+
 @pytest.mark.asyncio
 async def test_get_vehicles(smart_fixture: respx.Router):
     """Test the get_vehicles method."""

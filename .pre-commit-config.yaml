@@ -22,6 +22,7 @@ repos:
         entry: flake8
         language: system
         types: [python]
+        args: [--max-line-length=120]
         require_serial: true
   - repo: https://github.com/pre-commit/mirrors-prettier
     rev: v2.2.1

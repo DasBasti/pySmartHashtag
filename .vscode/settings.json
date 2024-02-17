@@ -1,7 +1,5 @@
 {
-    "python.testing.pytestArgs": [
-        "pysmarthashtag"
-    ],
-    "python.testing.unittestEnabled": false,
-    "python.testing.pytestEnabled": true
+  "python.testing.pytestArgs": ["pysmarthashtag"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true
 }

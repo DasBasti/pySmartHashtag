@@ -72,6 +72,7 @@ def generate_default_header(
     )
     return header
 
+
 def create_correct_timestamp() -> str:
     """Create a correct timestamp for the request."""
     return str(int(time.time() * 1000))

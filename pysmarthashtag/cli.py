@@ -8,7 +8,6 @@ import os
 import time
 
 from pysmarthashtag.account import SmartAccount
-from pysmarthashtag.control.climate import ClimateControll
 
 
 def environ_or_required(key):
@@ -72,6 +71,7 @@ def main_parser() -> argparse.ArgumentParser:
 
     return parser
 
+
 async def parse_command(args) -> None:
     """Parse command."""
     if args.command == "status":
@@ -116,6 +116,7 @@ async def watch_car(args) -> None:
             car = await account.get_vehicle_information(vin)
             print(car)
         time.sleep(args.i)
+
 
 async def set_climate(args) -> None:
     """Set climate of vehicle."""

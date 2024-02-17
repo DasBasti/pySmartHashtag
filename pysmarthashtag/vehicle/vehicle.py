@@ -111,11 +111,9 @@ class SmartVehicle:
                 int(float(odometer)),
                 "km",
             )
-        last_update = get_element_from_dict_maybe(
-            self.data, "vehicleStatus", "updateTime"
-        )
+        last_update = get_element_from_dict_maybe(self.data, "vehicleStatus", "updateTime")
         if last_update:
-            self.last_update = datetime.datetime.fromtimestamp(int(last_update)/1000, datetime.timezone.utc)
+            self.last_update = datetime.datetime.fromtimestamp(int(last_update) / 1000, datetime.timezone.utc)
         days_to_service = get_element_from_dict_maybe(
             self.data, "vehicleStatus", "additionalVehicleStatus", "maintenanceStatus", "daysToService"
         )
