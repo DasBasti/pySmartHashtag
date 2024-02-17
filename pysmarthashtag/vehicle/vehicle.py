@@ -51,6 +51,8 @@ class SmartVehicle:
     climate: Optional[Climate] = None
     """The climate status of the vehicle."""
 
+    climate_control: Optional["ClimateControll"] = None  # noqa: F821
+
     engine_state: Optional[str] = None
     """The state of the engine."""
 
@@ -93,6 +95,10 @@ class SmartVehicle:
         self.maintenance = Maintenance.from_vehicle_data(self.data)
         self.running = Running.from_vehicle_data(self.data)
         self.climate = Climate.from_vehicle_data(self.data)
+
+        from pysmarthashtag.control.climate import ClimateControll
+
+        self.climate_control = ClimateControll(self.account.config, self.vin)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
