@@ -3,15 +3,9 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-import time
 from typing import Any, Dict, Optional
-from pysmarthashtag.account import SmartAccount
-from pysmarthashtag.api import utils
-from pysmarthashtag.api.client import SmartClient
-from pysmarthashtag.const import API_BASE_URL, API_TELEMATICS_URL
 
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase
-from pysmarthashtag.vehicle.vehicle import SmartVehicle
 
 _LOGGER = logging.getLogger(__name__)
 
