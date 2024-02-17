@@ -1,0 +1,18 @@
+{
+  "code": "1000",
+  "data": {
+    "diagnostics": null,
+    "serviceResult": { "error": null, "operationResult": 1 },
+    "trackPoint": null,
+    "vin": "HESXR1C47PS082239",
+    "sessionId": "e5ef637bb7b9464f761b4cee62612bfc",
+    "serviceId": "RCE_2",
+    "taskId": null,
+    "timestamp": "1708190532207"
+  },
+  "success": true,
+  "hint": null,
+  "httpStatus": "OK",
+  "sessionId": "e5ef637bb7b9464f761b4cee62612bfc",
+  "message": "operation succeed"
+}
