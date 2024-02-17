@@ -126,7 +126,7 @@ class SmartAccount:
             )
             _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
 
-    async def get_vehicle_information(self, vin) -> None:
+    async def get_vehicle_information(self, vin) -> str:
         """Get information about a vehicle."""
         _LOGGER.debug(f"Getting information for vehicle {vin}")
         params = {
