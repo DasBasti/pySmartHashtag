@@ -20,6 +20,10 @@ class ClimateControll:
 
     async def set_climate_conditioning(self, temp: float, active: bool) -> bool:
         """Set the climate conditioning."""
+
+        if temp < 16 or temp > 30:
+            raise ValueError("Temperature must be between 16 and 30 degrees.")
+
         async with SmartClient(self.config) as client:
             params = json.dumps(
                 {
@@ -45,7 +49,56 @@ class ClimateControll:
                     "timestamp": utils.create_correct_timestamp(),
                 }
             ).replace(" ", "")
-            _LOGGER.warning(f"Setting climate conditioning: {params}")
+            _LOGGER.debug(f"Setting climate conditioning: {params}")
+            vehicles_response = await client.put(
+                API_BASE_URL + API_TELEMATICS_URL + self.vin,
+                headers={
+                    **utils.generate_default_header(
+                        client.config.authentication.device_id,
+                        client.config.authentication.api_access_token,
+                        params={},
+                        method="PUT",
+                        url=API_TELEMATICS_URL + self.vin,
+                        body=params,
+                    )
+                },
+                data=params,
+            )
+            api_result = vehicles_response.json()
+            return api_result["success"]
+
+    async def set_climate_seatheating(self, level: int, active: bool) -> bool:
+        """Set the climate conditioning."""
+
+        if level > 3 or (level < 1 and active):
+            raise ValueError("Seat heating level must be between 0 and 3.")
+
+        async with SmartClient(self.config) as client:
+            params = json.dumps(
+                {
+                    "command": "start" if active else "stop",
+                    "creator": "tc",
+                    "operationScheduling": {
+                        "duration": 15,
+                        "interval": 0,
+                        "occurs": 1,
+                        "recurrentOperation": False,
+                    },
+                    "serviceId": "RCE_2",
+                    "serviceParameters": [
+                        {
+                            "key": "rce.heat",
+                            "value": "front-left",
+                        },
+                        {
+                            "key": "rce.level",
+                            "value": f"{level}",
+                        },
+                    ],
+                    "timestamp": utils.create_correct_timestamp(),
+                }
+            ).replace(" ", "")
+            _LOGGER.debug(f"Setting seatheating conditioning: {params}")
             vehicles_response = await client.put(
                 API_BASE_URL + API_TELEMATICS_URL + self.vin,
                 headers={
