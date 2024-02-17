@@ -62,9 +62,14 @@ def main_parser() -> argparse.ArgumentParser:
     watch_parser.add_argument("-i", help="scan intervall", default=60)
 
     climate_parser = subparsers.add_parser("climate", help="Set climate of vehicle.")
-    climate_parser.add_argument("--vin", help="VIN of vehicle", required=True)
+    climate_parser.add_argument("--vin", help="VIN of vehicle", default=None)
     climate_parser.add_argument("--temp", help="Temperature", default=22)
     climate_parser.add_argument("--active", help="Active", action="store_true")
+
+    seatheating_parser = subparsers.add_parser("seatheating", help="Set heating of seats in vehicle.")
+    seatheating_parser.add_argument("--vin", help="VIN of vehicle", default=None)
+    seatheating_parser.add_argument("--level", help="Level 1-3", default=3)
+    seatheating_parser.add_argument("--active", help="Active", action="store_true")
 
     _add_default_args(parser)
     parser.set_defaults(func=parse_command)
@@ -82,6 +87,8 @@ async def parse_command(args) -> None:
         await watch_car(args)
     elif args.command == "climate":
         await set_climate(args)
+    elif args.command == "seatheating":
+        await set_seatheating(args)
     else:
         raise NotImplementedError(f"Command {args.command} not implemented.")
 
@@ -122,10 +129,24 @@ async def set_climate(args) -> None:
     """Set climate of vehicle."""
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
+    if not args.vin:
+        args.vin = list(account.vehicles.keys())[0]
     await account.get_vehicle_information(args.vin)
 
     climate_ctrl = account.vehicles[args.vin].climate_control
     await climate_ctrl.set_climate_conditioning(args.temp, args.active)
+
+
+async def set_seatheating(args) -> None:
+    """Set heating of seats in vehicle."""
+    account = SmartAccount(args.username, args.password)
+    await account.get_vehicles()
+    if not args.vin:
+        args.vin = list(account.vehicles.keys())[0]
+    await account.get_vehicle_information(args.vin)
+
+    climate_ctrl = account.vehicles[args.vin].climate_control
+    await climate_ctrl.set_climate_seatheating(args.level, args.active)
 
 
 def _add_default_args(parser: argparse.ArgumentParser):
