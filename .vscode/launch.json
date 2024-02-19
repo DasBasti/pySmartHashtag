@@ -2,7 +2,7 @@
   // Verwendet IntelliSense zum Ermitteln möglicher Attribute.
   // Zeigen Sie auf vorhandene Attribute, um die zugehörigen Beschreibungen anzuzeigen.
   // Weitere Informationen finden Sie unter https://go.microsoft.com/fwlink/?linkid=830387
-  "version": "0.2.9",
+  "version": "2.0.0",
   "configurations": [
     {
       "name": "Engine status",
