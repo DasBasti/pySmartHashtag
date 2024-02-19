@@ -34,6 +34,8 @@ class SmartClientConfiguration:
 class SmartClient(httpx.AsyncClient):
     """Async HTTP client based on `httpx.AsyncClient` with automated OAuth token refresh."""
 
+    last_message: str = ""
+
     def __init__(self, config: SmartClientConfiguration, *args, **kwargs):
         self.config = config
 
@@ -73,6 +75,8 @@ class SmartClient(httpx.AsyncClient):
             Will read out response JSON for code and message
             """
             response_data = response.json()
+            if "message" in response_data:
+                self.last_message = response_data["message"]
             if "code" in response_data and response_data["code"] == "1402":
                 _LOGGER.debug("Token expired, refreshing token")
                 await self.config.authentication.login()
