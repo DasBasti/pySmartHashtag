@@ -10,6 +10,7 @@ from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.const import API_BASE_URL, API_CARS_URL, API_SELECT_CAR_URL
+from pysmarthashtag.models import SmartAuthError
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
 
 VALID_UNTIL_OFFSET = datetime.timedelta(seconds=10)
@@ -135,18 +136,25 @@ class SmartAccount:
             "userId": self.config.authentication.api_user_id,
         }
         async with SmartClient(self.config) as client:
-            r_car_info = await client.get(
-                API_BASE_URL + "/remote-control/vehicle/status/" + vin + "?" + utils.join_url_params(params),
-                headers={
-                    **utils.generate_default_header(
-                        client.config.authentication.device_id,
-                        client.config.authentication.api_access_token,
-                        params=params,
-                        method="GET",
-                        url="/remote-control/vehicle/status/" + vin,
+            for retry in range(2):
+                try:
+                    r_car_info = await client.get(
+                        API_BASE_URL + "/remote-control/vehicle/status/" + vin + "?" + utils.join_url_params(params),
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params=params,
+                                method="GET",
+                                url="/remote-control/vehicle/status/" + vin,
+                            )
+                        },
                     )
-                },
-            )
-            _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+                    _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+                except SmartAuthError:
+                    _LOGGER.debug(f"Got Auth Error, retry: {retry}")
+                    continue
+                break
+
         self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
         return r_car_info.json()["data"]
