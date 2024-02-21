@@ -1,0 +1,8 @@
+{
+  "code": "1402",
+  "message": "Token expired",
+  "hint": null,
+  "httpStatus": "OK",
+  "sessionId": "52920016631f24376223dd0c1cd926e9",
+  "success": false
+}
