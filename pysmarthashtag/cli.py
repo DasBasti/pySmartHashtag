@@ -59,7 +59,7 @@ def main_parser() -> argparse.ArgumentParser:
     _ = subparsers.add_parser("info", help="Get info of vehicle.")
 
     watch_parser = subparsers.add_parser("watch", help="Watch vehicle.")
-    watch_parser.add_argument("-i", help="scan intervall", default=60)
+    watch_parser.add_argument("-i", help="scan intervall", default=60, type=int)
 
     climate_parser = subparsers.add_parser("climate", help="Set climate of vehicle.")
     climate_parser.add_argument("--vin", help="VIN of vehicle", default=None)
