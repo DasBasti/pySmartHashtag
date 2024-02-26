@@ -10,7 +10,7 @@ from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.const import API_BASE_URL, API_CARS_URL, API_SELECT_CAR_URL
-from pysmarthashtag.models import SmartAuthError
+from pysmarthashtag.models import SmartAuthError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
 
 VALID_UNTIL_OFFSET = datetime.timedelta(seconds=10)
@@ -135,6 +135,7 @@ class SmartAccount:
             "target": "basic%2Cmore",
             "userId": self.config.authentication.api_user_id,
         }
+        data = {}
         async with SmartClient(self.config) as client:
             for retry in range(2):
                 try:
@@ -151,10 +152,16 @@ class SmartAccount:
                         },
                     )
                     _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
-                except SmartAuthError:
-                    _LOGGER.debug(f"Got Auth Error, retry: {retry}")
+                    self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
+                    data = r_car_info.json()["data"]
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    self.select_active_vehicle(vin)
                     continue
                 break
-
-        self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
-        return r_car_info.json()["data"]
+            if retry > 1:
+                raise SmartAuthError("Could not get vehicle information")
+        return data

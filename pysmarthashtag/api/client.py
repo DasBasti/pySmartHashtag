@@ -10,7 +10,11 @@ from pysmarthashtag.const import (
     HTTPX_TIMEOUT,
     SERVER_URL,
 )
-from pysmarthashtag.models import AnonymizedResponse, SmartAuthError
+from pysmarthashtag.models import (
+    AnonymizedResponse,
+    SmartHumanCarConnectionError,
+    SmartTokenRefreshNecessary,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -78,7 +82,12 @@ class SmartClient(httpx.AsyncClient):
             if "message" in response_data:
                 self.last_message = response_data["message"]
             if "code" in response_data and response_data["code"] == "1402":
-                raise SmartAuthError("Token expired, refresh token and do request again.")
+                await self.config.authentication.login()
+                raise SmartTokenRefreshNecessary("Token expired, refresh token, do request again.")
+            if "code" in response_data and response_data["code"] == "8006":
+                raise SmartHumanCarConnectionError(
+                    "Human and vehicle relationship does not exist, selct car and do request again."
+                )
             elif "code" in response_data and response_data["code"] != "1000" and "message" in response_data:
                 raise httpx.HTTPStatusError(
                     response=response,
