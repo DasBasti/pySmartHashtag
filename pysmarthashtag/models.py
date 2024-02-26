@@ -80,6 +80,14 @@ class SmartAuthError(SmartAPIError):
     """Auth-related error from Smart web API (HTTP status codes 401 and 403)."""
 
 
+class SmartTokenRefreshNecessary(SmartAPIError):
+    """Token refresh is necessary (Response Code 1402)."""
+
+
+class SmartHumanCarConnectionError(SmartAPIError):
+    """Human and vehicle connection does not exist (Response Code 8006)."""
+
+
 class SmartQuotaError(SmartAPIError):
     """Quota exceeded on Smart web API."""
 
