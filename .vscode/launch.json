@@ -14,6 +14,15 @@
       "justMyCode": true
     },
     {
+      "name": "Watch status",
+      "type": "python",
+      "request": "launch",
+      "module": "pysmarthashtag.cli",
+      "args": ["watch", "-i", "20"],
+      "envFile": "${workspaceFolder}/.env",
+      "justMyCode": true
+    },
+    {
       "name": "Disable climate",
       "type": "python",
       "request": "launch",
