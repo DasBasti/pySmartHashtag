@@ -131,6 +131,18 @@ class Climate(VehicleDataBase):
     window_passenger_rear_status: Optional[bool] = None
     """The state of the rear passenger's window."""
 
+    interior_PM25_level: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """The interior PM2.5 value."""
+
+    interior_PM25_2_level: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """The second interior PM2.5 value."""
+
+    exterior_PM25_level: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """The exterior PM2.5 value."""
+
+    relative_humidity: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """The relative humidity."""
+
     @classmethod
     def from_vehicle_data(self, vehicle_data: Dict):
         """Create a new instance based on data from API."""
@@ -190,6 +202,13 @@ class Climate(VehicleDataBase):
             retval["window_driver_rear_status"] = int(evStatus["winStatusDriverRear"])
             retval["window_passenger_status"] = int(evStatus["winStatusPassenger"])
             retval["window_passenger_rear_status"] = int(evStatus["winStatusPassengerRear"])
+
+            evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["pollutionStatus"]
+
+            retval["interior_PM25_level"] = ValueWithUnit(float(evStatus["interiorPM25Level"]), "μg/m³")
+            retval["interior_PM25_2_level"] = ValueWithUnit(float(evStatus["interiorSecondPM25Level"]), "μg/m³")
+            retval["exterior_PM25_level"] = ValueWithUnit(float(evStatus["exteriorPM25Level"]), "μg/m³")
+            retval["relative_humidity"] = ValueWithUnit(float(evStatus["relHumSts"]), "%")
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
         except KeyError as e:
