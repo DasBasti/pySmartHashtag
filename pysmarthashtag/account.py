@@ -63,18 +63,29 @@ class SmartAccount:
                 "needSharedCar": 1,
                 "userId": self.config.authentication.api_user_id,
             }
-            vehicles_response = await client.get(
-                API_BASE_URL + API_CARS_URL + "?" + utils.join_url_params(params),
-                headers={
-                    **utils.generate_default_header(
-                        client.config.authentication.device_id,
-                        client.config.authentication.api_access_token,
-                        params=params,
-                        method="GET",
-                        url=API_CARS_URL,
+            for retry in range(2):
+                try:
+                    vehicles_response = await client.get(
+                        API_BASE_URL + API_CARS_URL + "?" + utils.join_url_params(params),
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params=params,
+                                method="GET",
+                                url=API_CARS_URL,
+                            )
+                        },
                     )
-                },
-            )
+                    _LOGGER.debug(f"Got response {vehicles_response.status_code} from {vehicles_response.text}")
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    self._init_vehicles()
+                    continue
+                break
 
             for vehicle in vehicles_response.json()["data"]["list"]:
                 _LOGGER.debug(f"Found vehicle {vehicle}")
@@ -111,21 +122,31 @@ class SmartAccount:
             }
         )
         async with SmartClient(self.config) as client:
-            r_car_info = await client.post(
-                API_BASE_URL + API_SELECT_CAR_URL,
-                headers={
-                    **utils.generate_default_header(
-                        client.config.authentication.device_id,
-                        client.config.authentication.api_access_token,
-                        params={},
-                        method="POST",
-                        url=API_SELECT_CAR_URL,
-                        body=data,
+            for retry in range(2):
+                try:
+                    r_car_info = await client.post(
+                        API_BASE_URL + API_SELECT_CAR_URL,
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params={},
+                                method="POST",
+                                url=API_SELECT_CAR_URL,
+                                body=data,
+                            )
+                        },
+                        data=data,
                     )
-                },
-                data=data,
-            )
-            _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+                    _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    self.select_active_vehicle(vin)
+                    continue
+                break
 
     async def get_vehicle_information(self, vin) -> str:
         """Get information about a vehicle."""

@@ -6,6 +6,7 @@ import logging
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
 from pysmarthashtag.const import API_BASE_URL, API_TELEMATICS_URL
+from pysmarthashtag.models import SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -50,22 +51,30 @@ class ClimateControll:
                 }
             ).replace(" ", "")
             _LOGGER.debug(f"Setting climate conditioning: {params}")
-            vehicles_response = await client.put(
-                API_BASE_URL + API_TELEMATICS_URL + self.vin,
-                headers={
-                    **utils.generate_default_header(
-                        client.config.authentication.device_id,
-                        client.config.authentication.api_access_token,
-                        params={},
-                        method="PUT",
-                        url=API_TELEMATICS_URL + self.vin,
-                        body=params,
+            for retry in range(2):
+                try:
+                    vehicles_response = await client.put(
+                        API_BASE_URL + API_TELEMATICS_URL + self.vin,
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params={},
+                                method="PUT",
+                                url=API_TELEMATICS_URL + self.vin,
+                                body=params,
+                            )
+                        },
+                        data=params,
                     )
-                },
-                data=params,
-            )
-            api_result = vehicles_response.json()
-            return api_result["success"]
+                    api_result = vehicles_response.json()
+                    return api_result["success"]
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    continue
 
     async def set_climate_seatheating(self, level: int, active: bool) -> bool:
         """Set the climate conditioning."""
@@ -99,19 +108,27 @@ class ClimateControll:
                 }
             ).replace(" ", "")
             _LOGGER.debug(f"Setting seatheating conditioning: {params}")
-            vehicles_response = await client.put(
-                API_BASE_URL + API_TELEMATICS_URL + self.vin,
-                headers={
-                    **utils.generate_default_header(
-                        client.config.authentication.device_id,
-                        client.config.authentication.api_access_token,
-                        params={},
-                        method="PUT",
-                        url=API_TELEMATICS_URL + self.vin,
-                        body=params,
+            for retry in range(2):
+                try:
+                    vehicles_response = await client.put(
+                        API_BASE_URL + API_TELEMATICS_URL + self.vin,
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params={},
+                                method="PUT",
+                                url=API_TELEMATICS_URL + self.vin,
+                                body=params,
+                            )
+                        },
+                        data=params,
                     )
-                },
-                data=params,
-            )
-            api_result = vehicles_response.json()
-            return api_result["success"]
+                    api_result = vehicles_response.json()
+                    return api_result["success"]
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    continue
