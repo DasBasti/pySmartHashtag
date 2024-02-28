@@ -10,6 +10,7 @@ from pysmarthashtag.vehicle.climate import Climate
 from pysmarthashtag.vehicle.maintenance import Maintenance
 from pysmarthashtag.vehicle.position import Position
 from pysmarthashtag.vehicle.running import Running
+from pysmarthashtag.vehicle.safety import Safety
 from pysmarthashtag.vehicle.tires import Tires
 
 _LOGGER = logging.getLogger(__name__)
@@ -50,6 +51,9 @@ class SmartVehicle:
 
     climate: Optional[Climate] = None
     """The climate status of the vehicle."""
+
+    safety: Optional[Safety] = None
+    """The safety status of the vehicle."""
 
     climate_control: Optional["ClimateControll"] = None  # noqa: F821
 
@@ -95,6 +99,7 @@ class SmartVehicle:
         self.maintenance = Maintenance.from_vehicle_data(self.data)
         self.running = Running.from_vehicle_data(self.data)
         self.climate = Climate.from_vehicle_data(self.data)
+        self.safety = Safety.from_vehicle_data(self.data)
 
         from pysmarthashtag.control.climate import ClimateControll
 
