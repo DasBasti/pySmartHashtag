@@ -1,6 +1,7 @@
 """Battery models for pysmarthashtag."""
 
 import logging
+import math
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Dict, Optional
@@ -93,7 +94,10 @@ class Battery(VehicleDataBase):
             retval["charging_voltage"] = ValueWithUnit(float(evStatus["chargeUAct"]), "V")
             retval["charging_current"] = ValueWithUnit(float(evStatus["chargeIAct"]), "A")
             retval["charging_power"] = ValueWithUnit(
-                float(evStatus["chargeUAct"]) * float(evStatus["dcChargeIAct"]) * -1, "W"
+                float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"])
+                if evStatus["chargeUAct"] < 300
+                else float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"]) * math.sqrt(3),
+                "W",
             )
 
             retval["charging_time_remaining"] = (
