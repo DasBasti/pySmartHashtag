@@ -1,6 +1,6 @@
 [project]
 name = "pySmartHashtag"
-version = "0.3.2"
+version = "0.3.3"
 authors = [
     {"name" = "Bastian Neumann", "email" = "neumann.bastian@gmail.com"},
 ]
