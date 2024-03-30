@@ -95,7 +95,7 @@ class Battery(VehicleDataBase):
             retval["charging_current"] = ValueWithUnit(float(evStatus["chargeIAct"]), "A")
             retval["charging_power"] = ValueWithUnit(
                 float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"])
-                if evStatus["chargeUAct"] < 300
+                if retval["charging_voltage"].value < 300
                 else float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"]) * math.sqrt(3),
                 "W",
             )
@@ -110,5 +110,7 @@ class Battery(VehicleDataBase):
             # retval["charging_target_soc"] = raise NotImplementedError()
         except KeyError as e:
             _LOGGER.debug(f"Battery info not available: {e}")
+        except Exception as e:
+            _LOGGER.error(f"Error parsing battery data: {e}")
         finally:
             return retval
