@@ -85,7 +85,7 @@ class Battery(VehicleDataBase):
                 int(evStatus["distanceToEmptyOnBattery100Soc"]), "km"
             )
             retval["remaining_battery_percent"] = ValueWithUnit(int(evStatus["chargeLevel"]), "%")
-            retval["charging_status"] = ChargingState[int(evStatus["chargerState"])]
+            retval["charging_status"] = ChargingState[int(evStatus["chargerState"])] or "UNKNOWN"
             retval["charger_connection_status"] = int(evStatus["statusOfChargerConnection"])
             retval["is_charger_connected"] = (
                 retval["charging_status"] == "PLUGGED_IN" or retval["charging_status"] == "CHARGING"
