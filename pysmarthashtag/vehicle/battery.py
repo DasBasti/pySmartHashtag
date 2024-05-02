@@ -92,7 +92,9 @@ class Battery(VehicleDataBase):
             retval["charging_status_raw"] = int(evStatus["chargerState"])
             retval["charger_connection_status"] = int(evStatus["statusOfChargerConnection"])
             retval["is_charger_connected"] = (
-                retval["charging_status"] == "PLUGGED_IN" or retval["charging_status"] == "CHARGING"
+                retval["charging_status"] == "PLUGGED_IN"
+                or retval["charging_status"] == "CHARGING"
+                or retval["charging_status"] == "COMPLETE"
             )
 
             retval["charging_voltage"] = ValueWithUnit(float(evStatus["chargeUAct"]), "V")
