@@ -18,7 +18,7 @@ Get this custom integration into homeassistant
 [license-shield]: https://img.shields.io/github/license/DasBasti/pysmarthashtag.svg
 [maintenance-shield]: https://img.shields.io/badge/maintainer-Bastian%20Neumann%20%40DasBasti-blue.svg
 [releases-shield]: https://img.shields.io/github/v/release/DasBasti/pysmarthashtag.svg
-[releases]: https://github.com/DasBasti/smarthashtag/releases
+[releases]: https://github.com/DasBasti/pysmarthashtag/releases
 [tests-shield]: https://github.com/DasBasti/SmartHashtag/actions/workflows/tests.yml/badge.svg
 [tests]: https://github.com/DasBasti/pySmartHashtag/actions/workflows/python-package.yml
 [codeql-shield]: https://github.com/DasBasti/smarthashtag/actions/workflows/codeql-analysis.yml/badge.svg
