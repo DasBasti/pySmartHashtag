@@ -25,6 +25,9 @@ ChargingState = [
     "WAITING_FOR_CHARGING",
     "TARGET_REACHED",
     "UNKNOWN",
+    "UNKNOWN",
+    "UNKNOWN",
+    "DC_CHARGING",
 ]
 
 
@@ -88,7 +91,8 @@ class Battery(VehicleDataBase):
                 int(evStatus["distanceToEmptyOnBattery100Soc"]), "km"
             )
             retval["remaining_battery_percent"] = ValueWithUnit(int(evStatus["chargeLevel"]), "%")
-            retval["charging_status"] = ChargingState[int(evStatus["chargerState"])] or "UNKNOWN"
+            status = int(evStatus["chargerState"])
+            retval["charging_status"] = ChargingState[status] if status < len(ChargingState) else "UNKNOWN"
             retval["charging_status_raw"] = int(evStatus["chargerState"])
             retval["charger_connection_status"] = int(evStatus["statusOfChargerConnection"])
             retval["is_charger_connected"] = (
