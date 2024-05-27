@@ -10,4 +10,4 @@ pbr
 time_machine<2.15.0
 pre-commit
 backports.zoneinfo;python_version<"3.9"
-ruff==0.4.4
+ruff==0.4.5
