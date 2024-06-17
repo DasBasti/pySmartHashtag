@@ -71,6 +71,9 @@ class Battery(VehicleDataBase):
     charging_target_soc: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """Charging target state of charge."""
 
+    average_power_consumption: Optional[ValueWithUnit] = ValueWithUnit(None, "W")
+    """Current average consumption"""
+
     @classmethod
     def from_vehicle_data(self, vehicle_data: Dict):
         """Create a new instance based on data from API."""
@@ -116,6 +119,7 @@ class Battery(VehicleDataBase):
                 else None
             )
 
+            retval["average_power_consumption"] = ValueWithUnit(float(evStatus["averPowerConsumption"]), "W")
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
             # retval["charging_target_soc"] = raise NotImplementedError()
         except KeyError as e:
