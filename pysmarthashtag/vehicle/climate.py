@@ -168,13 +168,13 @@ class Climate(VehicleDataBase):
             retval["driver_ventilation_detail"] = int(evStatus["drvVentDetail"])
             retval["driver_ventilation_status"] = True if evStatus["drvVentSts"] == "true" else False
             retval["exterior_temperature"] = ValueWithUnit(float(evStatus["exteriorTemp"]), "°C")
-            retval["frag_active"] = True if evStatus["fragActive"] == "true" else False
+            retval["frag_active"] = evStatus["fragActive"]
             retval["interior_temperature"] = ValueWithUnit(float(evStatus["interiorTemp"]), "°C")
             retval["passenger_heating_detail"] = int(evStatus["passHeatingDetail"])
             retval["passenger_heating_status"] = True if evStatus["passHeatingSts"] == "true" else False
             retval["passenger_ventilation_detail"] = int(evStatus["passVentDetail"])
             retval["passenger_ventilation_status"] = True if evStatus["passVentSts"] == "true" else False
-            retval["pre_climate_active"] = True if evStatus["preClimateActive"] == "true" else False
+            retval["pre_climate_active"] = evStatus["preClimateActive"]
             retval["rear_left_heating_detail"] = int(evStatus["rlHeatingDetail"])
             retval["rear_left_heating_status"] = True if evStatus["rlHeatingSts"] == "true" else False
             retval["rear_left_ventilation_detail"] = int(evStatus["rlVentDetail"])
