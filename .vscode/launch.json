@@ -6,7 +6,7 @@
   "configurations": [
     {
       "name": "Engine status",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "pysmarthashtag.cli",
       "args": ["status"],
@@ -15,7 +15,7 @@
     },
     {
       "name": "Watch status",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "pysmarthashtag.cli",
       "args": ["watch", "-i", "20"],
@@ -24,7 +24,7 @@
     },
     {
       "name": "Disable climate",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "pysmarthashtag.cli",
       "args": ["climate"],
@@ -33,7 +33,7 @@
     },
     {
       "name": "Enable climate",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "pysmarthashtag.cli",
       "args": ["climate", "--active"],
@@ -42,7 +42,7 @@
     },
     {
       "name": "Disable Seatheating",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "pysmarthashtag.cli",
       "args": ["seatheating"],
@@ -51,7 +51,7 @@
     },
     {
       "name": "Enable Seatheating",
-      "type": "python",
+      "type": "debugpy",
       "request": "launch",
       "module": "pysmarthashtag.cli",
       "args": ["seatheating", "--active"],
