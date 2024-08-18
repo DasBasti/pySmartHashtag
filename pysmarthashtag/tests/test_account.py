@@ -5,6 +5,7 @@ import respx
 from httpx import Request, Response
 
 from pysmarthashtag.const import API_BASE_URL, API_SELECT_CAR_URL
+from pysmarthashtag.models import ValueWithUnit
 from pysmarthashtag.tests import RESPONSE_DIR, load_response
 from pysmarthashtag.tests.conftest import prepare_account_with_vehicles
 
@@ -25,8 +26,9 @@ async def test_get_vehicles(smart_fixture: respx.Router):
     assert account is not None
     assert account.vehicles is not None
     vehicles = account.vehicles
-    assert len(vehicles) == 1
+    assert len(vehicles) == 2
     assert vehicles["TestVIN0000000001"].vin == "TestVIN0000000001"
+    assert vehicles["TestVIN0000000002"].vin == "TestVIN0000000002"
 
 
 @pytest.mark.asyncio
@@ -87,3 +89,16 @@ async def test_no_human_car_connection(smart_fixture: respx.Router):
     await account.get_vehicle_information("TestVIN0000000001")
     assert car_connection.call_count == 1  # 1 time for the connection refresh
     assert vehicle_status.call_count == 3  # 2 times for the token refresh and 1 time for the inital call
+
+
+@pytest.mark.asyncio
+async def test_get_vehicle_chargin_dc(smart_fixture: respx.Router):
+    """Test the get_vehicles method."""
+    account = await prepare_account_with_vehicles()
+    assert account is not None
+    assert account.vehicles is not None
+    vehicles = account.vehicles
+    assert len(vehicles) == 2
+    assert vehicles["TestVIN0000000002"].battery.charging_status == "DC_CHARGING"
+    assert vehicles["TestVIN0000000002"].battery.is_charger_connected
+    assert vehicles["TestVIN0000000002"].battery.charging_current == ValueWithUnit(value=102.6, unit="A")
