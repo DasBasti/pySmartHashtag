@@ -1,0 +1,270 @@
+{
+  "code": "1000",
+  "data": {
+    "result": {
+      "serviceResult": {
+        "error": null,
+        "operationResult": 1
+      },
+      "sessionId": "PS082239000000028576915335676307"
+    },
+    "vehicleStatus": {
+      "basicVehicleStatus": {
+        "usageMode": "2",
+        "engineStatus": "engine_off",
+        "position": {
+          "altitude": "98",
+          "posCanBeTrusted": "true",
+          "latitude": "178750840",
+          "carLocatorStatUploadEn": "true",
+          "marsCoordinates": "false",
+          "longitude": "30797211"
+        },
+        "carMode": "0",
+        "speed": "0.0",
+        "speedValidity": "false",
+        "direction": "0"
+      },
+      "notification": {
+        "notifForEmgyCallStatus": "0",
+        "reason": "1",
+        "time": "1695293326",
+        "parameters": "{\"key\": \"New VIN number\",\"stringVal\": \"HESXR1C47PS082239\"},{\"key\": \"Previous VIN number\",\"stringVal\": \"null\"}"
+      },
+      "eg": {
+        "enableRunning": "false",
+        "blocked": {
+          "status": "0"
+        },
+        "panicStatus": "false"
+      },
+      "parkTime": {
+        "status": "1716485245951"
+      },
+      "configuration": {
+        "propulsionType": "4",
+        "fuelType": "4",
+        "vin": "HESXR1C47PS082239"
+      },
+      "updateTime": "1716485767970",
+      "additionalVehicleStatus": {
+        "maintenanceStatus": {
+          "tyreTempWarningPassengerRear": "0",
+          "daysToService": "560",
+          "engineHrsToService": "500",
+          "odometer": "2701.000",
+          "brakeFluidLevelStatus": "3",
+          "tyreTempDriverRear": "22.000",
+          "tyreTempWarningPassenger": "0",
+          "tyreTempWarningDriverRear": "0",
+          "mainBatteryStatus": {
+            "stateOfCharge": "1",
+            "chargeLevel": "95.2",
+            "energyLevel": "0",
+            "stateOfHealth": "0",
+            "powerLevel": "0",
+            "voltage": "14.225"
+          },
+          "tyreTempDriver": "22.000",
+          "tyreTempPassengerRear": "22.000",
+          "tyrePreWarningDriver": "0",
+          "distanceToService": "27308",
+          "tyrePreWarningPassengerRear": "0",
+          "tyreTempWarningDriver": "0",
+          "tyreStatusPassengerRear": "237.529",
+          "tyreStatusPassenger": "247.140",
+          "tyreStatusDriverRear": "238.902",
+          "serviceWarningStatus": "0",
+          "tyreStatusDriver": "241.648",
+          "tyreTempPassenger": "23.000",
+          "tyrePreWarningDriverRear": "0",
+          "tyrePreWarningPassenger": "0",
+          "washerFluidLevelStatus": "1"
+        },
+        "electricVehicleStatus": {
+          "disChargeUAct": "0.0",
+          "disChargeSts": "0",
+          "wptFineAlignt": "0",
+          "chargeLidAcStatus": "2",
+          "distanceToEmptyOnBatteryOnly": "285",
+          "distanceToEmptyOnBattery100Soc": "427",
+          "chargeSts": "0",
+          "averPowerConsumption": "-102.3",
+          "chargerState": "15",
+          "timeToTargetDisCharged": "2047",
+          "distanceToEmptyOnBattery20Soc": "85",
+          "disChargeConnectStatus": "1",
+          "chargeLidDcAcStatus": "1",
+          "dcChargeSts": "0",
+          "ptReady": "0",
+          "chargeLevel": "67",
+          "statusOfChargerConnection": "1",
+          "dcDcActvd": "1",
+          "indPowerConsumption": "1000",
+          "dcDcConnectStatus": "3",
+          "disChargeIAct": "0.0",
+          "dcChargeIAct": "-102.6",
+          "chargeUAct": "0.0",
+          "bookChargeSts": "0",
+          "chargeIAct": "0.000",
+          "timeToFullyCharged": "37"
+        },
+        "chargeHvSts": "1",
+        "drivingBehaviourStatus": {
+          "gearAutoStatus": "0",
+          "gearManualStatus": "0",
+          "engineSpeed": "0.000"
+        },
+        "runningStatus": {
+          "ahbc": "0",
+          "goodbye": "0",
+          "homeSafe": "0",
+          "cornrgLi": "0",
+          "frntFog": "0",
+          "stopLi": "0",
+          "tripMeter1": "1890.2",
+          "approach": "0",
+          "tripMeter2": "0.0",
+          "indFuelConsumption": "0",
+          "hiBeam": "0",
+          "engineCoolantLevelStatus": "3",
+          "fuelEnLevel": "0",
+          "loBeam": "0",
+          "posLiRe": "0",
+          "ltgShow": "0",
+          "welcome": "0",
+          "drl": "0",
+          "fuelLevelPct": "0",
+          "ahl": "0",
+          "fuelEnCns": "0",
+          "trunIndrLe": "0",
+          "trunIndrRi": "0",
+          "afs": "0",
+          "dbl": "0",
+          "avgSpeed": "32",
+          "posLiFrnt": "0",
+          "reverseLi": "0",
+          "hwl": "0",
+          "reFog": "0",
+          "flash": "0",
+          "allwl": "0",
+          "fuelEnCnsFild": "0"
+        },
+        "trailerStatus": {
+          "trailerTurningLampSts": "0",
+          "trailerFogLampSts": "0",
+          "trailerBreakLampSts": "0",
+          "trailerReversingLampSts": "0",
+          "trailerPosLampSts": "0"
+        },
+        "climateStatus": {
+          "drvHeatSts": "0",
+          "winPosDriver": "12",
+          "rrVentDetail": "0",
+          "rlVentSts": "0",
+          "passVentSts": "0",
+          "interiorTemp": "21.600",
+          "passVentDetail": "0",
+          "sunroofPos": "101",
+          "cdsClimateActive": "false",
+          "sunroofOpenStatus": "1",
+          "rrHeatingDetail": "0",
+          "winStatusPassenger": "1",
+          "fragActive": false,
+          "winStatusDriver": "1",
+          "drvVentSts": "0",
+          "winStatusPassengerRear": "1",
+          "sunCurtainRearOpenStatus": "1",
+          "preClimateActive": false,
+          "rlHeatingDetail": "0",
+          "winPosPassengerRear": "20",
+          "curtainPos": "100",
+          "rlVentDetail": "0",
+          "curtainOpenStatus": "2",
+          "climateOverHeatProActive": "false",
+          "rrVentSts": "0",
+          "rrHeatingSts": "0",
+          "winPosPassenger": "12",
+          "steerWhlHeatingSts": "2",
+          "drvVentDetail": "0",
+          "winPosDriverRear": "20",
+          "exteriorTemp": "19.500",
+          "rlHeatingSts": "0",
+          "winStatusDriverRear": "1",
+          "defrost": "false",
+          "drvHeatDetail": "2",
+          "passHeatingDetail": "2",
+          "airBlowerActive": "false",
+          "sunCurtainRearPos": "101",
+          "passHeatingSts": "0"
+        },
+        "drivingSafetyStatus": {
+          "doorLockStatusDriverRear": "0",
+          "srsCrashStatus": "0",
+          "doorOpenStatusPassengerRear": "0",
+          "doorPosPassengerRear": "0",
+          "doorOpenStatusDriver": "0",
+          "seatBeltStatusPassenger": "false",
+          "doorPosDriver": "0",
+          "seatBeltStatusThPassengerRear": "false",
+          "electricParkBrakeStatus": "1",
+          "doorLockStatusDriver": "0",
+          "seatBeltStatusThDriverRear": "false",
+          "tankFlapStatus": "2",
+          "seatBeltStatusPassengerRear": "false",
+          "doorOpenStatusPassenger": "0",
+          "doorPosPassenger": "0",
+          "vehicleAlarm": {
+            "alrmTrgSrc": "0"
+          },
+          "doorPosDriverRear": "0",
+          "centralLockingStatus": "0",
+          "seatBeltStatusDriver": "false",
+          "doorLockStatusPassenger": "0",
+          "seatBeltStatusMidRear": "false",
+          "trunkLockStatus": "0",
+          "seatBeltStatusDriverRear": "false",
+          "engineHoodOpenStatus": "0",
+          "doorOpenStatusDriverRear": "0",
+          "doorLockStatusPassengerRear": "0",
+          "trunkOpenStatus": "0"
+        },
+        "pollutionStatus": {
+          "interiorPM25": "1",
+          "interiorSecondPM25Level": "0",
+          "interiorPM25Level": "0",
+          "relHumSts": "80",
+          "exteriorPM25Level": "0"
+        }
+      },
+      "temStatus": {
+        "swVersion": null,
+        "serialNumber": null,
+        "powerSource": null,
+        "networkAccessStatus": {
+          "mobileNetwork": null,
+          "simInfo": {
+            "iccId": null,
+            "imsi": null,
+            "msisdn": null
+          }
+        },
+        "mcuVersion": null,
+        "mpuVersion": null,
+        "backupBattery": {
+          "stateOfCharge": null,
+          "stateOfHealth": null,
+          "voltage": null
+        },
+        "hwVersion": null,
+        "powerMode": null,
+        "healthStatus": null,
+        "sleepCycleNextWakeupTime": null,
+        "rvsEnable": "true",
+        "imei": null,
+        "state": null,
+        "connectivityStatus": null
+      }
+    }
+  }
+}
