@@ -23,7 +23,7 @@ class SmartVehicle:
     :param attributes: attributes of the vehicle as provided by the server.
     """
 
-    data: dict = {}
+    data: dict
     """The raw data of the vehicle."""
 
     odometer: Optional[ValueWithUnit] = None
@@ -70,6 +70,7 @@ class SmartVehicle:
     ) -> None:
         """Initialize the vehicle."""
         self.account = account
+        self.data = {}
         self.combine_data(vehicle_base, vehicle_state, charging_settings, fetched_at)
         _LOGGER.debug(
             "Initialized vehicle %s (%s)",
