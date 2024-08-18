@@ -101,11 +101,18 @@ class Battery(VehicleDataBase):
             retval["is_charger_connected"] = (
                 retval["charging_status"] == "PLUGGED_IN"
                 or retval["charging_status"] == "CHARGING"
+                or retval["charging_status"] == "DC_CHARGING"
                 or retval["charging_status"] == "COMPLETE"
             )
 
-            retval["charging_voltage"] = ValueWithUnit(float(evStatus["chargeUAct"]), "V")
-            retval["charging_current"] = ValueWithUnit(float(evStatus["chargeIAct"]), "A")
+            if retval["charging_status"] == "DC_CHARGING":
+                # TODO: The DC voltage value is not in the curretn response. We need to find the correct request first
+                retval["charging_voltage"] = ValueWithUnit(0.0, "V")
+                retval["charging_current"] = ValueWithUnit(abs(float(evStatus["dcChargeIAct"])), "A")
+            else:
+                retval["charging_voltage"] = ValueWithUnit(float(evStatus["chargeUAct"]), "V")
+                retval["charging_current"] = ValueWithUnit(float(evStatus["chargeIAct"]), "A")
+
             retval["charging_power"] = ValueWithUnit(
                 float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"])
                 if retval["charging_voltage"].value < 300
