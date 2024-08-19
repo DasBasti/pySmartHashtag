@@ -76,3 +76,11 @@ class SmartMockRouter(respx.MockRouter):
         self.put(API_BASE_URL + "/remote-control/vehicle/telematics/TestVIN0000000001").respond(
             200, json=load_response(RESPONSE_DIR / "climate_success.json")
         )
+        self.get(API_BASE_URL + "/remote-control/vehicle/status/soc/TestVIN0000000001?setting=charging").respond(
+            200,
+            json=load_response(RESPONSE_DIR / "soc_90.json"),
+        )
+        self.get(API_BASE_URL + "/remote-control/vehicle/status/soc/TestVIN0000000002?setting=charging").respond(
+            200,
+            json=load_response(RESPONSE_DIR / "soc_90.json"),
+        )
