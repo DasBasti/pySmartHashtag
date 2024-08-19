@@ -109,7 +109,8 @@ class SmartAccount:
             _LOGGER.debug(f"Getting vehicle {vehicle.data}")
             await self.select_active_vehicle(vin)
             vehicle_info = await self.get_vehicle_information(vin)
-            vehicle.combine_data(vehicle_info)
+            vehicle_soc = await self.get_vehicle_soc(vin)
+            vehicle.combine_data(vehicle_info, charging_settings=vehicle_soc)
 
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
@@ -169,6 +170,47 @@ class SmartAccount:
                                 params=params,
                                 method="GET",
                                 url="/remote-control/vehicle/status/" + vin,
+                            )
+                        },
+                    )
+                    _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+                    self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
+                    data = r_car_info.json()["data"]
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    self.select_active_vehicle(vin)
+                    continue
+                break
+            if retry > 1:
+                raise SmartAuthError("Could not get vehicle information")
+        return data
+
+    async def get_vehicle_soc(self, vin) -> str:
+        """Get information about a vehicle."""
+        _LOGGER.debug(f"Getting information for vehicle {vin}")
+        params = {
+            "setting": "charging",
+        }
+        data = {}
+        async with SmartClient(self.config) as client:
+            for retry in range(2):
+                try:
+                    r_car_info = await client.get(
+                        API_BASE_URL
+                        + "/remote-control/vehicle/status/soc/"
+                        + vin
+                        + "?"
+                        + utils.join_url_params(params),
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params=params,
+                                method="GET",
+                                url="/remote-control/vehicle/status/soc/" + vin,
                             )
                         },
                     )

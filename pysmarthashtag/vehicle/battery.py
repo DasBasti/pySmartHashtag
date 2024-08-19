@@ -124,7 +124,7 @@ class Battery(VehicleDataBase):
             )
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
-            # retval["charging_target_soc"] = raise NotImplementedError()
+            retval["charging_target_soc"] = ValueWithUnit(float(vehicle_data["soc"]) / 10, "%")
         except KeyError as e:
             _LOGGER.debug(f"Battery info not available: {e}")
         except Exception as e:
