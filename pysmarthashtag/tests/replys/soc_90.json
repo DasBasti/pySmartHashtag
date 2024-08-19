@@ -1,0 +1,12 @@
+{
+  "code": "1000",
+  "data": {
+    "socTime": "1716279915984",
+    "soc": "900"
+  },
+  "success": true,
+  "hint": null,
+  "httpStatus": "OK",
+  "sessionId": "768d7c1b135b1c5510150d7e1d67910e",
+  "message": "operation succeed"
+}
