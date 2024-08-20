@@ -30,6 +30,110 @@ ChargingState = [
     "DC_CHARGING",
 ]
 
+DcChargingVoltLevels = [
+    370,
+    374,
+    377,
+    381,
+    385,
+    389,
+    392,
+    396,
+    400,
+    403,
+    407,
+    408,
+    408,
+    409,
+    409,
+    410,
+    410,
+    411,
+    411,
+    412,
+    412,
+    413,
+    413,
+    413,
+    413,
+    414,
+    414,
+    415,
+    416,
+    416,
+    416,
+    416,
+    416,
+    416,
+    417,
+    417,
+    415,
+    416,
+    416,
+    416,
+    417,
+    417,
+    417,
+    416,
+    416,
+    417,
+    417,
+    417,
+    416,
+    417,
+    418,
+    418,
+    417,
+    417,
+    418,
+    419,
+    420,
+    419,
+    419,
+    420,
+    422,
+    423,
+    424,
+    425,
+    426,
+    427,
+    428,
+    429,
+    430,
+    431,
+    433,
+    434,
+    435,
+    436,
+    437,
+    437,
+    439,
+    440,
+    441,
+    440,
+    440,
+    441,
+    443,
+    444,
+    445,
+    446,
+    448,
+    449,
+    450,
+    451,
+    453,
+    454,
+    455,
+    456,
+    458,
+    459,
+    460,
+    461,
+    463,
+    464,
+    465,
+]
+
 
 @dataclass
 class Battery(VehicleDataBase):
@@ -106,8 +210,9 @@ class Battery(VehicleDataBase):
             )
 
             if retval["charging_status"] == "DC_CHARGING":
-                # TODO: The DC voltage value is not in the curretn response. We need to find the correct request first
-                retval["charging_voltage"] = ValueWithUnit(0.0, "V")
+                retval["charging_voltage"] = ValueWithUnit(
+                    DcChargingVoltLevels[retval["remaining_battery_percent"].value], "V"
+                )
                 retval["charging_current"] = ValueWithUnit(abs(float(evStatus["dcChargeIAct"])), "A")
             else:
                 retval["charging_voltage"] = ValueWithUnit(float(evStatus["chargeUAct"]), "V")
@@ -115,7 +220,7 @@ class Battery(VehicleDataBase):
 
             retval["charging_power"] = ValueWithUnit(
                 float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"])
-                if retval["charging_voltage"].value < 300
+                if retval["charging_voltage"].value < 260
                 else float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"]) * math.sqrt(3),
                 "W",
             )
