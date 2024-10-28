@@ -193,47 +193,57 @@ class Battery(VehicleDataBase):
         retval: Dict[str, Any] = {}
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["electricVehicleStatus"]
-            retval["remaining_range"] = ValueWithUnit(int(evStatus["distanceToEmptyOnBatteryOnly"]), "km")
-            retval["remaining_range_at_full_charge"] = ValueWithUnit(
-                int(evStatus["distanceToEmptyOnBattery100Soc"]), "km"
-            )
-            retval["remaining_battery_percent"] = ValueWithUnit(int(evStatus["chargeLevel"]), "%")
-            status = int(evStatus["chargerState"])
-            retval["charging_status"] = ChargingState[status] if status < len(ChargingState) else "UNKNOWN"
-            retval["charging_status_raw"] = int(evStatus["chargerState"])
-            retval["charger_connection_status"] = int(evStatus["statusOfChargerConnection"])
-            retval["is_charger_connected"] = (
-                retval["charging_status"] == "PLUGGED_IN"
-                or retval["charging_status"] == "CHARGING"
-                or retval["charging_status"] == "DC_CHARGING"
-                or retval["charging_status"] == "COMPLETE"
-            )
+            if "distanceToEmptyOnBatteryOnly" in evStatus:
+                retval["remaining_range"] = ValueWithUnit(int(evStatus["distanceToEmptyOnBatteryOnly"]), "km")
+            if "distanceToEmptyOnBattery100Soc" in evStatus:
+                retval["remaining_range_at_full_charge"] = ValueWithUnit(
+                    int(evStatus["distanceToEmptyOnBattery100Soc"]), "km"
+                )
+            if "chargeLevel" in evStatus:
+                retval["remaining_battery_percent"] = ValueWithUnit(int(evStatus["chargeLevel"]), "%")
+            if "chargerState" in evStatus:
+                status = int(evStatus["chargerState"])
+                retval["charging_status"] = ChargingState[status] if status < len(ChargingState) else "UNKNOWN"
+                retval["charging_status_raw"] = int(evStatus["chargerState"])
+                retval["is_charger_connected"] = (
+                    retval["charging_status"] == "PLUGGED_IN"
+                    or retval["charging_status"] == "CHARGING"
+                    or retval["charging_status"] == "DC_CHARGING"
+                    or retval["charging_status"] == "COMPLETE"
+                )
+            if "statusOfChargerConnection" in evStatus:
+                retval["charger_connection_status"] = int(evStatus["statusOfChargerConnection"])
 
-            if retval["charging_status"] == "DC_CHARGING":
+            if "dcChargeIAct" in evStatus and retval["charging_status"] == "DC_CHARGING":
                 retval["charging_voltage"] = ValueWithUnit(
                     DcChargingVoltLevels[retval["remaining_battery_percent"].value], "V"
                 )
                 retval["charging_current"] = ValueWithUnit(abs(float(evStatus["dcChargeIAct"])), "A")
-            else:
+            elif "chargeUAct" in evStatus and "chargeIAct" in evStatus:
                 retval["charging_voltage"] = ValueWithUnit(float(evStatus["chargeUAct"]), "V")
                 retval["charging_current"] = ValueWithUnit(float(evStatus["chargeIAct"]), "A")
 
-            retval["charging_power"] = ValueWithUnit(
-                float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"])
-                if retval["charging_voltage"].value < 260
-                else float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"]) * math.sqrt(3),
-                "W",
-            )
+            if "chargeIAct" in evStatus and "chargeUAct" in evStatus:
+                retval["charging_power"] = ValueWithUnit(
+                    float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"])
+                    if retval["charging_voltage"].value < 260
+                    else float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"]) * math.sqrt(3),
+                    "W",
+                )
 
-            retval["charging_time_remaining"] = (
-                ValueWithUnit(int(evStatus["timeToFullyCharged"]), "min")
-                if evStatus["timeToFullyCharged"] != "2047"
-                else None
-            )
+            if "timeToFullyCharged" in evStatus:
+                retval["charging_time_remaining"] = (
+                    ValueWithUnit(int(evStatus["timeToFullyCharged"]), "min")
+                    if evStatus["timeToFullyCharged"] != "2047"
+                    else None
+                )
 
-            retval["average_power_consumption"] = ValueWithUnit(float(evStatus["averPowerConsumption"]), "W")
-            retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
-            retval["charging_target_soc"] = ValueWithUnit(float(vehicle_data["soc"]) / 10, "%")
+            if "averPowerConsumption" in evStatus:
+                retval["average_power_consumption"] = ValueWithUnit(float(evStatus["averPowerConsumption"]), "W")
+            if "vehicleStatus" in vehicle_data and "updateTime" in vehicle_data["vehicleStatus"]:
+                retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
+            if "soc" in vehicle_data:
+                retval["charging_target_soc"] = ValueWithUnit(float(vehicle_data["soc"]) / 10, "%")
         except KeyError as e:
             _LOGGER.debug(f"Battery info not available: {e}")
         except Exception as e:
