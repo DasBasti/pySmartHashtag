@@ -48,9 +48,11 @@ class ClimateControll:
     async def set_climate_conditioning(self, temp: float, active: bool) -> bool:
         """Set the climate conditioning."""
 
+        if not isinstance(temp, (int, float)):
+            raise TypeError("Temperature must be a number")
         if temp < 16 or temp > 30:
             raise ValueError("Temperature must be between 16 and 30 degrees.")
-        self.conditioning_temp = temp
+        self.conditioning_temp = float(temp)
 
         async with SmartClient(self.config) as client:
             params = self._get_payload(active)
@@ -83,6 +85,8 @@ class ClimateControll:
     async def set_climate_seatheating(self, level: int, active: bool) -> bool:
         """Set the climate conditioning."""
 
+        if not isinstance(level, int):
+            raise TypeError("Heating level must be an integer")
         if level > 3 or (level < 1 and active):
             raise ValueError("Seat heating level must be between 0 and 3.")
         self.conditioning_level = level
