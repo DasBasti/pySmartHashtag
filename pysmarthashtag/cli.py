@@ -68,7 +68,8 @@ def main_parser() -> argparse.ArgumentParser:
 
     seatheating_parser = subparsers.add_parser("seatheating", help="Set heating of seats in vehicle.")
     seatheating_parser.add_argument("--vin", help="VIN of vehicle", default=None)
-    seatheating_parser.add_argument("--level", help="Level 1-3", default=3)
+    seatheating_parser.add_argument("--level", type=int, choices=[1, 2, 3], help="Heating level (1-3)", default=3)
+    seatheating_parser.add_argument("--temp", help="Temperature", default=22)
     seatheating_parser.add_argument("--active", help="Active", action="store_true")
 
     _add_default_args(parser)
@@ -138,7 +139,7 @@ async def set_climate(args) -> None:
 
 
 async def set_seatheating(args) -> None:
-    """Set heating of seats in vehicle."""
+    """Set heating of driver's seat in vehicle."""
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
     if not args.vin:
@@ -147,7 +148,7 @@ async def set_seatheating(args) -> None:
 
     climate_ctrl = account.vehicles[args.vin].climate_control
     climate_ctrl.set_heating_level(climate_ctrl.HeatingLocation.DRIVER_SEAT, args.level)
-    await climate_ctrl.set_climate_conditioning(20, args.active)
+    await climate_ctrl.set_climate_conditioning(args.temp, args.active)
 
 
 def _add_default_args(parser: argparse.ArgumentParser):
