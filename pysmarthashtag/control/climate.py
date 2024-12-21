@@ -18,9 +18,9 @@ class ClimateControll:
     class HeatingLocation(str, Enum):
         """Enum for heating locations in the vehicle."""
 
-        DRIVER_SEAT = ("front-left",)
-        PASSENGER_SEAT = ("front-right",)
-        STEERING_WHEEL = ("steering_wheel",)
+        DRIVER_SEAT = "front-left"
+        PASSENGER_SEAT = "front-right"
+        STEERING_WHEEL = "steering_wheel"
 
     def __init__(self, config, vin):
         """Initialize the vehicle."""
