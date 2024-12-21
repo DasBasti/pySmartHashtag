@@ -56,7 +56,19 @@ class ClimateControll:
 
         return json.dumps(_payload).replace(" ", "")
 
-    def _add_rce_heating_service(self, value: str, level: int):
+    def _add_rce_heating_service(self, value: str, level: int) -> list[dict[str, str]]:
+        """Create heating service parameters for the payload.
+
+        Args:
+        ----
+            value: The heating location identifier
+            level: The heating level as a string
+
+        Returns:
+        -------
+            List of service parameter dictionaries
+
+        """
         payload = [{"key": "rce.heat", "value": value}, {"key": "rce.level", "value": level}]
         return payload
 
