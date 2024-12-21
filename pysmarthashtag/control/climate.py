@@ -47,7 +47,6 @@ class ClimateControll:
             "serviceParameters": [],
             "timestamp": utils.create_correct_timestamp(),
         }
-        _payload["timestamp"] = utils.create_correct_timestamp()
         _payload["serviceParameters"].append({"key": "rce.conditioner", "value": "1"})
         _payload["serviceParameters"].append({"key": "rce.temp", "value": f"{self.conditioning_temp:.1f}"})
         for loc, level in self.heating_levels.items():
