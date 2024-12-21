@@ -2,6 +2,7 @@
 
 import json
 import logging
+from enum import Enum
 
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
@@ -14,36 +15,59 @@ _LOGGER = logging.getLogger(__name__)
 class ClimateControll:
     """Provides an accessible controll of the vehicle's climate functions."""
 
+    class HeatingLocation(str, Enum):
+        """Enum for heating locations in the vehicle."""
+
+        DRIVER_SEAT = ("front-left",)
+        PASSENGER_SEAT = ("front-right",)
+        STEERING_WHEEL = ("steering_wheel",)
+
     def __init__(self, config, vin):
         """Initialize the vehicle."""
         self.config = config
         self.vin = vin
         self.conditioning_temp = 20.0
-        self.conditioning_level = 0
+        self.heating_levels = {
+            f"{self.HeatingLocation.DRIVER_SEAT}": 0,
+            f"{self.HeatingLocation.PASSENGER_SEAT}": 0,
+            f"{self.HeatingLocation.STEERING_WHEEL}": 0,
+        }
+        self._payload = {
+            "command": "stop",
+            "creator": "tc",
+            "operationScheduling": {
+                "duration": 15,
+                "interval": 0,
+                "occurs": 1,
+                "recurrentOperation": False,
+            },
+            "serviceId": "RCE_2",
+            "serviceParameters": [],
+            "timestamp": utils.create_correct_timestamp(),
+        }
+
+    def _add_rce_heating_service(self, value: str, level: int):
+        self._payload["serviceParameter"].append({"key": "rce.heat", "value": value})
+        self._payload["serviceParameter"].append({"key": "rce.level", "value": level})
 
     def _get_payload(self, active: bool) -> str:
-        return json.dumps(
-            {
-                "command": "start" if active else "stop",
-                "creator": "tc",
-                "operationScheduling": {
-                    "duration": 15,
-                    "interval": 0,
-                    "occurs": 1,
-                    "recurrentOperation": False,
-                },
-                "serviceId": "RCE_2",
-                "serviceParameters": [
-                    {"key": "rce.conditioner", "value": "1"},
-                    {"key": "rce.temp", "value": f"{self.conditioning_temp:.1f}"},
-                    {"value": "front-left", "key": "rce.heat"},
-                    {"value": "front-right", "key": "rce.heat"},
-                    {"key": "rce.heat", "value": "steering_wheel"},
-                    {"key": "rce.level", "value": f"{self.conditioning_level}"},
-                ],
-                "timestamp": utils.create_correct_timestamp(),
-            }
-        ).replace(" ", "")
+        self._payload["timestamp"] = utils.create_correct_timestamp()
+        self._payload["serviceParameter"] = []
+        self._payload["serviceParameter"].append({"key": "rce.conditioner", "value": "1"})
+        self._payload["serviceParameter"].append({"key": "rce.temp", "value": f"{self.conditioning_temp:.1f}"})
+        for loc, level in self.heating_levels.items():
+            if level > 0:
+                self._add_rce_heating_service(loc, f"{level}")
+
+        return json.dumps(self._payload).replace(" ", "")
+
+    def set_heating_level(self, location: HeatingLocation, level: int):
+        """Set heating level for driver seat."""
+        if not isinstance(level, int):
+            raise TypeError("Heating level must be an integer")
+        if level > 3 or level < 0:
+            raise ValueError("Seat heating level must be between 0 and 3.")
+        self.heating_levels[location.value] = level
 
     async def set_climate_conditioning(self, temp: float, active: bool) -> bool:
         """Set the climate conditioning."""
@@ -82,7 +106,7 @@ class ClimateControll:
                     _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
                     continue
 
-    async def set_climate_seatheating(self, level: int, active: bool) -> bool:
+    async def set_climate_heating(self, level: int, active: bool) -> bool:
         """Set the climate conditioning."""
 
         if not isinstance(level, int):
