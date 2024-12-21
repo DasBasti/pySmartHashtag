@@ -1,6 +1,6 @@
 [project]
 name = "pySmartHashtag"
-version = "0.5.2"
+version = "0.6.0"
 authors = [
     {"name" = "Bastian Neumann", "email" = "neumann.bastian@gmail.com"},
 ]
@@ -37,7 +37,7 @@ show_error_codes = true
 enable_error_code = "ignore-without-code"
 
 [tool.ruff]
-target-version = "py38"
+target-version = "py39"
 line-length = 120
 
 select = [
