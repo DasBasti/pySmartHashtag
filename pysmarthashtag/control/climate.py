@@ -55,10 +55,8 @@ class ClimateControll:
 
     def _get_payload(self, active: bool) -> str:
         _payload = self.BASE_PAYLOAD_TEMPLATE.copy()
-        _payload = {
-            "command": "stop" if not active else "start",
-            "timestamp": utils.create_correct_timestamp(),
-        }
+        _payload["command"] = "stop" if not active else "start"
+        _payload["timestamp"] = utils.create_correct_timestamp()
         _payload["serviceParameters"] = []
         _payload["serviceParameters"].append({"key": "rce.conditioner", "value": "1"})
         _payload["serviceParameters"].append({"key": "rce.temp", "value": f"{self.conditioning_temp:.1f}"})
