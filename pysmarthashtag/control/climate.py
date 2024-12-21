@@ -78,7 +78,7 @@ class ClimateControll:
             raise TypeError("Heating level must be an integer")
         if level > 3 or level < 0:
             raise ValueError("Seat heating level must be between 0 and 3.")
-        self.heating_levels[location.value] = level
+        self.heating_levels[location] = level
 
     async def set_climate_conditioning(self, temp: float, active: bool) -> bool:
         """Set the climate conditioning."""
