@@ -18,38 +18,44 @@ class ClimateControll:
         """Initialize the vehicle."""
         self.config = config
         self.vin = vin
+        self.conditioning_temp = 20.0
+        self.conditioning_level = 0
+
+    def _get_payload(self, active: bool) -> str:
+        return json.dumps(
+            {
+                "command": "start" if active else "stop",
+                "creator": "tc",
+                "operationScheduling": {
+                    "duration": 15,
+                    "interval": 0,
+                    "occurs": 1,
+                    "recurrentOperation": False,
+                },
+                "serviceId": "RCE_2",
+                "serviceParameters": [
+                    {"key": "rce.conditioner", "value": "1"},
+                    {"key": "rce.temp", "value": f"{self.conditioning_temp:.1f}"},
+                    {"value": "front-left", "key": "rce.heat"},
+                    {"value": "front-right", "key": "rce.heat"},
+                    {"key": "rce.heat", "value": "steering_wheel"},
+                    {"key": "rce.level", "value": f"{self.conditioning_level}"},
+                ],
+                "timestamp": utils.create_correct_timestamp(),
+            }
+        ).replace(" ", "")
 
     async def set_climate_conditioning(self, temp: float, active: bool) -> bool:
         """Set the climate conditioning."""
 
+        if not isinstance(temp, (int, float)):
+            raise TypeError("Temperature must be a number")
         if temp < 16 or temp > 30:
             raise ValueError("Temperature must be between 16 and 30 degrees.")
+        self.conditioning_temp = float(temp)
 
         async with SmartClient(self.config) as client:
-            params = json.dumps(
-                {
-                    "command": "start" if active else "stop",
-                    "creator": "tc",
-                    "operationScheduling": {
-                        "duration": 180,
-                        "interval": 0,
-                        "occurs": 1,
-                        "recurrentOperation": False,
-                    },
-                    "serviceId": "RCE_2",
-                    "serviceParameters": [
-                        {
-                            "key": "rce.conditioner",
-                            "value": "1",
-                        },
-                        {
-                            "key": "rce.temp",
-                            "value": f"{temp:.1f}",
-                        },
-                    ],
-                    "timestamp": utils.create_correct_timestamp(),
-                }
-            ).replace(" ", "")
+            params = self._get_payload(active)
             _LOGGER.debug(f"Setting climate conditioning: {params}")
             for retry in range(2):
                 try:
@@ -79,34 +85,14 @@ class ClimateControll:
     async def set_climate_seatheating(self, level: int, active: bool) -> bool:
         """Set the climate conditioning."""
 
+        if not isinstance(level, int):
+            raise TypeError("Heating level must be an integer")
         if level > 3 or (level < 1 and active):
             raise ValueError("Seat heating level must be between 0 and 3.")
+        self.conditioning_level = level
 
         async with SmartClient(self.config) as client:
-            params = json.dumps(
-                {
-                    "command": "start" if active else "stop",
-                    "creator": "tc",
-                    "operationScheduling": {
-                        "duration": 15,
-                        "interval": 0,
-                        "occurs": 1,
-                        "recurrentOperation": False,
-                    },
-                    "serviceId": "RCE_2",
-                    "serviceParameters": [
-                        {
-                            "key": "rce.heat",
-                            "value": "front-left",
-                        },
-                        {
-                            "key": "rce.level",
-                            "value": f"{level}",
-                        },
-                    ],
-                    "timestamp": utils.create_correct_timestamp(),
-                }
-            ).replace(" ", "")
+            params = self._get_payload(active)
             _LOGGER.debug(f"Setting seatheating conditioning: {params}")
             for retry in range(2):
                 try:
