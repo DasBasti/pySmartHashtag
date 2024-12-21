@@ -15,6 +15,17 @@ _LOGGER = logging.getLogger(__name__)
 class ClimateControll:
     """Provides an accessible controll of the vehicle's climate functions."""
 
+    BASE_PAYLOAD_TEMPLATE = {
+        "creator": "tc",
+        "operationScheduling": {
+            "duration": 15,
+            "interval": 0,
+            "occurs": 1,
+            "recurrentOperation": False,
+        },
+        "serviceId": "RCE_2",
+    }
+
     class HeatingLocation(str, Enum):
         """Enum for heating locations in the vehicle."""
 
@@ -34,19 +45,12 @@ class ClimateControll:
         }
 
     def _get_payload(self, active: bool) -> str:
+        _payload = self.BASE_PAYLOAD_TEMPLATE.copy()
         _payload = {
-            "command": "stop",
-            "creator": "tc",
-            "operationScheduling": {
-                "duration": 15,
-                "interval": 0,
-                "occurs": 1,
-                "recurrentOperation": False,
-            },
-            "serviceId": "RCE_2",
-            "serviceParameters": [],
+            "command": "stop" if not active else "start",
             "timestamp": utils.create_correct_timestamp(),
         }
+        _payload["serviceParameters"] = []
         _payload["serviceParameters"].append({"key": "rce.conditioner", "value": "1"})
         _payload["serviceParameters"].append({"key": "rce.temp", "value": f"{self.conditioning_temp:.1f}"})
         for loc, level in self.heating_levels.items():
