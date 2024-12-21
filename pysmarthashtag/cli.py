@@ -8,6 +8,7 @@ import os
 import time
 
 from pysmarthashtag.account import SmartAccount
+from pysmarthashtag.control.climate import HeatingLocation
 
 
 def environ_or_required(key):
@@ -147,7 +148,7 @@ async def set_seatheating(args) -> None:
     await account.get_vehicle_information(args.vin)
 
     climate_ctrl = account.vehicles[args.vin].climate_control
-    climate_ctrl.set_heating_level(climate_ctrl.HeatingLocation.DRIVER_SEAT, args.level)
+    climate_ctrl.set_heating_level(HeatingLocation.DRIVER_SEAT, args.level)
     await climate_ctrl.set_climate_conditioning(args.temp, args.active)
 
 
