@@ -146,7 +146,8 @@ async def set_seatheating(args) -> None:
     await account.get_vehicle_information(args.vin)
 
     climate_ctrl = account.vehicles[args.vin].climate_control
-    await climate_ctrl.set_climate_seatheating(args.level, args.active)
+    climate_ctrl.set_heating_level(climate_ctrl.HeatingLocation.DRIVER_SEAT, args.level)
+    await climate_ctrl.set_climate_conditioning(20, args.active)
 
 
 def _add_default_args(parser: argparse.ArgumentParser):
