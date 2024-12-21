@@ -15,12 +15,12 @@ _LOGGER = logging.getLogger(__name__)
 class ClimateControll:
     """Provides an accessible controll of the vehicle's climate functions."""
 
-    class HeatingLocation(Enum, str):
+    class HeatingLocation(str, Enum):
         """Enum for heating locations in the vehicle."""
 
-        DRIVER_SEAT = "front-left"
-        PASSENGER_SEAT = "front-right"
-        STEERING_WHEEL = "steering_wheel"
+        DRIVER_SEAT = ("front-left",)
+        PASSENGER_SEAT = ("front-right",)
+        STEERING_WHEEL = ("steering_wheel",)
 
     def __init__(self, config, vin):
         """Initialize the vehicle."""
