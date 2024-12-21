@@ -28,11 +28,13 @@ class ClimateControll:
         self.vin = vin
         self.conditioning_temp = 20.0
         self.heating_levels = {
-            f"{self.HeatingLocation.DRIVER_SEAT}": 0,
-            f"{self.HeatingLocation.PASSENGER_SEAT}": 0,
-            f"{self.HeatingLocation.STEERING_WHEEL}": 0,
+            self.HeatingLocation.DRIVER_SEAT: 0,
+            self.HeatingLocation.PASSENGER_SEAT: 0,
+            self.HeatingLocation.STEERING_WHEEL: 0,
         }
-        self._payload = {
+
+    def _get_payload(self, active: bool) -> str:
+        _payload = {
             "command": "stop",
             "creator": "tc",
             "operationScheduling": {
@@ -45,24 +47,21 @@ class ClimateControll:
             "serviceParameters": [],
             "timestamp": utils.create_correct_timestamp(),
         }
-
-    def _add_rce_heating_service(self, value: str, level: int):
-        self._payload["serviceParameter"].append({"key": "rce.heat", "value": value})
-        self._payload["serviceParameter"].append({"key": "rce.level", "value": level})
-
-    def _get_payload(self, active: bool) -> str:
-        self._payload["timestamp"] = utils.create_correct_timestamp()
-        self._payload["serviceParameter"] = []
-        self._payload["serviceParameter"].append({"key": "rce.conditioner", "value": "1"})
-        self._payload["serviceParameter"].append({"key": "rce.temp", "value": f"{self.conditioning_temp:.1f}"})
+        _payload["timestamp"] = utils.create_correct_timestamp()
+        _payload["serviceParameters"].append({"key": "rce.conditioner", "value": "1"})
+        _payload["serviceParameters"].append({"key": "rce.temp", "value": f"{self.conditioning_temp:.1f}"})
         for loc, level in self.heating_levels.items():
             if level > 0:
-                self._add_rce_heating_service(loc, f"{level}")
+                _payload["serviceParameters"] += self._add_rce_heating_service(loc, f"{level}")
 
-        return json.dumps(self._payload).replace(" ", "")
+        return json.dumps(_payload).replace(" ", "")
+
+    def _add_rce_heating_service(self, value: str, level: int):
+        payload = [{"key": "rce.heat", "value": value}, {"key": "rce.level", "value": level}]
+        return payload
 
     def set_heating_level(self, location: HeatingLocation, level: int):
-        """Set heating level for driver seat."""
+        """Set heating level for the specified location."""
         if not isinstance(level, int):
             raise TypeError("Heating level must be an integer")
         if level > 3 or level < 0:
@@ -81,43 +80,6 @@ class ClimateControll:
         async with SmartClient(self.config) as client:
             params = self._get_payload(active)
             _LOGGER.debug(f"Setting climate conditioning: {params}")
-            for retry in range(2):
-                try:
-                    vehicles_response = await client.put(
-                        API_BASE_URL + API_TELEMATICS_URL + self.vin,
-                        headers={
-                            **utils.generate_default_header(
-                                client.config.authentication.device_id,
-                                client.config.authentication.api_access_token,
-                                params={},
-                                method="PUT",
-                                url=API_TELEMATICS_URL + self.vin,
-                                body=params,
-                            )
-                        },
-                        data=params,
-                    )
-                    api_result = vehicles_response.json()
-                    return api_result["success"]
-                except SmartTokenRefreshNecessary:
-                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
-                    continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
-                    continue
-
-    async def set_climate_heating(self, level: int, active: bool) -> bool:
-        """Set the climate conditioning."""
-
-        if not isinstance(level, int):
-            raise TypeError("Heating level must be an integer")
-        if level > 3 or (level < 1 and active):
-            raise ValueError("Seat heating level must be between 0 and 3.")
-        self.conditioning_level = level
-
-        async with SmartClient(self.config) as client:
-            params = self._get_payload(active)
-            _LOGGER.debug(f"Setting seatheating conditioning: {params}")
             for retry in range(2):
                 try:
                     vehicles_response = await client.put(
