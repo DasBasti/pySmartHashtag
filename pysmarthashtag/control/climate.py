@@ -3,6 +3,7 @@
 import json
 import logging
 from enum import Enum
+from typing import TypedDict
 
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
@@ -10,6 +11,13 @@ from pysmarthashtag.const import API_BASE_URL, API_TELEMATICS_URL
 from pysmarthashtag.models import SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class ServiceParameter(TypedDict):
+    """TypedDict for service parameters."""
+
+    key: str
+    value: str
 
 
 class ClimateControll:
@@ -59,7 +67,7 @@ class ClimateControll:
 
         return json.dumps(_payload).replace(" ", "")
 
-    def _add_rce_heating_service(self, value: str, level: int) -> list[dict[str, str]]:
+    def _add_rce_heating_service(self, value: str, level: int) -> list[ServiceParameter]:
         """Create heating service parameters for the payload.
 
         Args:
