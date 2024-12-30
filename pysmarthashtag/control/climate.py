@@ -34,7 +34,7 @@ class ClimateControll:
     BASE_PAYLOAD_TEMPLATE = {
         "creator": "tc",
         "operationScheduling": {
-            "duration": 15,
+            "duration": 180,
             "interval": 0,
             "occurs": 1,
             "recurrentOperation": False,
