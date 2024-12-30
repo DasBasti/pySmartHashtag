@@ -4,17 +4,16 @@ import hmac
 import logging
 import secrets
 import time
-from typing import Dict
 
 _LOGGER = logging.getLogger(__name__)
 
 
-def join_url_params(args: Dict) -> str:
+def join_url_params(args: dict) -> str:
     """Join params for adding to URL."""
     return "&".join([f"{key}={value}" for key, value in args.items()])
 
 
-def _create_sign(nonce: str, params: Dict, timestamp: str, method: str, url: str, body=None) -> str:
+def _create_sign(nonce: str, params: dict, timestamp: str, method: str, url: str, body=None) -> str:
     """Create a signature for the request."""
     md5sum = base64.b64encode(hashlib.md5(body.encode()).digest()).decode() if body else "1B2M2Y8AsgTpgAmY7PhCfg=="
     url_params = join_url_params(params)
@@ -37,8 +36,8 @@ x-api-signature-version:1.0
 
 
 def generate_default_header(
-    device_id: str, access_token: str, params: Dict, method: str, url: str, body=None
-) -> Dict[str, str]:
+    device_id: str, access_token: str, params: dict, method: str, url: str, body=None
+) -> dict[str, str]:
     """Generate a header for HTTP requests to the server."""
     timestamp = create_correct_timestamp()
     nonce = secrets.token_hex(8)
