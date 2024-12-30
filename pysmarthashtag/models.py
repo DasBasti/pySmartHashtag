@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, Dict, List, NamedTuple, Optional, Union
+from typing import Any, NamedTuple, Optional, Union
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,14 +33,14 @@ class VehicleDataBase:
     timestamp: Optional[datetime] = None
 
     @classmethod
-    def from_vehicle_data(cls, vehicle_data: Dict):
+    def from_vehicle_data(cls, vehicle_data: dict):
         """Create a new instance based on data from API."""
         parsed = cls._parse_vehicle_data(vehicle_data) or {}
         if len(parsed) > 0:
             return cls(**parsed)
         return None
 
-    def update_from_vehicle_data(self, vehicle_data: Dict):
+    def update_from_vehicle_data(self, vehicle_data: dict):
         """Update the instance with data from API."""
         parsed = self._parse_vehicle_data(vehicle_data) or {}
         parsed.update(self._update_after_parse(vehicle_data))
@@ -48,11 +48,11 @@ class VehicleDataBase:
             self.__dict__.update(parsed)
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: Dict) -> Optional[Dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
         """Parse the vehicle data."""
         raise NotImplementedError()
 
-    def _update_after_parse(self, parsed: Dict) -> Dict:
+    def _update_after_parse(self, parsed: dict) -> dict:
         """Update the instance with data from API."""
         return parsed
 
@@ -69,7 +69,7 @@ class AnonymizedResponse:
     """An anonymized response."""
 
     filename: str
-    content: Optional[Union[List, Dict, str]] = None
+    content: Optional[Union[list, dict, str]] = None
 
 
 class SmartAPIError(Exception):

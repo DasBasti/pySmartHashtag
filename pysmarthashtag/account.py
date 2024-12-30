@@ -4,7 +4,6 @@ import datetime
 import json
 import logging
 from dataclasses import InitVar, dataclass, field
-from typing import Dict
 
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
@@ -34,7 +33,7 @@ class SmartAccount:
     log_responses: InitVar[bool] = False
     """Optional. If set, all responses from the server will be logged to this directory."""
 
-    vehicles: Dict[str, SmartVehicle] = field(default_factory=dict, init=False)
+    vehicles: dict[str, SmartVehicle] = field(default_factory=dict, init=False)
     """Vehicles associated with the account."""
 
     def __post_init__(self, password, log_responses):
@@ -77,18 +76,18 @@ class SmartAccount:
                             )
                         },
                     )
-                    _LOGGER.debug(f"Got response {vehicles_response.status_code} from {vehicles_response.text}")
+                    _LOGGER.debug("Got response %d from %s", vehicles_response.status_code, vehicles_response.text)
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue
                 except SmartHumanCarConnectionError:
-                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
                     self._init_vehicles()
                     continue
                 break
 
             for vehicle in vehicles_response.json()["data"]["list"]:
-                _LOGGER.debug(f"Found vehicle {vehicle}")
+                _LOGGER.debug("Found vehicle %s", vehicle)
                 self.add_vehicle(vehicle, fetched_at)
 
     def add_vehicle(self, vehicle, fetched_at):
@@ -106,7 +105,7 @@ class SmartAccount:
             await self._init_vehicles()
 
         for vin, vehicle in self.vehicles.items():
-            _LOGGER.debug(f"Getting vehicle {vehicle.data}")
+            _LOGGER.debug("Getting vehicle %s", vehicle.data)
             await self.select_active_vehicle(vin)
             vehicle_info = await self.get_vehicle_information(vin)
             vehicle_soc = await self.get_vehicle_soc(vin)
@@ -114,7 +113,7 @@ class SmartAccount:
 
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
-        _LOGGER.debug(f"Selecting vehicle {vin}")
+        _LOGGER.debug("Selecting vehicle %s", vin)
         data = json.dumps(
             {
                 "vin": vin,
@@ -139,19 +138,19 @@ class SmartAccount:
                         },
                         data=data,
                     )
-                    _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue
                 except SmartHumanCarConnectionError:
-                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
                     self.select_active_vehicle(vin)
                     continue
                 break
 
     async def get_vehicle_information(self, vin) -> str:
         """Get information about a vehicle."""
-        _LOGGER.debug(f"Getting information for vehicle {vin}")
+        _LOGGER.debug("Getting information for vehicle %s", vin)
         params = {
             "latest": True,
             "target": "basic%2Cmore",
@@ -173,14 +172,14 @@ class SmartAccount:
                             )
                         },
                     )
-                    _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue
                 except SmartHumanCarConnectionError:
-                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
                     self.select_active_vehicle(vin)
                     continue
                 break
@@ -190,7 +189,7 @@ class SmartAccount:
 
     async def get_vehicle_soc(self, vin) -> str:
         """Get information about a vehicle."""
-        _LOGGER.debug(f"Getting information for vehicle {vin}")
+        _LOGGER.debug("Getting information for vehicle %s", vin)
         params = {
             "setting": "charging",
         }
@@ -214,14 +213,14 @@ class SmartAccount:
                             )
                         },
                     )
-                    _LOGGER.debug(f"Got response {r_car_info.status_code} from {r_car_info.text}")
+                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue
                 except SmartHumanCarConnectionError:
-                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
                     self.select_active_vehicle(vin)
                     continue
                 break

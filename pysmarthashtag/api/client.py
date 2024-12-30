@@ -1,7 +1,7 @@
 import logging
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from typing import Deque, Optional
+from typing import Optional
 
 import httpx
 
@@ -18,7 +18,7 @@ from pysmarthashtag.models import (
 
 _LOGGER = logging.getLogger(__name__)
 
-RESPONSE_STORE: Deque[AnonymizedResponse] = deque(maxlen=10)
+RESPONSE_STORE: deque[AnonymizedResponse] = deque(maxlen=10)
 
 
 @dataclass

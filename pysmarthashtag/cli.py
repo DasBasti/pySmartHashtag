@@ -19,7 +19,7 @@ def environ_or_required(key):
 def main_parser() -> argparse.ArgumentParser:
     """Create argument parser."""
 
-    LOGGING_CONFIG = {
+    logging_config = {
         "version": 1,
         "handlers": {
             "default": {"class": "logging.StreamHandler", "formatter": "http", "stream": "ext://sys.stderr"},
@@ -49,7 +49,7 @@ def main_parser() -> argparse.ArgumentParser:
         },
     }
 
-    logging.config.dictConfig(LOGGING_CONFIG)
+    logging.config.dictConfig(logging_config)
 
     parser = argparse.ArgumentParser(description="Smart API demo")
     subparsers = parser.add_subparsers(dest="command")
@@ -109,7 +109,7 @@ async def get_vehicle_information(args) -> None:
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
 
-    for vin, vehicle in account.vehicles.items():
+    for vin, _ in account.vehicles.items():
         car = await account.get_vehicle_information(vin)
         print(f"VIN: {vin}")
         print(f"{car}")
@@ -121,7 +121,7 @@ async def watch_car(args) -> None:
     await account.get_vehicles()
 
     while True:
-        for vin, vehicle in account.vehicles.items():
+        for vin, _ in account.vehicles.items():
             car = await account.get_vehicle_information(vin)
             print(car)
         time.sleep(args.i)
