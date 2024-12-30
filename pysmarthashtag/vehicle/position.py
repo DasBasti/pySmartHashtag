@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_element_from_dict_maybe
 
@@ -28,7 +28,7 @@ class Position(VehicleDataBase):
     """Position can be trusted."""
 
     @classmethod
-    def from_vehicle_data(self, vehicle_data: Dict):
+    def from_vehicle_data(self, vehicle_data: dict):
         """Create a new instance based on data from API."""
         parsed = self._parse_vehicle_data(vehicle_data) or {}
         if len(parsed) > 0:
@@ -36,10 +36,10 @@ class Position(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(self, vehicle_data: Dict) -> Optional[Dict]:
+    def _parse_vehicle_data(self, vehicle_data: dict) -> Optional[dict]:
         """Parse the position data based on Ids."""
         _LOGGER.debug(f"Parsing position data: {vehicle_data}")
-        retval: Dict[str, Any] = {}
+        retval: dict[str, Any] = {}
         position = get_element_from_dict_maybe(vehicle_data, "vehicleStatus", "basicVehicleStatus", "position")
         try:
             retval["altitude"] = ValueWithUnit(int(position["altitude"]), "m")
