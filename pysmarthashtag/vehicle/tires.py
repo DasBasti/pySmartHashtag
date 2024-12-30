@@ -59,10 +59,10 @@ class Tires(VehicleDataBase):
                 ValueWithUnit(float(maintenance_status["tyreTempPassengerRear"]), "C"),
             ]
             retval["temperature_pre_warning"] = [
-                True if maintenance_status["tyrePreWarningDriver"] == "1" else False,
-                True if maintenance_status["tyrePreWarningDriverRear"] == "1" else False,
-                True if maintenance_status["tyrePreWarningPassenger"] == "1" else False,
-                True if maintenance_status["tyrePreWarningPassengerRear"] == "1" else False,
+                maintenance_status["tyrePreWarningDriver"] == "1",
+                maintenance_status["tyrePreWarningDriverRear"] == "1",
+                maintenance_status["tyrePreWarningPassenger"] == "1",
+                maintenance_status["tyrePreWarningPassengerRear"] == "1",
             ]
             retval["tire_pressure"] = [
                 ValueWithUnit(float(maintenance_status["tyreStatusDriver"]), "kPa"),
@@ -71,10 +71,10 @@ class Tires(VehicleDataBase):
                 ValueWithUnit(float(maintenance_status["tyreStatusPassengerRear"]), "kPa"),
             ]
             retval["temperature_warning"] = [
-                True if maintenance_status["tyreTempWarningDriver"] == "1" else False,
-                True if maintenance_status["tyreTempWarningDriverRear"] == "1" else False,
-                True if maintenance_status["tyreTempWarningPassenger"] == "1" else False,
-                True if maintenance_status["tyreTempWarningPassengerRear"] == "1" else False,
+                maintenance_status["tyreTempWarningDriver"] == "1",
+                maintenance_status["tyreTempWarningDriverRear"] == "1",
+                maintenance_status["tyreTempWarningPassenger"] == "1",
+                maintenance_status["tyreTempWarningPassengerRear"] == "1",
             ]
 
         except KeyError as e:
