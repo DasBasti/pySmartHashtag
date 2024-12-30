@@ -4,7 +4,6 @@ import datetime
 import json
 import logging
 from dataclasses import InitVar, dataclass, field
-from typing import Dict
 
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
@@ -34,7 +33,7 @@ class SmartAccount:
     log_responses: InitVar[bool] = False
     """Optional. If set, all responses from the server will be logged to this directory."""
 
-    vehicles: Dict[str, SmartVehicle] = field(default_factory=dict, init=False)
+    vehicles: dict[str, SmartVehicle] = field(default_factory=dict, init=False)
     """Vehicles associated with the account."""
 
     def __post_init__(self, password, log_responses):
