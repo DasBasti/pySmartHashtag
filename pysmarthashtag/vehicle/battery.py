@@ -4,7 +4,7 @@ import logging
 import math
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Optional
 
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase
 
@@ -179,7 +179,7 @@ class Battery(VehicleDataBase):
     """Current average consumption"""
 
     @classmethod
-    def from_vehicle_data(self, vehicle_data: Dict):
+    def from_vehicle_data(self, vehicle_data: dict):
         """Create a new instance based on data from API."""
         parsed = self._parse_vehicle_data(vehicle_data) or {}
         if len(parsed) > 0:
@@ -187,10 +187,10 @@ class Battery(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(self, vehicle_data: Dict) -> Optional[Dict]:
+    def _parse_vehicle_data(self, vehicle_data: dict) -> Optional[dict]:
         """Parse the battery data based on Ids."""
         _LOGGER.debug(f"Parsing battery data: {vehicle_data}")
-        retval: Dict[str, Any] = {}
+        retval: dict[str, Any] = {}
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["electricVehicleStatus"]
             if "distanceToEmptyOnBatteryOnly" in evStatus:
