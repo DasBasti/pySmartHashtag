@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional
+from typing import Any, Optional
 
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase
 
@@ -25,20 +25,20 @@ class TireLocation(Enum):
 class Tires(VehicleDataBase):
     """Provides an accessible version of the vehicle's battery data."""
 
-    temperature: Optional[List[ValueWithUnit]] = None
+    temperature: Optional[list[ValueWithUnit]] = None
     """Temperature of the tires."""
 
-    temperature_warning: Optional[List[bool]] = None
+    temperature_warning: Optional[list[bool]] = None
     """Temperature warning of the tires."""
 
-    temperature_pre_warning: Optional[List[bool]] = None
+    temperature_pre_warning: Optional[list[bool]] = None
     """Temperature pre warning of the tires."""
 
-    tire_pressure: Optional[List[ValueWithUnit]] = None
+    tire_pressure: Optional[list[ValueWithUnit]] = None
     """Temperature status of the tires."""
 
     @classmethod
-    def from_vehicle_data(self, vehicle_data: Dict):
+    def from_vehicle_data(self, vehicle_data: dict):
         """Create a new instance based on data from API."""
         parsed = self._parse_vehicle_data(vehicle_data) or {}
         if len(parsed) > 0:
@@ -46,10 +46,10 @@ class Tires(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(self, vehicle_data: Dict) -> Optional[Dict]:
+    def _parse_vehicle_data(self, vehicle_data: dict) -> Optional[dict]:
         """Parse the battery data based on Ids."""
         _LOGGER.debug(f"Parsing battery data: {vehicle_data}")
-        retval: Dict[str, Any] = {}
+        retval: dict[str, Any] = {}
         try:
             maintenance_status = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["maintenanceStatus"]
             retval["temperature"] = [
