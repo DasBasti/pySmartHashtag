@@ -215,6 +215,8 @@ class Battery(VehicleDataBase):
                 retval["charger_connection_status"] = int(evStatus["statusOfChargerConnection"])
 
             if "dcChargeIAct" in evStatus and retval["charging_status"] == "DC_CHARGING":
+                if retval["remaining_battery_percent"].value > 100:
+                    retval["remaining_battery_percent"].value = 100
                 retval["charging_voltage"] = ValueWithUnit(
                     DcChargingVoltLevels[retval["remaining_battery_percent"].value], "V"
                 )
