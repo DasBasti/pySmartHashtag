@@ -180,7 +180,7 @@ class SmartAccount:
                     continue
                 except SmartHumanCarConnectionError:
                     _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
-                    self.select_active_vehicle(vin)
+                    await self.select_active_vehicle(vin)
                     continue
                 break
             if retry > 1:

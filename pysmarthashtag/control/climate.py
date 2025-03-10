@@ -101,7 +101,7 @@ class ClimateControll:
             raise ValueError("Temperature must be between 16 and 30 degrees.")
         self.conditioning_temp = float(temp)
 
-        self.account.select_active_vehicle(self.vin)
+        await self.account.select_active_vehicle(self.vin)
 
         async with SmartClient(self.config) as client:
             params = self._get_payload(active)
