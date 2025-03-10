@@ -87,7 +87,7 @@ async def test_no_human_car_connection(smart_fixture: respx.Router):
     car_connection = smart_fixture.post(API_BASE_URL + API_SELECT_CAR_URL).mock(side_effect=count_car_selection)
 
     await account.get_vehicle_information("TestVIN0000000001")
-    assert car_connection.call_count == 2  # 2 times for the connection refresh (this is new??)
+    assert car_connection.call_count == 3  # 2 times for the connection refresh (this is new??)
     assert vehicle_status.call_count == 3  # 2 times for the token refresh and 1 time for the inital call
 
 
@@ -102,3 +102,5 @@ async def test_get_vehicle_chargin_dc(smart_fixture: respx.Router):
     assert vehicles["TestVIN0000000002"].battery.charging_status == "DC_CHARGING"
     assert vehicles["TestVIN0000000002"].battery.is_charger_connected
     assert vehicles["TestVIN0000000002"].battery.charging_current == ValueWithUnit(value=102.6, unit="A")
+    assert vehicles["TestVIN0000000002"].battery.charging_voltage == ValueWithUnit(value=429, unit="V")
+    assert vehicles["TestVIN0000000002"].battery.charging_power == ValueWithUnit(value=44015, unit="W")
