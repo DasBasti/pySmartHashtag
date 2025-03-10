@@ -9,6 +9,11 @@ on:
   pull_request:
     branches: ["main"]
 
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -39,4 +44,9 @@ jobs:
           flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
       - name: Test with pytest
         run: |
-          pytest
+          pytest --cov=pysmarthashtag --cov-report=xml --cov-report=term-missing --cov-fail-under=80 pysmarthashtag/tests/
+      - name: Pytest coverage comment
+        id: coverageComment
+        uses: MishaKav/pytest-coverage-comment@main
+        with:
+          pytest-xml-coverage-path: ./coverage.xml
