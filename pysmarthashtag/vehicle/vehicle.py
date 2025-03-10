@@ -104,7 +104,7 @@ class SmartVehicle:
 
         from pysmarthashtag.control.climate import ClimateControll
 
-        self.climate_control = ClimateControll(self.account.config, self.vin)
+        self.climate_control = ClimateControll(self.account, self.vin)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
