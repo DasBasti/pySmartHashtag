@@ -99,6 +99,8 @@ async def test_get_vehicle_chargin_dc(smart_fixture: respx.Router):
     assert account.vehicles is not None
     vehicles = account.vehicles
     assert len(vehicles) == 2
+    # TODO: missing ac charging
+    # TODO: missing 3-phase charging
     assert vehicles["TestVIN0000000002"].battery.charging_status == "DC_CHARGING"
     assert vehicles["TestVIN0000000002"].battery.is_charger_connected
     assert vehicles["TestVIN0000000002"].battery.charging_current == ValueWithUnit(value=102.6, unit="A")
