@@ -1,6 +1,6 @@
 [project]
 name = "pySmartHashtag"
-version = "0.6.3"
+version = "0.6.4"
 authors = [
     {"name" = "Bastian Neumann", "email" = "neumann.bastian@gmail.com"},
 ]
@@ -66,7 +66,7 @@ exclude = [
 
 [tool.ruff.per-file-ignores]
 "docs/source/conf.py" = ["D100"]
-"pysamerhashtag/api/authentication.py" = ["D102", "D107"]
+"pysamrthashtag/api/authentication.py" = ["D102", "D107"]
 
 [tool.ruff.mccabe]
 max-complexity = 25
