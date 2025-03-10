@@ -5,6 +5,7 @@ import logging
 from enum import Enum
 from typing import TypedDict
 
+from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
 from pysmarthashtag.const import API_BASE_URL, API_TELEMATICS_URL
@@ -42,9 +43,10 @@ class ClimateControll:
         "serviceId": "RCE_2",
     }
 
-    def __init__(self, config, vin):
+    def __init__(self, account: SmartAccount, vin: str):
         """Initialize the vehicle."""
-        self.config = config
+        self.account = account
+        self.config = account.config
         self.vin = vin
         self.conditioning_temp = 20.0
         self.heating_levels: dict[HeatingLocation, int] = {
@@ -98,6 +100,8 @@ class ClimateControll:
         if temp < 16 or temp > 30:
             raise ValueError("Temperature must be between 16 and 30 degrees.")
         self.conditioning_temp = float(temp)
+
+        self.account.select_active_vehicle(self.vin)
 
         async with SmartClient(self.config) as client:
             params = self._get_payload(active)
