@@ -219,11 +219,16 @@ class Battery(VehicleDataBase):
                     DcChargingVoltLevels[retval["remaining_battery_percent"].value], "V"
                 )
                 retval["charging_current"] = ValueWithUnit(abs(float(evStatus["dcChargeIAct"])), "A")
+                retval["charging_power"] = ValueWithUnit(
+                    math.floor(
+                        retval["charging_current"].value
+                        * DcChargingVoltLevels[retval["remaining_battery_percent"].value]
+                    ),
+                    "W",
+                )
             elif "chargeUAct" in evStatus and "chargeIAct" in evStatus:
                 retval["charging_voltage"] = ValueWithUnit(float(evStatus["chargeUAct"]), "V")
                 retval["charging_current"] = ValueWithUnit(float(evStatus["chargeIAct"]), "A")
-
-            if "chargeIAct" in evStatus and "chargeUAct" in evStatus:
                 retval["charging_power"] = ValueWithUnit(
                     float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"])
                     if retval["charging_voltage"].value < 260
