@@ -163,8 +163,7 @@ def main():
     parser = main_parser()
     args = parser.parse_args()
 
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(args.func(args))
+    asyncio.run(args.func(args))
 
 
 if __name__ == "__main__":
