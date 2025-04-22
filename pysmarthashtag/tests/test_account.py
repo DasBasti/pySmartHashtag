@@ -64,7 +64,6 @@ async def test_no_human_car_connection(smart_fixture: respx.Router):
     did_call_car_selection = 0
 
     def switch_response(request: Request, route: respx.Route) -> Response:
-        nonlocal did_call_car_selection
         json_responsees = [
             "Human_and_vehicle_relationship_does_not_exist.json",
             "vehicle_info.json",
