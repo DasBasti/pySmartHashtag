@@ -8,8 +8,8 @@ from pysmarthashtag.const import (
     API_SELECT_CAR_URL,
     API_SESION_URL,
     AUTH_URL,
-    CONTEXT_URL,
     LOGIN_URL,
+    SERVER_URL,
 )
 from pysmarthashtag.tests import RESPONSE_DIR, load_response
 
@@ -33,7 +33,7 @@ class SmartMockRouter(respx.MockRouter):
         """Add routes for login."""
 
         # Login context
-        self.get(CONTEXT_URL).respond(302, headers={"location": load_response(RESPONSE_DIR / "auth_context.url")})
+        self.get(SERVER_URL).respond(302, headers={"location": load_response(RESPONSE_DIR / "auth_context.url")})
         self.get(load_response(RESPONSE_DIR / "auth_context.url")).respond(
             200,
         )

@@ -19,9 +19,9 @@ from pysmarthashtag.const import (
     API_KEY,
     API_SESION_URL,
     AUTH_URL,
-    CONTEXT_URL,
     HTTPX_TIMEOUT,
     LOGIN_URL,
+    SERVER_URL,
 )
 from pysmarthashtag.models import SmartAPIError
 
@@ -152,7 +152,7 @@ class SmartAuthentication(httpx.Auth):
 
             # Get Context
             r_context = await client.get(
-                CONTEXT_URL,
+                SERVER_URL,
                 headers={
                     "x-app-id": "SmartAPPEU",
                     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",  # noqa: E501
