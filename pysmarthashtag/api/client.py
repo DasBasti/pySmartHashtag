@@ -68,6 +68,14 @@ class SmartClient(httpx.AsyncClient):
             await response.aread()
             request = response.request
             _LOGGER.debug(f"Response: {request.method} {request.url} - Status {response.status_code}")
+            if _LOGGER.level <= logging.INFO:
+                import hashlib
+                import json
+                import pprint
+
+                with open(f"response-{request.method}-{hashlib.md5(request.url.raw_path).hexdigest()}.json", "w") as f:
+                    jd = json.loads(response.text)
+                    f.write(pprint.pformat(jd).replace("'", '"'))
 
         kwargs["event_hooks"]["response"].append(log_response)
         kwargs["event_hooks"]["request"].append(log_request)
