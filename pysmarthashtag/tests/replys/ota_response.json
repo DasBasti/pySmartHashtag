@@ -1,0 +1,90 @@
+{
+  "currentVersion": "smart OS 1.5.2 EU",
+  "currentReleaseNotes": [
+    {
+      "language": "8",
+      "description": "1.Weergave in de auto voor Apple CarPlay-gebruikers aangepast.\n2.Verbeterde logica waarschuwing accuvermogen.\n3.Verbeterde hoorbaarheid van waarschuwingen bij achteruitrijden.\n4.Waarschuwingstekst Rocket Launch-modus verbeterd.\n5.FM/DAB-zenderlijsten verbeterd en uitgebreid.\n6.Gebruikers kunnen nu de spatie als teken gebruiken in een wifi-wachtwoord. \n(Zie smart.com voor meer info)"
+    },
+    {
+      "language": "35",
+      "description": "1.Visning i bilen har anpassats för Apple CarPlay-användare.\n2.Förbättrad logik för varning om batteriets strömförsörjning. \n3.Förbättrad ljud av varningssignaler vid backning.\n4.Varningstexten för Rocket Launch-läget har förbättrats.\n5.Förbättrad visning av FM/DAB-stationer.\n6.Användarna kan nu använda mellanslag som ett tecken i ett WiFi-lösenord. \n(Mer information finns på smart.com)"
+    },
+    {
+      "language": "33",
+      "description": "1.Adaptación de la visualización en pantalla para usuarios de Apple CarPlay.\n2.Mejora de la lógica para la advertencia relacionada con la potencia de salida.\n3.Mejora del sonido de alertas durante la marcha atrás.\n4.Mejora del texto de la advertencia relacionada con el modo Rocket Launch.\n5.Mejora de los listados de emisoras FM/DAB.\n6.Posibilidad de utilizar la tecla de barra espaciadora como carácter en una contraseña wifi. \n(Más información en smart.com)."
+    },
+    {
+      "language": "28",
+      "description": "1.Adaptação do ecrã para utilizadores do Apple CarPlay.\n2.Lógica melhorada para o aviso de alimentação da bateria.\n3.Melhoria da audibilidade dos alertas em marcha atrás.\n4.Texto de aviso do modo rocket launch melhorado.\n5.Listagens de estações FM/DAB melhoradas e aperfeiçoadas.\n6.Os utilizadores podem agora utilizar a tecla de espaço como um caracter numa palavra-passe WiFi. \n(Visitar smart.com para mais informações)"
+    },
+    {
+      "language": "25",
+      "description": "1.Displayet i bilen er tilpasset Apple CarPlay-brukere.\n2. Forbedret logikk for varsling av batteristrømutgang. \n3.Forbedret hørbarhet ved rygging.\n4.Forbedret advarselstekst for  «Rocket Launch»-modus.\n5.FM/DAB-stasjonslisten er forbedret og utvidet.\n6.Brukere kan nå bruke mellomromstasten som et tegn i et Wi-Fi-passord. \n（Se smart.com for mer informasjon）"
+    },
+    {
+      "language": "20",
+      "description": "1.In-car display adattato per gli utenti Apple CarPlay.\n2.Logica migliorata per l'avviso sulla potenza in uscita della batteria.\n3.Udibilità degli avvisi migliorata durante la retromarcia.\n4.Testo di avviso della modalità Rocket launch migliorato.\n5.Elenchi delle stazioni FM/DAB migliorati e potenziati.\n6.Gli utenti possono ora utilizzare lo spazio come carattere nella password del Wi-Fi. \n(Per saperne di più, consultare smart.com)"
+    },
+    {
+      "language": "17",
+      "description": "1.Displayanzeige für Nutzer von Apple CarPlay im Fahrzeug wurde angepasst.\n2.Verbesserte Logik für die Warnung bei niedriger Batterieleistung.\n3.Verbesserte akustische Warnung beim Rückwärtsfahren.\n4.Warnhinweis für Rocket Launch Modus verbessert.\n5.FM/DAB-Senderliste verbessert und erweitert.\n6.Nutzer können die Leertaste jetzt als Zeichen für ihr WLAN-Passwort verwenden. \n(Weitere Informationen auf smart.com)"
+    },
+    {
+      "language": "16",
+      "description": "1.Adaptation de l'affichage embarqué pour les utilisateurs d'Apple CarPlay.\n2.Amélioration de la logique qui déclenche l'apparition de l'alerte de faible puissance du véhicule.\n3.Amélioration de l’audibilité des alertes sonores lors des manœuvres de stationnement.\n4.Amélioration du texte du mode \"Rocket Launch\".\n5.Amélioration des listes de stations FM/DAB.\n6.Les utilisateurs peuvent désormais utiliser un espace comme caractère dans un mot de passe Wi-Fi. \n(Voir smart.com pour plus de détails)"
+    },
+    {
+      "language": "cn-GB",
+      "description": "1.In-car display for Apple CarPlay users adapted.\n2.Enhanced logic for the battery power output warning. \n3.Improved alerts audibility when reversing.\n4.Rocket launch mode warning text improved.\n5.FM/DAB station listings improved and enhanced.\n6.Users can now use the space key as a character in a Wi-Fi password. \n(See smart.com for more)"
+    },
+    {
+      "language": "en-GB",
+      "description": "1.In-car display for Apple CarPlay users adapted.\n2.Enhanced logic for the battery power output warning. \n3.Improved alerts audibility when reversing.\n4.Rocket launch mode warning text improved.\n5.FM/DAB station listings improved and enhanced.\n6.Users can now use the space key as a character in a Wi-Fi password. \n(See smart.com for more)"
+    }
+  ],
+  "targetVersion": "smart OS 1.5.2 EU",
+  "targetReleaseNotes": [
+    {
+      "language": "en-GB",
+      "description": "1.In-car display for Apple CarPlay users adapted.\n2.Enhanced logic for the battery power output warning. \n3.Improved alerts audibility when reversing.\n4.Rocket launch mode warning text improved.\n5.FM/DAB station listings improved and enhanced.\n6.Users can now use the space key as a character in a Wi-Fi password. \n(See smart.com for more)"
+    },
+    {
+      "language": "cn-GB",
+      "description": "1.In-car display for Apple CarPlay users adapted.\n2.Enhanced logic for the battery power output warning. \n3.Improved alerts audibility when reversing.\n4.Rocket launch mode warning text improved.\n5.FM/DAB station listings improved and enhanced.\n6.Users can now use the space key as a character in a Wi-Fi password. \n(See smart.com for more)"
+    },
+    {
+      "language": "16",
+      "description": "1.Adaptation de l'affichage embarqué pour les utilisateurs d'Apple CarPlay.\n2.Amélioration de la logique qui déclenche l'apparition de l'alerte de faible puissance du véhicule.\n3.Amélioration de l’audibilité des alertes sonores lors des manœuvres de stationnement.\n4.Amélioration du texte du mode \"Rocket Launch\".\n5.Amélioration des listes de stations FM/DAB.\n6.Les utilisateurs peuvent désormais utiliser un espace comme caractère dans un mot de passe Wi-Fi. \n(Voir smart.com pour plus de détails)"
+    },
+    {
+      "language": "17",
+      "description": "1.Displayanzeige für Nutzer von Apple CarPlay im Fahrzeug wurde angepasst.\n2.Verbesserte Logik für die Warnung bei niedriger Batterieleistung.\n3.Verbesserte akustische Warnung beim Rückwärtsfahren.\n4.Warnhinweis für Rocket Launch Modus verbessert.\n5.FM/DAB-Senderliste verbessert und erweitert.\n6.Nutzer können die Leertaste jetzt als Zeichen für ihr WLAN-Passwort verwenden. \n(Weitere Informationen auf smart.com)"
+    },
+    {
+      "language": "20",
+      "description": "1.In-car display adattato per gli utenti Apple CarPlay.\n2.Logica migliorata per l'avviso sulla potenza in uscita della batteria.\n3.Udibilità degli avvisi migliorata durante la retromarcia.\n4.Testo di avviso della modalità Rocket launch migliorato.\n5.Elenchi delle stazioni FM/DAB migliorati e potenziati.\n6.Gli utenti possono ora utilizzare lo spazio come carattere nella password del Wi-Fi. \n(Per saperne di più, consultare smart.com)"
+    },
+    {
+      "language": "25",
+      "description": "1.Displayet i bilen er tilpasset Apple CarPlay-brukere.\n2. Forbedret logikk for varsling av batteristrømutgang. \n3.Forbedret hørbarhet ved rygging.\n4.Forbedret advarselstekst for  «Rocket Launch»-modus.\n5.FM/DAB-stasjonslisten er forbedret og utvidet.\n6.Brukere kan nå bruke mellomromstasten som et tegn i et Wi-Fi-passord. \n（Se smart.com for mer informasjon）"
+    },
+    {
+      "language": "28",
+      "description": "1.Adaptação do ecrã para utilizadores do Apple CarPlay.\n2.Lógica melhorada para o aviso de alimentação da bateria.\n3.Melhoria da audibilidade dos alertas em marcha atrás.\n4.Texto de aviso do modo rocket launch melhorado.\n5.Listagens de estações FM/DAB melhoradas e aperfeiçoadas.\n6.Os utilizadores podem agora utilizar a tecla de espaço como um caracter numa palavra-passe WiFi. \n(Visitar smart.com para mais informações)"
+    },
+    {
+      "language": "33",
+      "description": "1.Adaptación de la visualización en pantalla para usuarios de Apple CarPlay.\n2.Mejora de la lógica para la advertencia relacionada con la potencia de salida.\n3.Mejora del sonido de alertas durante la marcha atrás.\n4.Mejora del texto de la advertencia relacionada con el modo Rocket Launch.\n5.Mejora de los listados de emisoras FM/DAB.\n6.Posibilidad de utilizar la tecla de barra espaciadora como carácter en una contraseña wifi. \n(Más información en smart.com)."
+    },
+    {
+      "language": "35",
+      "description": "1.Visning i bilen har anpassats för Apple CarPlay-användare.\n2.Förbättrad logik för varning om batteriets strömförsörjning. \n3.Förbättrad ljud av varningssignaler vid backning.\n4.Varningstexten för Rocket Launch-läget har förbättrats.\n5.Förbättrad visning av FM/DAB-stationer.\n6.Användarna kan nu använda mellanslag som ett tecken i ett WiFi-lösenord. \n(Mer information finns på smart.com)"
+    },
+    {
+      "language": "8",
+      "description": "1.Weergave in de auto voor Apple CarPlay-gebruikers aangepast.\n2.Verbeterde logica waarschuwing accuvermogen.\n3.Verbeterde hoorbaarheid van waarschuwingen bij achteruitrijden.\n4.Waarschuwingstekst Rocket Launch-modus verbeterd.\n5.FM/DAB-zenderlijsten verbeterd en uitgebreid.\n6.Gebruikers kunnen nu de spatie als teken gebruiken in een wifi-wachtwoord. \n(Zie smart.com voor meer info)"
+    }
+  ],
+  "hasNewAssignment": false,
+  "newStatus": ""
+}

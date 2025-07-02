@@ -106,7 +106,7 @@ class ClimateControll:
         async with SmartClient(self.config) as client:
             params = self._get_payload(active)
             _LOGGER.debug(f"Setting climate conditioning: {params}")
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     vehicles_response = await client.put(
                         API_BASE_URL + API_TELEMATICS_URL + self.vin,

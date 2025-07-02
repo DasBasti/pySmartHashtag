@@ -10,6 +10,7 @@ from pysmarthashtag.const import (
     API_SESION_URL,
     AUTH_URL,
     LOGIN_URL,
+    OTA_SERVER_URL,
     SERVER_URL,
 )
 from pysmarthashtag.tests import RESPONSE_DIR, load_response
@@ -86,3 +87,12 @@ class SmartMockRouter(respx.MockRouter):
                 200,
                 json=load_response(RESPONSE_DIR / "soc_90.json"),
             )
+
+        self.get(OTA_SERVER_URL + "app/info/TestVIN0000000001").respond(
+            200,
+            json=load_response(RESPONSE_DIR / "ota_response.json"),
+        )
+        self.get(OTA_SERVER_URL + "app/info/TestVIN0000000002").respond(
+            200,
+            json=load_response(RESPONSE_DIR / "ota_response.json"),
+        )

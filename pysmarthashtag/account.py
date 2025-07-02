@@ -8,7 +8,7 @@ from dataclasses import InitVar, dataclass, field
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
-from pysmarthashtag.const import API_BASE_URL, API_CARS_URL, API_SELECT_CAR_URL
+from pysmarthashtag.const import API_BASE_URL, API_CARS_URL, API_SELECT_CAR_URL, OTA_SERVER_URL
 from pysmarthashtag.models import SmartAuthError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
 
@@ -62,7 +62,7 @@ class SmartAccount:
                 "needSharedCar": 1,
                 "userId": self.config.authentication.api_user_id,
             }
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     vehicles_response = await client.get(
                         # we do not know what type of car we have in our list so we fall back to the old API URL
@@ -110,7 +110,8 @@ class SmartAccount:
             await self.select_active_vehicle(vin)
             vehicle_info = await self.get_vehicle_information(vin)
             vehicle_soc = await self.get_vehicle_soc(vin)
-            vehicle.combine_data(vehicle_info, charging_settings=vehicle_soc)
+            vehicle_ota_info = await self.get_vehicle_ota_info(vin)
+            vehicle.combine_data(vehicle_info, charging_settings=vehicle_soc, ota_info=vehicle_ota_info)
 
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
@@ -123,7 +124,7 @@ class SmartAccount:
             }
         )
         async with SmartClient(self.config) as client:
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     r_car_info = await client.post(
                         self.vehicles[vin].base_url + API_SELECT_CAR_URL,
@@ -159,7 +160,7 @@ class SmartAccount:
         }
         data = {}
         async with SmartClient(self.config) as client:
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     r_car_info = await client.get(
                         self.vehicles[vin].base_url
@@ -200,7 +201,7 @@ class SmartAccount:
         }
         data = {}
         async with SmartClient(self.config) as client:
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     r_car_info = await client.get(
                         self.vehicles[vin].base_url
@@ -221,6 +222,46 @@ class SmartAccount:
                     _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                    self.select_active_vehicle(vin)
+                    continue
+                break
+            if retry > 1:
+                raise SmartAuthError("Could not get vehicle information")
+        return data
+
+    async def get_vehicle_ota_info(self, vin) -> dict:
+        """Get information about a vehicle from OTA server."""
+        _LOGGER.debug("Getting ota information for vehicle %s", vin)
+        data = {}
+        async with SmartClient(self.config) as client:
+            for retry in range(3):
+                try:
+                    r_car_info = await client.get(
+                        OTA_SERVER_URL + "app/info/" + vin,
+                        headers={
+                            "host": "ota.srv.smart.com",
+                            "accept": "*/*",
+                            "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
+                            "id-token": client.config.authentication.device_id,
+                            "connection": "keep-alive",
+                            "user-agent": "Hello%20smart/1 CFNetwork/3826.500.131 Darwin/24.5.0",
+                            "access_token": client.config.authentication.access_token,
+                            "content-type": "application/json",
+                            "accept-encoding": "gzip, deflate, br",
+                            "accept-language": "en-US,en;q=0.9",
+                        },
+                    )
+                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
+                    json_data = r_car_info.json()
+                    data = {
+                        "target_version": json_data.get("targetVersion"),
+                        "current_version": json_data.get("currentVersion"),
+                    }
                 except SmartTokenRefreshNecessary:
                     _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue
