@@ -71,7 +71,7 @@ class SmartVehicle:
         """Initialize the vehicle."""
         self.account = account
         self.data = {}
-        self.combine_data(vehicle_base, vehicle_state, charging_settings, fetched_at)
+        self.combine_data(vehicle_base, vehicle_state, charging_settings, None, fetched_at)
         _LOGGER.debug(
             "Initialized vehicle %s (%s)",
             self.name,
@@ -83,6 +83,7 @@ class SmartVehicle:
         vehicle_base: dict,
         vehicle_state: Optional[dict] = None,
         charging_settings: Optional[dict] = None,
+        ota_info: Optional[dict] = None,
         fetched_at: Optional[datetime.datetime] = None,
     ) -> dict:
         """Combine all data into one dictionary."""
@@ -93,6 +94,8 @@ class SmartVehicle:
             self.data.update(charging_settings)
         if fetched_at:
             self.data["fetched_at"] = fetched_at
+        if ota_info:
+            self.data["ota"] = {**ota_info}
         self._parse_data()
         self.battery = Battery.from_vehicle_data(self.data)
         self.tires = Tires.from_vehicle_data(self.data)
