@@ -4,6 +4,7 @@ import respx
 
 from pysmarthashtag.const import (
     API_BASE_URL,
+    API_BASE_URL_V2,
     API_CARS_URL,
     API_SELECT_CAR_URL,
     API_SESION_URL,
@@ -50,37 +51,38 @@ class SmartMockRouter(respx.MockRouter):
             json=load_response(RESPONSE_DIR / "login_result.json"),
             headers={"location": load_response(RESPONSE_DIR / "auth_result.url")},
         )
-        self.post(API_BASE_URL + API_SESION_URL + "?identity_type=smart").respond(
-            200,
-            json=load_response(RESPONSE_DIR / "api_access.json"),
-        )
-        self.get(API_BASE_URL + API_CARS_URL + "?needSharedCar=1&userId=112233").respond(
-            200,
-            json=load_response(RESPONSE_DIR / "vehicle_response.json"),
-        )
-        self.post(API_BASE_URL + API_SELECT_CAR_URL).respond(200, json={})
-        self.get(
-            API_BASE_URL
-            + "/remote-control/vehicle/status/TestVIN0000000001?latest=True&target=basic%2Cmore&userId=112233"
-        ).respond(
-            200,
-            json=load_response(RESPONSE_DIR / "vehicle_info.json"),
-        )
-        self.get(
-            API_BASE_URL
-            + "/remote-control/vehicle/status/TestVIN0000000002?latest=True&target=basic%2Cmore&userId=112233"
-        ).respond(
-            200,
-            json=load_response(RESPONSE_DIR / "vehicle_info_dc_charging.json"),
-        )
-        self.put(API_BASE_URL + "/remote-control/vehicle/telematics/TestVIN0000000001").respond(
-            200, json=load_response(RESPONSE_DIR / "climate_success.json")
-        )
-        self.get(API_BASE_URL + "/remote-control/vehicle/status/soc/TestVIN0000000001?setting=charging").respond(
-            200,
-            json=load_response(RESPONSE_DIR / "soc_90.json"),
-        )
-        self.get(API_BASE_URL + "/remote-control/vehicle/status/soc/TestVIN0000000002?setting=charging").respond(
-            200,
-            json=load_response(RESPONSE_DIR / "soc_90.json"),
-        )
+        for base_url in [API_BASE_URL, API_BASE_URL_V2]:
+            self.post(base_url + API_SESION_URL + "?identity_type=smart").respond(
+                200,
+                json=load_response(RESPONSE_DIR / "api_access.json"),
+            )
+            self.get(base_url + API_CARS_URL + "?needSharedCar=1&userId=112233").respond(
+                200,
+                json=load_response(RESPONSE_DIR / "vehicle_response.json"),
+            )
+            self.post(base_url + API_SELECT_CAR_URL).respond(200, json={})
+            self.get(
+                base_url
+                + "/remote-control/vehicle/status/TestVIN0000000001?latest=True&target=basic%2Cmore&userId=112233"
+            ).respond(
+                200,
+                json=load_response(RESPONSE_DIR / "vehicle_info.json"),
+            )
+            self.get(
+                base_url
+                + "/remote-control/vehicle/status/TestVIN0000000002?latest=True&target=basic%2Cmore&userId=112233"
+            ).respond(
+                200,
+                json=load_response(RESPONSE_DIR / "vehicle_info_dc_charging.json"),
+            )
+            self.put(base_url + "/remote-control/vehicle/telematics/TestVIN0000000001").respond(
+                200, json=load_response(RESPONSE_DIR / "climate_success.json")
+            )
+            self.get(base_url + "/remote-control/vehicle/status/soc/TestVIN0000000001?setting=charging").respond(
+                200,
+                json=load_response(RESPONSE_DIR / "soc_90.json"),
+            )
+            self.get(base_url + "/remote-control/vehicle/status/soc/TestVIN0000000002?setting=charging").respond(
+                200,
+                json=load_response(RESPONSE_DIR / "soc_90.json"),
+            )
