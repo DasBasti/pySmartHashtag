@@ -65,6 +65,7 @@ class SmartAccount:
             for retry in range(2):
                 try:
                     vehicles_response = await client.get(
+                        # we do not know what type of car we have in our list so we fall back to the old API URL
                         API_BASE_URL + API_CARS_URL + "?" + utils.join_url_params(params),
                         headers={
                             **utils.generate_default_header(
@@ -125,7 +126,7 @@ class SmartAccount:
             for retry in range(2):
                 try:
                     r_car_info = await client.post(
-                        API_BASE_URL + API_SELECT_CAR_URL,
+                        self.vehicles[vin].base_url + API_SELECT_CAR_URL,
                         headers={
                             **utils.generate_default_header(
                                 client.config.authentication.device_id,
@@ -161,7 +162,11 @@ class SmartAccount:
             for retry in range(2):
                 try:
                     r_car_info = await client.get(
-                        API_BASE_URL + "/remote-control/vehicle/status/" + vin + "?" + utils.join_url_params(params),
+                        self.vehicles[vin].base_url
+                        + "/remote-control/vehicle/status/"
+                        + vin
+                        + "?"
+                        + utils.join_url_params(params),
                         headers={
                             **utils.generate_default_header(
                                 client.config.authentication.device_id,
@@ -198,7 +203,7 @@ class SmartAccount:
             for retry in range(2):
                 try:
                     r_car_info = await client.get(
-                        API_BASE_URL
+                        self.vehicles[vin].base_url
                         + "/remote-control/vehicle/status/soc/"
                         + vin
                         + "?"
