@@ -62,7 +62,7 @@ class SmartAccount:
                 "needSharedCar": 1,
                 "userId": self.config.authentication.api_user_id,
             }
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     vehicles_response = await client.get(
                         API_BASE_URL + API_CARS_URL + "?" + utils.join_url_params(params),
@@ -123,7 +123,7 @@ class SmartAccount:
             }
         )
         async with SmartClient(self.config) as client:
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     r_car_info = await client.post(
                         API_BASE_URL + API_SELECT_CAR_URL,
@@ -159,7 +159,7 @@ class SmartAccount:
         }
         data = {}
         async with SmartClient(self.config) as client:
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     r_car_info = await client.get(
                         API_BASE_URL + "/remote-control/vehicle/status/" + vin + "?" + utils.join_url_params(params),
@@ -196,7 +196,7 @@ class SmartAccount:
         }
         data = {}
         async with SmartClient(self.config) as client:
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     r_car_info = await client.get(
                         API_BASE_URL
@@ -234,7 +234,7 @@ class SmartAccount:
         _LOGGER.debug("Getting ota information for vehicle %s", vin)
         data = {}
         async with SmartClient(self.config) as client:
-            for retry in range(2):
+            for retry in range(3):
                 try:
                     r_car_info = await client.get(
                         OTA_SERVER_URL + "app/info/" + vin,
