@@ -254,8 +254,8 @@ class SmartAccount:
                     _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
                     json_data = r_car_info.json()
                     data = {
-                        "target_version": json_data["targetVersion"],
-                        "current_version": json_data["currentVersion"],
+                        "target_version": json_data.get("targetVersion"),
+                        "current_version": json_data.get("currentVersion"),
                     }
                 except SmartTokenRefreshNecessary:
                     _LOGGER.debug("Got Token Error, retry: %d", retry)
