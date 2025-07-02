@@ -10,4 +10,6 @@ API_SESION_URL = "/auth/account/session/secure"
 API_SELECT_CAR_URL = "/device-platform/user/session/update"
 API_TELEMATICS_URL = "/remote-control/vehicle/telematics/"
 
+OTA_SERVER_URL = "https://ota.srv.smart.com/"
+
 HTTPX_TIMEOUT = 30.0
