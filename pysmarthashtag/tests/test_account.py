@@ -86,7 +86,7 @@ async def test_no_human_car_connection(smart_fixture: respx.Router):
     car_connection = smart_fixture.post(API_BASE_URL + API_SELECT_CAR_URL).mock(side_effect=count_car_selection)
 
     await account.get_vehicle_information("TestVIN0000000001")
-    assert car_connection.call_count == 3  # 2 times for the connection refresh (this is new??)
+    assert car_connection.call_count == 2  # 2 times for the connection refresh
     assert vehicle_status.call_count == 3  # 2 times for the token refresh and 1 time for the inital call
 
 

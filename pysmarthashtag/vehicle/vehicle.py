@@ -4,6 +4,7 @@ import datetime
 import logging
 from typing import Optional
 
+from pysmarthashtag.const import API_BASE_URL, API_BASE_URL_V2
 from pysmarthashtag.models import ValueWithUnit, get_element_from_dict_maybe
 from pysmarthashtag.vehicle.battery import Battery
 from pysmarthashtag.vehicle.climate import Climate
@@ -60,6 +61,8 @@ class SmartVehicle:
     engine_state: Optional[str] = None
     """The state of the engine."""
 
+    base_url: str = API_BASE_URL
+
     def __init__(
         self,
         account: "SmartAccount",  # noqa: F821
@@ -72,6 +75,17 @@ class SmartVehicle:
         self.account = account
         self.data = {}
         self.combine_data(vehicle_base, vehicle_state, charging_settings, None, fetched_at)
+        if self.data["seriesCodeVs"].startswith("HX"):
+            _LOGGER.debug("Selected Vehicle is Smart #1 use V1 API")
+            self.base_url = API_BASE_URL
+        elif self.data["seriesCodeVs"].startswith("HC"):
+            _LOGGER.debug("Selected Vehicle is Smart #3 use V1 API")
+            self.base_url = API_BASE_URL
+        elif self.data["seriesCodeVs"].startswith("HY"):
+            _LOGGER.debug("Selected Vehicle is Smart #5 use V2 API")
+            self.base_url = API_BASE_URL_V2
+        else:
+            _LOGGER.warning("Unknown Series Code Prefix %s use default API", self.data["seriesCodeVs"])
         _LOGGER.debug(
             "Initialized vehicle %s (%s)",
             self.name,

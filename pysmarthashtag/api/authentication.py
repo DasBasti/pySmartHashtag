@@ -242,6 +242,7 @@ class SmartAuthentication(httpx.Auth):
 
             data = json.dumps({"accessToken": access_token}).replace(" ", "")
             r_api_access = await client.post(
+                # we do not know what type of car we have in our list so we fall back to the old API URL
                 API_BASE_URL + API_SESION_URL + "?identity_type=smart",
                 headers={
                     **utils.generate_default_header(
