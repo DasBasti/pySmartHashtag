@@ -229,7 +229,7 @@ class SmartAccount:
                 raise SmartAuthError("Could not get vehicle information")
         return data
 
-    async def get_vehicle_ota_info(self, vin) -> str:
+    async def get_vehicle_ota_info(self, vin) -> dict:
         """Get information about a vehicle from OTA server."""
         _LOGGER.debug("Getting ota information for vehicle %s", vin)
         data = {}
