@@ -63,7 +63,7 @@ class Maintenance(VehicleDataBase):
 
     @classmethod
     def _parse_vehicle_data(self, vehicle_data: dict) -> Optional[dict]:
-        """Parse the battery data based on Ids."""
+        """Parse the maintenance data based on Ids."""
         if "vehicleStatus" not in vehicle_data:
             return None
         retval: dict[str, Any] = {}
