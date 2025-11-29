@@ -249,9 +249,9 @@ class Battery(VehicleDataBase):
                         "W",
                     )
 
-            time_to_charged = get_field_as_type(evStatus, "timeToFullyCharged", str, log_missing=False)
-            if time_to_charged is not None and time_to_charged != "2047":
-                retval["charging_time_remaining"] = ValueWithUnit(int(time_to_charged), "min")
+            time_to_charged = get_field_as_type(evStatus, "timeToFullyCharged", int, log_missing=False)
+            if time_to_charged is not None and time_to_charged != 2047:
+                retval["charging_time_remaining"] = ValueWithUnit(time_to_charged, "min")
 
             avg_consumption = get_field_as_type(evStatus, "averPowerConsumption", float, log_missing=False)
             if avg_consumption is not None:
