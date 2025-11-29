@@ -206,3 +206,51 @@ class TestMissingFieldsInVehicleData:
         assert battery is not None
         assert battery.remaining_battery_percent is not None
         assert battery.remaining_battery_percent.value == 50
+
+    def test_dc_charging_bounds_checking(self, caplog):
+        """Test that DC charging handles out-of-bounds battery values gracefully."""
+        from pysmarthashtag.vehicle.battery import DcChargingVoltLevels
+
+        # Test with value over 100 (should clamp to max index)
+        vehicle_data = {
+            "vehicleStatus": {
+                "additionalVehicleStatus": {
+                    "electricVehicleStatus": {
+                        "chargeLevel": "150",  # Over 100
+                        "chargerState": "15",  # DC_CHARGING
+                        "dcChargeIAct": "100.0",
+                    }
+                },
+                "updateTime": "1706028240000",
+            }
+        }
+        with caplog.at_level(logging.ERROR):
+            battery = Battery.from_vehicle_data(vehicle_data)
+        assert battery is not None
+        assert battery.charging_voltage is not None
+        # Should use the last element in DcChargingVoltLevels
+        assert battery.charging_voltage.value == DcChargingVoltLevels[len(DcChargingVoltLevels) - 1]
+
+    def test_dc_charging_negative_value(self, caplog):
+        """Test that DC charging handles negative battery values gracefully."""
+        from pysmarthashtag.vehicle.battery import DcChargingVoltLevels
+
+        # Test with negative value (should clamp to 0)
+        vehicle_data = {
+            "vehicleStatus": {
+                "additionalVehicleStatus": {
+                    "electricVehicleStatus": {
+                        "chargeLevel": "-5",  # Negative
+                        "chargerState": "15",  # DC_CHARGING
+                        "dcChargeIAct": "100.0",
+                    }
+                },
+                "updateTime": "1706028240000",
+            }
+        }
+        with caplog.at_level(logging.ERROR):
+            battery = Battery.from_vehicle_data(vehicle_data)
+        assert battery is not None
+        assert battery.charging_voltage is not None
+        # Should use the first element in DcChargingVoltLevels
+        assert battery.charging_voltage.value == DcChargingVoltLevels[0]

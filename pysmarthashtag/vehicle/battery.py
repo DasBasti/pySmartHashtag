@@ -230,14 +230,20 @@ class Battery(VehicleDataBase):
             dc_charge_i = get_field_as_type(evStatus, "dcChargeIAct", float, log_missing=False)
             if dc_charge_i is not None and charging_status == "DC_CHARGING" and battery_percent is not None:
                 battery_value = battery_percent.value
-                if battery_value > 100:
-                    battery_value = 100
-                retval["charging_voltage"] = ValueWithUnit(DcChargingVoltLevels[battery_value], "V")
-                retval["charging_current"] = ValueWithUnit(abs(dc_charge_i), "A")
-                retval["charging_power"] = ValueWithUnit(
-                    math.floor(abs(dc_charge_i) * DcChargingVoltLevels[battery_value]),
-                    "W",
-                )
+                # Ensure battery_value is a valid integer index within DcChargingVoltLevels bounds
+                if isinstance(battery_value, (int, float)):
+                    battery_value = int(battery_value)
+                    # Clamp to valid index range: 0 to len(DcChargingVoltLevels) - 1
+                    max_index = len(DcChargingVoltLevels) - 1
+                    battery_value = max(0, min(battery_value, max_index))
+                    retval["charging_voltage"] = ValueWithUnit(DcChargingVoltLevels[battery_value], "V")
+                    retval["charging_current"] = ValueWithUnit(abs(dc_charge_i), "A")
+                    retval["charging_power"] = ValueWithUnit(
+                        math.floor(abs(dc_charge_i) * DcChargingVoltLevels[battery_value]),
+                        "W",
+                    )
+                else:
+                    _LOGGER.error(f"Invalid battery_value type for DC charging lookup: {type(battery_value)}")
             else:
                 charge_u = get_field_as_type(evStatus, "chargeUAct", float, log_missing=False)
                 charge_i = get_field_as_type(evStatus, "chargeIAct", float, log_missing=False)
