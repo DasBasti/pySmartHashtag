@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
-from pysmarthashtag.models import ValueWithUnit, VehicleDataBase
+from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -70,25 +70,34 @@ class Maintenance(VehicleDataBase):
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["maintenanceStatus"]
             _LOGGER.debug("Parsing maintenance data")
-            retval["main_battery_state_of_charge"] = int(evStatus["mainBatteryStatus"]["stateOfCharge"])
-            retval["main_battery_charge_level"] = ValueWithUnit(
-                float(evStatus["mainBatteryStatus"]["chargeLevel"]), "%"
-            )
-            retval["main_battery_energy_level"] = int(evStatus["mainBatteryStatus"]["energyLevel"])
-            retval["main_battery_state_of_health"] = int(evStatus["mainBatteryStatus"]["stateOfHealth"])
-            retval["main_batter_power_level"] = int(evStatus["mainBatteryStatus"]["powerLevel"])
-            retval["main_battery_voltage"] = ValueWithUnit(float(evStatus["mainBatteryStatus"]["voltage"]), "V")
 
-            retval["odometer"] = ValueWithUnit(int(float(evStatus["odometer"])), "km")
-            retval["days_to_service"] = int(evStatus["daysToService"])
-            retval["distance_to_service"] = ValueWithUnit(int(evStatus["distanceToService"]), "km")
-            retval["service_warning_status"] = int(evStatus["serviceWarningStatus"])
-            retval["break_fluid_level_status"] = int(evStatus["brakeFluidLevelStatus"])
-            retval["washer_fluid_level_status"] = int(evStatus["washerFluidLevelStatus"])
-            retval["engine_hours_to_service"] = int(evStatus["engineHrsToService"])
+            mainBatteryStatus = evStatus.get("mainBatteryStatus")
+            if mainBatteryStatus:
+                retval["main_battery_state_of_charge"] = get_field_as_type(mainBatteryStatus, "stateOfCharge", int)
+                charge_level = get_field_as_type(mainBatteryStatus, "chargeLevel", float)
+                retval["main_battery_charge_level"] = (
+                    ValueWithUnit(charge_level, "%") if charge_level is not None else None
+                )
+                retval["main_battery_energy_level"] = get_field_as_type(mainBatteryStatus, "energyLevel", int)
+                retval["main_battery_state_of_health"] = get_field_as_type(mainBatteryStatus, "stateOfHealth", int)
+                retval["main_batter_power_level"] = get_field_as_type(mainBatteryStatus, "powerLevel", int)
+                voltage = get_field_as_type(mainBatteryStatus, "voltage", float)
+                retval["main_battery_voltage"] = ValueWithUnit(voltage, "V") if voltage is not None else None
+
+            odometer = get_field_as_type(evStatus, "odometer", float)
+            retval["odometer"] = ValueWithUnit(int(odometer), "km") if odometer is not None else None
+            retval["days_to_service"] = get_field_as_type(evStatus, "daysToService", int)
+            distance_to_service = get_field_as_type(evStatus, "distanceToService", int)
+            retval["distance_to_service"] = (
+                ValueWithUnit(distance_to_service, "km") if distance_to_service is not None else None
+            )
+            retval["service_warning_status"] = get_field_as_type(evStatus, "serviceWarningStatus", int)
+            retval["break_fluid_level_status"] = get_field_as_type(evStatus, "brakeFluidLevelStatus", int)
+            retval["washer_fluid_level_status"] = get_field_as_type(evStatus, "washerFluidLevelStatus", int)
+            retval["engine_hours_to_service"] = get_field_as_type(evStatus, "engineHrsToService", int)
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
         except KeyError as e:
-            _LOGGER.warning(f"Battery info not available: {e}")
+            _LOGGER.error(f"Maintenance info not available: {e}")
         finally:
             return retval

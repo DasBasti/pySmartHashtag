@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
-from pysmarthashtag.models import ValueWithUnit, VehicleDataBase
+from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -155,55 +155,59 @@ class Climate(VehicleDataBase):
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["climateStatus"]
 
-            retval["air_blower_active"] = True if evStatus["airBlowerActive"] == "true" else False
-            retval["cds_climate_active"] = True if evStatus["cdsClimateActive"] == "true" else False
-            retval["climate_over_heat_protection_active"] = (
-                True if evStatus["climateOverHeatProActive"] == "true" else False
+            retval["air_blower_active"] = get_field_as_type(evStatus, "airBlowerActive", bool)
+            retval["cds_climate_active"] = get_field_as_type(evStatus, "cdsClimateActive", bool)
+            retval["climate_over_heat_protection_active"] = get_field_as_type(
+                evStatus, "climateOverHeatProActive", bool
             )
-            retval["curtain_open_status"] = True if evStatus["curtainOpenStatus"] == "1" else False
-            retval["curtain_position"] = int(evStatus["curtainPos"])
-            retval["defrosting_active"] = True if evStatus["defrost"] == "true" else False
-            retval["driver_heating_detail"] = int(evStatus["drvHeatDetail"])
-            retval["driver_heating_status"] = True if evStatus["drvHeatSts"] == "true" else False
-            retval["driver_ventilation_detail"] = int(evStatus["drvVentDetail"])
-            retval["driver_ventilation_status"] = True if evStatus["drvVentSts"] == "true" else False
-            retval["exterior_temperature"] = ValueWithUnit(float(evStatus["exteriorTemp"]), "°C")
-            retval["frag_active"] = evStatus["fragActive"]
-            retval["interior_temperature"] = ValueWithUnit(float(evStatus["interiorTemp"]), "°C")
-            retval["passenger_heating_detail"] = int(evStatus["passHeatingDetail"])
-            retval["passenger_heating_status"] = True if evStatus["passHeatingSts"] == "true" else False
-            retval["passenger_ventilation_detail"] = int(evStatus["passVentDetail"])
-            retval["passenger_ventilation_status"] = True if evStatus["passVentSts"] == "true" else False
-            retval["pre_climate_active"] = evStatus["preClimateActive"]
-            retval["rear_left_heating_detail"] = int(evStatus["rlHeatingDetail"])
-            retval["rear_left_heating_status"] = True if evStatus["rlHeatingSts"] == "true" else False
-            retval["rear_left_ventilation_detail"] = int(evStatus["rlVentDetail"])
-            retval["rear_left_ventilation_status"] = True if evStatus["rlVentSts"] == "true" else False
-            retval["rear_right_heating_detail"] = int(evStatus["rrHeatingDetail"])
-            retval["rear_right_heating_status"] = True if evStatus["rrHeatingSts"] == "true" else False
-            retval["rear_right_ventilation_detail"] = int(evStatus["rrVentDetail"])
-            retval["rear_right_ventilation_status"] = True if evStatus["rrVentSts"] == "true" else False
-            retval["steering_wheel_heating_status"] = True if evStatus["steerWhlHeatingSts"] == "true" else False
-            retval["sun_curtain_rear_open_status"] = True if evStatus["sunCurtainRearOpenStatus"] == "true" else False
-            retval["sun_curtain_rear_position"] = int(evStatus["sunCurtainRearPos"])
-            retval["sunroof_open_status"] = True if evStatus["sunroofOpenStatus"] == "true" else False
-            retval["sunroof_position"] = int(evStatus["sunroofPos"])
-            retval["window_driver_position"] = int(evStatus["winPosDriver"])
-            retval["window_driver_rear_position"] = int(evStatus["winPosDriverRear"])
-            retval["window_passenger_position"] = int(evStatus["winPosPassenger"])
-            retval["window_passenger_rear_position"] = int(evStatus["winPosPassengerRear"])
-            retval["window_driver_status"] = int(evStatus["winStatusDriver"])
-            retval["window_driver_rear_status"] = int(evStatus["winStatusDriverRear"])
-            retval["window_passenger_status"] = int(evStatus["winStatusPassenger"])
-            retval["window_passenger_rear_status"] = int(evStatus["winStatusPassengerRear"])
+            retval["curtain_open_status"] = get_field_as_type(evStatus, "curtainOpenStatus", bool)
+            retval["curtain_position"] = get_field_as_type(evStatus, "curtainPos", int)
+            retval["defrosting_active"] = get_field_as_type(evStatus, "defrost", bool)
+            retval["driver_heating_detail"] = get_field_as_type(evStatus, "drvHeatDetail", int)
+            retval["driver_heating_status"] = get_field_as_type(evStatus, "drvHeatSts", bool)
+            retval["driver_ventilation_detail"] = get_field_as_type(evStatus, "drvVentDetail", int)
+            retval["driver_ventilation_status"] = get_field_as_type(evStatus, "drvVentSts", bool)
+            exterior_temp = get_field_as_type(evStatus, "exteriorTemp", float)
+            retval["exterior_temperature"] = ValueWithUnit(exterior_temp, "°C") if exterior_temp is not None else None
+            retval["frag_active"] = evStatus.get("fragActive")
+            interior_temp = get_field_as_type(evStatus, "interiorTemp", float)
+            retval["interior_temperature"] = ValueWithUnit(interior_temp, "°C") if interior_temp is not None else None
+            retval["passenger_heating_detail"] = get_field_as_type(evStatus, "passHeatingDetail", int)
+            retval["passenger_heating_status"] = get_field_as_type(evStatus, "passHeatingSts", bool)
+            retval["passenger_ventilation_detail"] = get_field_as_type(evStatus, "passVentDetail", int)
+            retval["passenger_ventilation_status"] = get_field_as_type(evStatus, "passVentSts", bool)
+            retval["pre_climate_active"] = evStatus.get("preClimateActive")
+            retval["rear_left_heating_detail"] = get_field_as_type(evStatus, "rlHeatingDetail", int)
+            retval["rear_left_heating_status"] = get_field_as_type(evStatus, "rlHeatingSts", bool)
+            retval["rear_left_ventilation_detail"] = get_field_as_type(evStatus, "rlVentDetail", int)
+            retval["rear_left_ventilation_status"] = get_field_as_type(evStatus, "rlVentSts", bool)
+            retval["rear_right_heating_detail"] = get_field_as_type(evStatus, "rrHeatingDetail", int)
+            retval["rear_right_heating_status"] = get_field_as_type(evStatus, "rrHeatingSts", bool)
+            retval["rear_right_ventilation_detail"] = get_field_as_type(evStatus, "rrVentDetail", int)
+            retval["rear_right_ventilation_status"] = get_field_as_type(evStatus, "rrVentSts", bool)
+            retval["steering_wheel_heating_status"] = get_field_as_type(evStatus, "steerWhlHeatingSts", bool)
+            retval["sun_curtain_rear_open_status"] = get_field_as_type(evStatus, "sunCurtainRearOpenStatus", bool)
+            retval["sun_curtain_rear_position"] = get_field_as_type(evStatus, "sunCurtainRearPos", int)
+            retval["sunroof_open_status"] = get_field_as_type(evStatus, "sunroofOpenStatus", bool)
+            retval["sunroof_position"] = get_field_as_type(evStatus, "sunroofPos", int)
+            retval["window_driver_position"] = get_field_as_type(evStatus, "winPosDriver", int)
+            retval["window_driver_rear_position"] = get_field_as_type(evStatus, "winPosDriverRear", int)
+            retval["window_passenger_position"] = get_field_as_type(evStatus, "winPosPassenger", int)
+            retval["window_passenger_rear_position"] = get_field_as_type(evStatus, "winPosPassengerRear", int)
+            retval["window_driver_status"] = get_field_as_type(evStatus, "winStatusDriver", int)
+            retval["window_driver_rear_status"] = get_field_as_type(evStatus, "winStatusDriverRear", int)
+            retval["window_passenger_status"] = get_field_as_type(evStatus, "winStatusPassenger", int)
+            retval["window_passenger_rear_status"] = get_field_as_type(evStatus, "winStatusPassengerRear", int)
 
-            evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["pollutionStatus"]
-
-            retval["interior_PM25"] = ValueWithUnit(float(evStatus["interiorPM25"]), "μg/m³")
-            retval["relative_humidity"] = ValueWithUnit(float(evStatus["relHumSts"]), "%")
+            pollutionStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"].get("pollutionStatus")
+            if pollutionStatus:
+                interior_pm25 = get_field_as_type(pollutionStatus, "interiorPM25", float)
+                retval["interior_PM25"] = ValueWithUnit(interior_pm25, "μg/m³") if interior_pm25 is not None else None
+                rel_hum = get_field_as_type(pollutionStatus, "relHumSts", float)
+                retval["relative_humidity"] = ValueWithUnit(rel_hum, "%") if rel_hum is not None else None
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
         except KeyError as e:
-            _LOGGER.warning(f"Climate info not available: {e}")
+            _LOGGER.error(f"Climate info not available: {e}")
         finally:
             return retval
