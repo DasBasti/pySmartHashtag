@@ -8,6 +8,7 @@ from dataclasses import InitVar, dataclass, field
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
+from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import API_BASE_URL, API_CARS_URL, API_SELECT_CAR_URL, OTA_SERVER_URL
 from pysmarthashtag.models import SmartAuthError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
@@ -77,7 +78,7 @@ class SmartAccount:
                             )
                         },
                     )
-                    _LOGGER.debug("Got response %d from %s", vehicles_response.status_code, vehicles_response.text)
+                    _LOGGER.debug("Got response %d", vehicles_response.status_code)
                 except SmartTokenRefreshNecessary:
                     _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue
@@ -88,7 +89,7 @@ class SmartAccount:
                 break
 
             for vehicle in vehicles_response.json()["data"]["list"]:
-                _LOGGER.debug("Found vehicle %s", vehicle)
+                _LOGGER.debug("Found vehicle %s", sanitize_log_data(vehicle))
                 self.add_vehicle(vehicle, fetched_at)
 
     def add_vehicle(self, vehicle, fetched_at):
@@ -100,13 +101,13 @@ class SmartAccount:
         if self.config.authentication.api_user_id is None:
             await self.config.authentication.login()
 
-        _LOGGER.debug("Getting vehicles for account %s", self.username)
+        _LOGGER.debug("Getting vehicles for account")
 
         if len(self.vehicles) == 0 or force_init:
             await self._init_vehicles()
 
         for vin, vehicle in self.vehicles.items():
-            _LOGGER.debug("Getting vehicle %s", vehicle.data)
+            _LOGGER.debug("Getting vehicle data")
             await self.select_active_vehicle(vin)
             vehicle_info = await self.get_vehicle_information(vin)
             vehicle_soc = await self.get_vehicle_soc(vin)
@@ -115,7 +116,7 @@ class SmartAccount:
 
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
-        _LOGGER.debug("Selecting vehicle %s", vin)
+        _LOGGER.debug("Selecting vehicle")
         data = json.dumps(
             {
                 "vin": vin,
@@ -140,7 +141,7 @@ class SmartAccount:
                         },
                         data=data,
                     )
-                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
+                    _LOGGER.debug("Got response %d", r_car_info.status_code)
                 except SmartTokenRefreshNecessary:
                     _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue
@@ -152,7 +153,7 @@ class SmartAccount:
 
     async def get_vehicle_information(self, vin) -> str:
         """Get information about a vehicle."""
-        _LOGGER.debug("Getting information for vehicle %s", vin)
+        _LOGGER.debug("Getting information for vehicle")
         params = {
             "latest": True,
             "target": "basic%2Cmore",
@@ -178,7 +179,7 @@ class SmartAccount:
                             )
                         },
                     )
-                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
+                    _LOGGER.debug("Got response %d", r_car_info.status_code)
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
                 except SmartTokenRefreshNecessary:
@@ -195,7 +196,7 @@ class SmartAccount:
 
     async def get_vehicle_soc(self, vin) -> str:
         """Get information about a vehicle."""
-        _LOGGER.debug("Getting information for vehicle %s", vin)
+        _LOGGER.debug("Getting vehicle SOC")
         params = {
             "setting": "charging",
         }
@@ -219,7 +220,7 @@ class SmartAccount:
                             )
                         },
                     )
-                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
+                    _LOGGER.debug("Got response %d", r_car_info.status_code)
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
                 except SmartTokenRefreshNecessary:
@@ -236,7 +237,7 @@ class SmartAccount:
 
     async def get_vehicle_ota_info(self, vin) -> dict:
         """Get information about a vehicle from OTA server."""
-        _LOGGER.debug("Getting ota information for vehicle %s", vin)
+        _LOGGER.debug("Getting OTA information for vehicle")
         data = {}
         async with SmartClient(self.config) as client:
             for retry in range(3):
@@ -256,7 +257,7 @@ class SmartAccount:
                             "accept-language": "en-US,en;q=0.9",
                         },
                     )
-                    _LOGGER.debug("Got response %d from %s", r_car_info.status_code, r_car_info.text)
+                    _LOGGER.debug("Got response %d", r_car_info.status_code)
                     json_data = r_car_info.json()
                     data = {
                         "target_version": json_data.get("targetVersion"),

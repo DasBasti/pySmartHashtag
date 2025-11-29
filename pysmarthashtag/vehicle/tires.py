@@ -48,7 +48,7 @@ class Tires(VehicleDataBase):
     @classmethod
     def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
         """Parse the battery data based on Ids."""
-        _LOGGER.debug(f"Parsing battery data: {vehicle_data}")
+        _LOGGER.debug("Parsing tire data")
         retval: dict[str, Any] = {}
         try:
             maintenance_status = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["maintenanceStatus"]

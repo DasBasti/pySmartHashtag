@@ -114,7 +114,7 @@ class Running(VehicleDataBase):
         retval: dict[str, Any] = {}
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["runningStatus"]
-            _LOGGER.debug(f"Parsing running data: {evStatus}")
+            _LOGGER.debug("Parsing running data")
             retval["ahbc_status"] = int(evStatus.get("ahbc"))
             retval["goodbye"] = int(evStatus.get("goodbye"))
             retval["home_safe"] = int(evStatus.get("homeSafe"))

@@ -105,7 +105,7 @@ class ClimateControll:
 
         async with SmartClient(self.config) as client:
             params = self._get_payload(active)
-            _LOGGER.debug(f"Setting climate conditioning: {params}")
+            _LOGGER.debug("Setting climate conditioning: active=%s, temp=%.1f", active, self.conditioning_temp)
             for retry in range(3):
                 try:
                     vehicles_response = await client.put(
@@ -125,8 +125,8 @@ class ClimateControll:
                     api_result = vehicles_response.json()
                     return api_result["success"]
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug(f"Got Token Error, retry: {retry}")
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue
                 except SmartHumanCarConnectionError:
-                    _LOGGER.debug(f"Got Human Car Connection Error, retry: {retry}")
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
                     continue

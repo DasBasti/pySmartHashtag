@@ -56,26 +56,12 @@ class SmartClient(httpx.AsyncClient):
         kwargs["event_hooks"] = defaultdict(list, **kwargs.get("event_hooks", {}))
 
         async def log_request(request):
-            if request.method == "POST":
-                await request.aread()
-                _LOGGER.debug(
-                    f"Request: {request.method} {request.url} - {request.headers} - {request.content.decode()}"
-                )
-            else:
-                _LOGGER.debug(f"Request: {request.method} {request.url} - {request.headers}")
+            _LOGGER.debug("Request: %s %s", request.method, request.url)
 
         async def log_response(response):
             await response.aread()
             request = response.request
-            _LOGGER.debug(f"Response: {request.method} {request.url} - Status {response.status_code}")
-            if _LOGGER.level <= logging.INFO:
-                import hashlib
-                import json
-                import pprint
-
-                with open(f"response-{request.method}-{hashlib.md5(request.url.raw_path).hexdigest()}.json", "w") as f:
-                    jd = json.loads(response.text)
-                    f.write(pprint.pformat(jd).replace("'", '"'))
+            _LOGGER.debug("Response: %s %s - Status %d", request.method, request.url, response.status_code)
 
         kwargs["event_hooks"]["response"].append(log_response)
         kwargs["event_hooks"]["request"].append(log_request)

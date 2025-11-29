@@ -69,7 +69,7 @@ class Maintenance(VehicleDataBase):
         retval: dict[str, Any] = {}
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["maintenanceStatus"]
-            _LOGGER.debug(f"Parsing maintenance data: {evStatus}")
+            _LOGGER.debug("Parsing maintenance data")
             retval["main_battery_state_of_charge"] = int(evStatus["mainBatteryStatus"]["stateOfCharge"])
             retval["main_battery_charge_level"] = ValueWithUnit(
                 float(evStatus["mainBatteryStatus"]["chargeLevel"]), "%"

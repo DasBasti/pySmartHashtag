@@ -26,12 +26,11 @@ x-api-signature-version:1.0
 {timestamp}
 {method}
 {url}"""
-    _LOGGER.debug("Payload: %s", payload)
+    _LOGGER.debug("Creating signature for request")
     secret = base64.b64decode("NzRlNzQ2OWFmZjUwNDJiYmJlZDdiYmIxYjM2YzE1ZTk=")
     payload = payload.encode("utf-8")
     hashed = hmac.new(secret, payload, hashlib.sha1).digest()
     signature = base64.b64encode(hashed).decode()
-    _LOGGER.debug("Signature: %s", signature)
     return signature
 
 
@@ -66,9 +65,7 @@ def generate_default_header(
     if access_token:
         header["authorization"] = access_token
 
-    _LOGGER.debug(
-        f"Constructed Login: {join_url_params(params)} - {access_token} - {method} - {url} - {body} -> {header}"
-    )
+    _LOGGER.debug("Constructed request header for %s %s", method, url)
     return header
 
 

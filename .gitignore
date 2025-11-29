@@ -71,3 +71,6 @@ venv.bak/
 /site
 
 *.log
+
+# Generated response files
+response-*.json
