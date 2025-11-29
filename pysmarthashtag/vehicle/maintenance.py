@@ -63,13 +63,13 @@ class Maintenance(VehicleDataBase):
 
     @classmethod
     def _parse_vehicle_data(self, vehicle_data: dict) -> Optional[dict]:
-        """Parse the battery data based on Ids."""
+        """Parse the maintenance data based on Ids."""
         if "vehicleStatus" not in vehicle_data:
             return None
         retval: dict[str, Any] = {}
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["maintenanceStatus"]
-            _LOGGER.debug(f"Parsing maintenance data: {evStatus}")
+            _LOGGER.debug("Parsing maintenance data")
             retval["main_battery_state_of_charge"] = int(evStatus["mainBatteryStatus"]["stateOfCharge"])
             retval["main_battery_charge_level"] = ValueWithUnit(
                 float(evStatus["mainBatteryStatus"]["chargeLevel"]), "%"

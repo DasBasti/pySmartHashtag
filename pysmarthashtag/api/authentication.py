@@ -14,6 +14,7 @@ import httpx
 from httpx._models import Request, Response
 
 from pysmarthashtag.api import utils
+from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import (
     API_BASE_URL,
     API_KEY,
@@ -51,7 +52,7 @@ class SmartAuthentication(httpx.Auth):
         self.api_access_token: Optional[str] = None
         self.api_refresh_token: Optional[str] = None
         self.api_user_id: Optional[str] = None
-        _LOGGER.debug("Device ID: %s", self.device_id)
+        _LOGGER.debug("Device ID initialized")
 
     @property
     def login_lock(self) -> asyncio.Lock:
@@ -130,7 +131,7 @@ class SmartAuthentication(httpx.Auth):
             self.api_refresh_token = token_data["api_refresh_token"]
             self.api_user_id = token_data["api_user_id"]
             self.expires_at = token_data["expires_at"]
-            _LOGGER.debug(f"Login successful: {token_data}")
+            _LOGGER.debug("Login successful")
             return True
         except KeyError:
             raise SmartAPIError("Could not login to Smart API")
@@ -259,7 +260,7 @@ class SmartAuthentication(httpx.Auth):
                 data=data,
             )
             api_result = r_api_access.json()
-            _LOGGER.debug("API access result: %s", api_result)
+            _LOGGER.debug("API access result: %s", sanitize_log_data(api_result))
             try:
                 api_access_token = api_result["data"]["accessToken"]
                 api_refresh_token = api_result["data"]["refreshToken"]
@@ -310,15 +311,17 @@ class SmartLoginClient(httpx.AsyncClient):
             if request.method == "POST":
                 await request.aread()
                 _LOGGER.debug(
-                    f"Request: {request.method} {request.url} - {request.content.decode()} - {request.headers}"
+                    "Request: %s %s",
+                    request.method,
+                    request.url,
                 )
             else:
-                _LOGGER.debug(f"Request: {request.method} {request.url}")
+                _LOGGER.debug("Request: %s %s", request.method, request.url)
 
         async def log_response(response):
             await response.aread()
             request = response.request
-            _LOGGER.debug(f"Response: {request.method} {request.url} - Status {response.status_code}")
+            _LOGGER.debug("Response: %s %s - Status %d", request.method, request.url, response.status_code)
 
         kwargs["event_hooks"]["response"].append(log_response)
         kwargs["event_hooks"]["request"].append(log_request)

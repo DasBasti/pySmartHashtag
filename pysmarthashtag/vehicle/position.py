@@ -38,7 +38,7 @@ class Position(VehicleDataBase):
     @classmethod
     def _parse_vehicle_data(self, vehicle_data: dict) -> Optional[dict]:
         """Parse the position data based on Ids."""
-        _LOGGER.debug(f"Parsing position data: {vehicle_data}")
+        _LOGGER.debug("Parsing position data")
         retval: dict[str, Any] = {}
         position = get_element_from_dict_maybe(vehicle_data, "vehicleStatus", "basicVehicleStatus", "position")
         try:

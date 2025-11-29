@@ -105,8 +105,8 @@ class Safety(VehicleDataBase):
 
     @classmethod
     def _parse_vehicle_data(self, vehicle_data: dict) -> Optional[dict]:
-        """Parse the battery data based on Ids."""
-        _LOGGER.debug(f"Parsing battery data: {vehicle_data}")
+        """Parse the safety data based on Ids."""
+        _LOGGER.debug("Parsing safety data")
         if "vehicleStatus" not in vehicle_data:
             return None
         retval: dict[str, Any] = {}
