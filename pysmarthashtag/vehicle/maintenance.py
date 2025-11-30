@@ -98,6 +98,6 @@ class Maintenance(VehicleDataBase):
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
         except KeyError as e:
-            _LOGGER.error(f"Maintenance info not available: {e}")
+            _LOGGER.info(f"Maintenance info not available: {e}")
         finally:
             return retval

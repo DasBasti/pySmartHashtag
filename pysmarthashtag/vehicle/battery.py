@@ -270,7 +270,7 @@ class Battery(VehicleDataBase):
             if soc is not None:
                 retval["charging_target_soc"] = ValueWithUnit(soc / 10, "%")
         except KeyError as e:
-            _LOGGER.error(f"Battery info not available: {e}")
+            _LOGGER.info(f"Battery info not available: {e}")
         except Exception as e:
             _LOGGER.error(f"Error parsing battery data: {e}")
         finally:
