@@ -17,13 +17,9 @@ from httpx._models import Request, Response
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import (
-    API_BASE_URL,
-    API_KEY,
     API_SESION_URL,
-    AUTH_URL,
     HTTPX_TIMEOUT,
-    LOGIN_URL,
-    SERVER_URL,
+    EndpointUrls,
 )
 from pysmarthashtag.models import SmartAPIError
 
@@ -43,6 +39,7 @@ class SmartAuthentication(httpx.Auth):
         expires_at: Optional[datetime.datetime] = None,
         refresh_token: Optional[str] = None,
         ssl_context: Optional[ssl.SSLContext] = None,
+        endpoint_urls: Optional[EndpointUrls] = None,
     ):
         self.username: str = username
         self.password: str = password
@@ -55,6 +52,7 @@ class SmartAuthentication(httpx.Auth):
         self.api_refresh_token: Optional[str] = None
         self.api_user_id: Optional[str] = None
         self.ssl_context: Optional[ssl.SSLContext] = ssl_context
+        self.endpoint_urls: EndpointUrls = endpoint_urls if endpoint_urls is not None else EndpointUrls()
         _LOGGER.debug("Device ID initialized")
 
     async def get_ssl_context(self) -> ssl.SSLContext:
@@ -177,7 +175,7 @@ class SmartAuthentication(httpx.Auth):
 
             # Get Context
             r_context = await client.get(
-                SERVER_URL,
+                self.endpoint_urls.get_server_url(),
                 headers={
                     "x-app-id": "SmartAPPEU",
                     "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",  # noqa: E501
@@ -196,7 +194,7 @@ class SmartAuthentication(httpx.Auth):
 
             # Get login token from Smart API
             r_login = await client.post(
-                LOGIN_URL,
+                self.endpoint_urls.get_login_url(),
                 data={
                     "loginID": self.username,
                     "password": self.password,
@@ -206,7 +204,7 @@ class SmartAuthentication(httpx.Auth):
                     "includeUserInfo": True,
                     "loginMode": "standard",
                     "lang": "de",
-                    "APIKey": API_KEY,
+                    "APIKey": self.endpoint_urls.get_api_key(),
                     "source": "showScreenSet",
                     "sdk": "js_latest",
                     "pageURL": "https%3A%2F%2Fapp.id.smart.com%2Flogin%3Fgig_ui_locales%3Dde-DE",
@@ -233,7 +231,7 @@ class SmartAuthentication(httpx.Auth):
             except (KeyError, ValueError):
                 raise SmartAPIError("Could not get login token from login page")
 
-            auth_url = AUTH_URL + "?context=" + context + "&login_token=" + login_token
+            auth_url = self.endpoint_urls.get_auth_url() + "?context=" + context + "&login_token=" + login_token
             cookie = f"gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4; glt_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a={login_token}"  # noqa: E501
             r_auth = await client.get(
                 auth_url,
@@ -268,7 +266,7 @@ class SmartAuthentication(httpx.Auth):
             data = json.dumps({"accessToken": access_token}).replace(" ", "")
             r_api_access = await client.post(
                 # we do not know what type of car we have in our list so we fall back to the old API URL
-                API_BASE_URL + API_SESION_URL + "?identity_type=smart",
+                self.endpoint_urls.get_api_base_url() + API_SESION_URL + "?identity_type=smart",
                 headers={
                     **utils.generate_default_header(
                         self.device_id,

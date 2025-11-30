@@ -4,38 +4,40 @@ import re
 from typing import Any, Union
 
 # Fields that should be masked in log output
-SENSITIVE_FIELDS = frozenset({
-    # VIN
-    "vin",
-    # User identifiers
-    "username",
-    "userid",
-    "user_id",
-    "loginid",
-    "login_id",
-    "apiuserid",
-    "api_user_id",
-    # Tokens
-    "accesstoken",
-    "access_token",
-    "refreshtoken",
-    "refresh_token",
-    "apiaccesstoken",
-    "api_access_token",
-    "apirefreshtoken",
-    "api_refresh_token",
-    "sessiontoken",
-    "session_token",
-    "login_token",
-    "logintoken",
-    "authorization",
-    "token",
-    # Session identifiers
-    "deviceid",
-    "device_id",
-    "sessionid",
-    "session_id",
-})
+SENSITIVE_FIELDS = frozenset(
+    {
+        # VIN
+        "vin",
+        # User identifiers
+        "username",
+        "userid",
+        "user_id",
+        "loginid",
+        "login_id",
+        "apiuserid",
+        "api_user_id",
+        # Tokens
+        "accesstoken",
+        "access_token",
+        "refreshtoken",
+        "refresh_token",
+        "apiaccesstoken",
+        "api_access_token",
+        "apirefreshtoken",
+        "api_refresh_token",
+        "sessiontoken",
+        "session_token",
+        "login_token",
+        "logintoken",
+        "authorization",
+        "token",
+        # Session identifiers
+        "deviceid",
+        "device_id",
+        "sessionid",
+        "session_id",
+    }
+)
 
 # Regex patterns for VIN and tokens in text
 VIN_PATTERN = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
