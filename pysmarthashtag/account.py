@@ -4,12 +4,13 @@ import datetime
 import json
 import logging
 from dataclasses import InitVar, dataclass, field
+from typing import Optional
 
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.api.log_sanitizer import sanitize_log_data
-from pysmarthashtag.const import API_BASE_URL, API_CARS_URL, API_SELECT_CAR_URL, OTA_SERVER_URL
+from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls
 from pysmarthashtag.models import SmartAuthError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
 
@@ -34,15 +35,21 @@ class SmartAccount:
     log_responses: InitVar[bool] = False
     """Optional. If set, all responses from the server will be logged to this directory."""
 
+    endpoint_urls: Optional[EndpointUrls] = None
+    """Optional. Custom endpoint URLs for international API support."""
+
     vehicles: dict[str, SmartVehicle] = field(default_factory=dict, init=False)
     """Vehicles associated with the account."""
 
     def __post_init__(self, password, log_responses):
         """Initialize the account."""
+        # Ensure endpoint_urls is set
+        if self.endpoint_urls is None:
+            self.endpoint_urls = EndpointUrls()
 
         if self.config is None:
             self.config = SmartClientConfiguration(
-                SmartAuthentication(self.username, password),
+                SmartAuthentication(self.username, password, endpoint_urls=self.endpoint_urls),
                 log_responses=log_responses,
             )
 
@@ -81,7 +88,7 @@ class SmartAccount:
                 try:
                     vehicles_response = await client.get(
                         # we do not know what type of car we have in our list so we fall back to the old API URL
-                        API_BASE_URL + API_CARS_URL + "?" + utils.join_url_params(params),
+                        self.endpoint_urls.get_api_base_url() + API_CARS_URL + "?" + utils.join_url_params(params),
                         headers={
                             **utils.generate_default_header(
                                 client.config.authentication.device_id,
@@ -258,7 +265,7 @@ class SmartAccount:
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
-                        OTA_SERVER_URL + "app/info/" + vin,
+                        self.endpoint_urls.get_ota_server_url() + "app/info/" + vin,
                         headers={
                             "host": "ota.srv.smart.com",
                             "accept": "*/*",
