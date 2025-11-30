@@ -51,14 +51,6 @@ _ssl_context_cache: Optional[ssl.SSLContext] = None
 _ssl_context_lock: Optional[asyncio.Lock] = None
 
 
-def _get_lock() -> asyncio.Lock:
-    """Get or create the asyncio lock for SSL context initialization."""
-    global _ssl_context_lock
-    if _ssl_context_lock is None:
-        _ssl_context_lock = asyncio.Lock()
-    return _ssl_context_lock
-
-
 async def get_ssl_context_async() -> ssl.SSLContext:
     """Get or create an SSL context asynchronously.
 
@@ -70,14 +62,18 @@ async def get_ssl_context_async() -> ssl.SSLContext:
         ssl.SSLContext: An SSL context with default certificate verification.
 
     """
-    global _ssl_context_cache
+    global _ssl_context_cache, _ssl_context_lock
 
     # Fast path: return cached context if available
     if _ssl_context_cache is not None:
         return _ssl_context_cache
 
+    # Lazy initialization of lock within async context
+    if _ssl_context_lock is None:
+        _ssl_context_lock = asyncio.Lock()
+
     # Slow path: create context with lock protection
-    async with _get_lock():
+    async with _ssl_context_lock:
         # Double-check after acquiring lock
         if _ssl_context_cache is None:
             _ssl_context_cache = await create_ssl_context_async()
