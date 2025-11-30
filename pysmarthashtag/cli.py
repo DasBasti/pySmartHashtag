@@ -1,15 +1,21 @@
 #!/usr/bin/python3
 """Simple executable to demonstrate and test the usage of the library."""
 
+from __future__ import annotations
+
 import argparse
 import asyncio
 import logging.config
 import os
 import time
+from typing import TYPE_CHECKING
 
 from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.const import SmartRegion, get_endpoint_urls_for_region
 from pysmarthashtag.control.climate import HeatingLocation
+
+if TYPE_CHECKING:
+    from pysmarthashtag.const import EndpointUrls
 
 
 def environ_or_required(key):
@@ -170,8 +176,16 @@ def _add_default_args(parser: argparse.ArgumentParser):
     )
 
 
-def _get_endpoint_urls_from_args(args):
-    """Get EndpointUrls based on region argument."""
+def _get_endpoint_urls_from_args(args) -> EndpointUrls:
+    """Get EndpointUrls based on region argument.
+
+    Args:
+        args: Parsed command line arguments containing the region.
+
+    Returns:
+        EndpointUrls configured for the specified region.
+
+    """
     region = SmartRegion(args.region)
     return get_endpoint_urls_for_region(region)
 
