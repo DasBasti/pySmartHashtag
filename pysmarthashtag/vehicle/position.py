@@ -42,7 +42,7 @@ class Position(VehicleDataBase):
         retval: dict[str, Any] = {}
         position = get_element_from_dict_maybe(vehicle_data, "vehicleStatus", "basicVehicleStatus", "position")
         if position is None:
-            _LOGGER.error("Position data not available in vehicle data")
+            _LOGGER.info("Position data not available in vehicle data")
             return retval
         try:
             altitude = get_field_as_type(position, "altitude", int)
@@ -52,6 +52,6 @@ class Position(VehicleDataBase):
             retval["position_can_be_trusted"] = get_field_as_type(position, "posCanBeTrusted", bool)
 
         except KeyError as e:
-            _LOGGER.error(f"Position info not available: {e}")
+            _LOGGER.info(f"Position info not available: {e}")
         finally:
             return retval
