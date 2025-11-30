@@ -1,6 +1,7 @@
 """URLs for different services and error code mapping."""
 
 from dataclasses import dataclass
+from enum import Enum
 from typing import Optional
 
 API_KEY = "3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a"
@@ -17,6 +18,55 @@ API_TELEMATICS_URL = "/remote-control/vehicle/telematics/"
 OTA_SERVER_URL = "https://ota.srv.smart.com/"
 
 HTTPX_TIMEOUT = 30.0
+
+
+class SmartRegion(str, Enum):
+    """Region presets for Smart API endpoints.
+
+    Use these region presets to easily configure the API for different geographic regions.
+    - EU: European region (default) - for users with Hello Smart EU app
+    - INTL: International region (Asia-Pacific) - for users with Hello Smart International app
+           (Australia, Singapore, and other international markets)
+    """
+
+    EU = "eu"
+    INTL = "intl"
+
+
+def get_endpoint_urls_for_region(region: SmartRegion) -> "EndpointUrls":
+    """Get pre-configured EndpointUrls for a specific region.
+
+    Args:
+        region: The region to get endpoint URLs for.
+
+    Returns:
+        EndpointUrls configured for the specified region.
+
+    Example:
+        >>> from pysmarthashtag.const import SmartRegion, get_endpoint_urls_for_region
+        >>> from pysmarthashtag.account import SmartAccount
+        >>>
+        >>> # For Australian/International users
+        >>> endpoint_urls = get_endpoint_urls_for_region(SmartRegion.INTL)
+        >>> account = SmartAccount("user@example.com", "password", endpoint_urls=endpoint_urls)
+        >>>
+        >>> # For European users (default)
+        >>> endpoint_urls = get_endpoint_urls_for_region(SmartRegion.EU)
+        >>> account = SmartAccount("user@example.com", "password", endpoint_urls=endpoint_urls)
+
+    """
+    if region == SmartRegion.EU:
+        # European region - uses default endpoints
+        return EndpointUrls()
+    elif region == SmartRegion.INTL:
+        # International region (Asia-Pacific) - for Hello Smart International app
+        # Used in Australia, Singapore, and other international markets
+        return EndpointUrls(
+            api_base_url="https://api.ecloudap.com",
+            api_base_url_v2="https://apiv2.ecloudap.com",
+        )
+    else:
+        raise ValueError(f"Unknown region: {region}")
 
 
 @dataclass

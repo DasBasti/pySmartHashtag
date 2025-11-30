@@ -8,6 +8,7 @@ import os
 import time
 
 from pysmarthashtag.account import SmartAccount
+from pysmarthashtag.const import SmartRegion, get_endpoint_urls_for_region
 from pysmarthashtag.control.climate import HeatingLocation
 
 
@@ -97,7 +98,8 @@ async def parse_command(args) -> None:
 
 async def get_status(args) -> None:
     """Get status of vehicle."""
-    account = SmartAccount(args.username, args.password)
+    endpoint_urls = _get_endpoint_urls_from_args(args)
+    account = SmartAccount(args.username, args.password, endpoint_urls=endpoint_urls)
     await account.get_vehicles()
 
     for vin, vehicle in account.vehicles.items():
@@ -106,7 +108,8 @@ async def get_status(args) -> None:
 
 async def get_vehicle_information(args) -> None:
     """Get status of vehicle."""
-    account = SmartAccount(args.username, args.password)
+    endpoint_urls = _get_endpoint_urls_from_args(args)
+    account = SmartAccount(args.username, args.password, endpoint_urls=endpoint_urls)
     await account.get_vehicles()
 
     for vin, _ in account.vehicles.items():
@@ -117,7 +120,8 @@ async def get_vehicle_information(args) -> None:
 
 async def watch_car(args) -> None:
     """Get status of vehicle."""
-    account = SmartAccount(args.username, args.password)
+    endpoint_urls = _get_endpoint_urls_from_args(args)
+    account = SmartAccount(args.username, args.password, endpoint_urls=endpoint_urls)
     await account.get_vehicles()
 
     while True:
@@ -129,7 +133,8 @@ async def watch_car(args) -> None:
 
 async def set_climate(args) -> None:
     """Set climate of vehicle."""
-    account = SmartAccount(args.username, args.password)
+    endpoint_urls = _get_endpoint_urls_from_args(args)
+    account = SmartAccount(args.username, args.password, endpoint_urls=endpoint_urls)
     await account.get_vehicles()
     if not args.vin:
         args.vin = list(account.vehicles.keys())[0]
@@ -141,7 +146,8 @@ async def set_climate(args) -> None:
 
 async def set_seatheating(args) -> None:
     """Set heating of driver's seat in vehicle."""
-    account = SmartAccount(args.username, args.password)
+    endpoint_urls = _get_endpoint_urls_from_args(args)
+    account = SmartAccount(args.username, args.password, endpoint_urls=endpoint_urls)
     await account.get_vehicles()
     if not args.vin:
         args.vin = list(account.vehicles.keys())[0]
@@ -156,6 +162,18 @@ def _add_default_args(parser: argparse.ArgumentParser):
     """Add the default arguments username, password to the parser."""
     parser.add_argument("--username", help="Smart username", **environ_or_required("SMART_USERNAME"))
     parser.add_argument("--password", help="Smart password", **environ_or_required("SMART_PASSWORD"))
+    parser.add_argument(
+        "--region",
+        help="Region for Smart API (eu=Europe, intl=International/Australia/Asia-Pacific)",
+        choices=["eu", "intl"],
+        default=os.environ.get("SMART_REGION", "eu"),
+    )
+
+
+def _get_endpoint_urls_from_args(args):
+    """Get EndpointUrls based on region argument."""
+    region = SmartRegion(args.region)
+    return get_endpoint_urls_for_region(region)
 
 
 def main():
