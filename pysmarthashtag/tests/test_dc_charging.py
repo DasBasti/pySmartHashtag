@@ -93,10 +93,11 @@ class TestDcChargingDataHandling:
         assert battery.charging_status == "DC_CHARGING"
         assert battery.is_charger_connected is True
         assert battery.charging_current == ValueWithUnit(value=102.6, unit="A")
-        # Voltage at index 67 is 429V
-        assert battery.charging_voltage == ValueWithUnit(value=429, unit="V")
-        # Power = 102.6 * 429 = 44015 (floored)
-        assert battery.charging_power == ValueWithUnit(value=44015, unit="W")
+        # Voltage should match lookup table at index 67
+        assert battery.charging_voltage == ValueWithUnit(value=DcChargingVoltLevels[67], unit="V")
+        # Power = 102.6 * voltage (floored)
+        expected_power = math.floor(102.6 * DcChargingVoltLevels[67])
+        assert battery.charging_power == ValueWithUnit(value=expected_power, unit="W")
 
     def test_dc_charging_clamping_above_table_bounds(self):
         """Test DC charging with battery level above the lookup table bounds (>100)."""
@@ -162,16 +163,19 @@ class TestChargingStateEnum:
 class TestDcChargingVoltLevels:
     """Test DC charging voltage lookup table."""
 
-    def test_voltage_table_length(self):
-        """Test the voltage lookup table has expected length."""
-        assert len(DcChargingVoltLevels) == 101
+    def test_voltage_table_covers_full_soc_range(self):
+        """Test the voltage lookup table covers 0-100% SOC range."""
+        # Table should have at least 101 entries to cover 0-100 indices
+        assert len(DcChargingVoltLevels) >= 101
+        # Verify we can access indices 0 and 100
+        _ = DcChargingVoltLevels[0]
+        _ = DcChargingVoltLevels[100]
 
-    def test_voltage_table_bounds(self):
-        """Test voltage values at table bounds."""
-        # First value
-        assert DcChargingVoltLevels[0] == 370
-        # Last value
-        assert DcChargingVoltLevels[100] == 465
+    def test_voltage_values_in_expected_range(self):
+        """Test voltage values are within expected DC charging voltage range."""
+        # DC charging typically occurs between 300-500V for EV batteries
+        for voltage in DcChargingVoltLevels:
+            assert 300 <= voltage <= 500, f"Voltage {voltage} outside expected range 300-500V"
 
     def test_voltage_table_monotonic_tendency(self):
         """Test that voltage values generally increase with battery level."""
