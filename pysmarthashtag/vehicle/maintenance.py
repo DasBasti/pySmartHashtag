@@ -54,15 +54,15 @@ class Maintenance(VehicleDataBase):
     """Washer fluid level status."""
 
     @classmethod
-    def from_vehicle_data(self, vehicle_data: dict):
+    def from_vehicle_data(cls, vehicle_data: dict):
         """Create a new instance based on data from API."""
-        parsed = self._parse_vehicle_data(vehicle_data) or {}
+        parsed = cls._parse_vehicle_data(vehicle_data) or {}
         if len(parsed) > 0:
-            return self(**parsed)
+            return cls(**parsed)
         return None
 
     @classmethod
-    def _parse_vehicle_data(self, vehicle_data: dict) -> Optional[dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
         """Parse the maintenance data based on Ids."""
         if "vehicleStatus" not in vehicle_data:
             return None
