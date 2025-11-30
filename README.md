@@ -15,6 +15,10 @@ Get this custom integration into homeassistant
 
 [![Project Maintenance][maintenance-shield]](https://platinenmacher.tech)
 
+## AI Disclosure
+
+This project uses AI to assist with development.
+
 [license-shield]: https://img.shields.io/github/license/DasBasti/pysmarthashtag.svg
 [maintenance-shield]: https://img.shields.io/badge/maintainer-Bastian%20Neumann%20%40DasBasti-blue.svg
 [releases-shield]: https://img.shields.io/github/v/release/DasBasti/pysmarthashtag.svg
