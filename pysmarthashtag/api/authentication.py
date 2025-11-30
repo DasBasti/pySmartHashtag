@@ -60,8 +60,9 @@ class SmartAuthentication(httpx.Auth):
     async def get_ssl_context(self) -> ssl.SSLContext:
         """Get or create SSL context asynchronously.
 
-        This method creates an SSL context in a thread pool executor
-        to avoid blocking the async event loop.
+        This method returns a cached SSL context if available, or creates
+        a new one asynchronously using the shared ssl_context module.
+        Thread-safe using asyncio.Lock.
 
         Returns
         -------
@@ -69,8 +70,10 @@ class SmartAuthentication(httpx.Auth):
 
         """
         if self.ssl_context is None:
-            loop = asyncio.get_running_loop()
-            self.ssl_context = await loop.run_in_executor(None, ssl.create_default_context)
+            # Import here to avoid circular imports
+            from pysmarthashtag.api.ssl_context import get_ssl_context_async
+
+            self.ssl_context = await get_ssl_context_async()
         return self.ssl_context
 
     @property
@@ -170,7 +173,7 @@ class SmartAuthentication(httpx.Auth):
         """Login to Smart web services."""
         ssl_ctx = await self.get_ssl_context()
         async with SmartLoginClient(ssl_context=ssl_ctx) as client:
-            _LOGGER.info("Aquiring access token.")
+            _LOGGER.info("Acquiring access token.")
 
             # Get Context
             r_context = await client.get(
