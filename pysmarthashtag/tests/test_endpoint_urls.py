@@ -13,6 +13,8 @@ from pysmarthashtag.const import (
     OTA_SERVER_URL,
     SERVER_URL,
     EndpointUrls,
+    SmartRegion,
+    get_endpoint_urls_for_region,
 )
 from pysmarthashtag.tests import TEST_PASSWORD, TEST_USERNAME
 from pysmarthashtag.tests.conftest import prepare_account_with_vehicles
@@ -170,3 +172,64 @@ async def test_account_with_explicit_default_urls(smart_fixture: respx.Router):
     await account.get_vehicles()
     assert account is not None
     assert len(account.vehicles) == 2
+
+
+class TestSmartRegion:
+    """Test SmartRegion enum and get_endpoint_urls_for_region function."""
+
+    def test_region_eu_returns_default_endpoints(self):
+        """Test that EU region returns default (European) endpoints."""
+        urls = get_endpoint_urls_for_region(SmartRegion.EU)
+        assert urls.get_api_base_url() == API_BASE_URL
+        assert urls.get_api_base_url_v2() == "https://apiv2.ecloudeu.com"
+        assert urls.get_server_url() == SERVER_URL
+        assert urls.get_login_url() == LOGIN_URL
+        assert urls.get_auth_url() == AUTH_URL
+        assert urls.get_ota_server_url() == OTA_SERVER_URL
+
+    def test_region_intl_returns_asia_pacific_endpoints(self):
+        """Test that INTL region returns Asia-Pacific endpoints for international users."""
+        urls = get_endpoint_urls_for_region(SmartRegion.INTL)
+        # International region uses Asia-Pacific cloud endpoints
+        assert urls.get_api_base_url() == "https://api.ecloudap.com"
+        assert urls.get_api_base_url_v2() == "https://apiv2.ecloudap.com"
+        # Other endpoints remain default (shared infrastructure)
+        assert urls.get_server_url() == SERVER_URL
+        assert urls.get_login_url() == LOGIN_URL
+        assert urls.get_auth_url() == AUTH_URL
+
+    def test_region_enum_values(self):
+        """Test that SmartRegion enum has expected values."""
+        assert SmartRegion.EU.value == "eu"
+        assert SmartRegion.INTL.value == "intl"
+
+    def test_account_with_eu_region(self):
+        """Test creating SmartAccount with EU region preset."""
+        urls = get_endpoint_urls_for_region(SmartRegion.EU)
+        account = SmartAccount(
+            username="test@example.com",
+            password="testpass",
+            endpoint_urls=urls,
+        )
+        assert account.endpoint_urls.get_api_base_url() == API_BASE_URL
+
+    def test_account_with_intl_region(self):
+        """Test creating SmartAccount with INTL region preset."""
+        urls = get_endpoint_urls_for_region(SmartRegion.INTL)
+        account = SmartAccount(
+            username="test@example.com",
+            password="testpass",
+            endpoint_urls=urls,
+        )
+        assert account.endpoint_urls.get_api_base_url() == "https://api.ecloudap.com"
+        assert account.endpoint_urls.get_api_base_url_v2() == "https://apiv2.ecloudap.com"
+
+    def test_authentication_with_intl_region(self):
+        """Test SmartAuthentication with INTL region preset."""
+        urls = get_endpoint_urls_for_region(SmartRegion.INTL)
+        auth = SmartAuthentication(
+            username="test@example.com",
+            password="testpass",
+            endpoint_urls=urls,
+        )
+        assert auth.endpoint_urls.get_api_base_url() == "https://api.ecloudap.com"
