@@ -6,6 +6,7 @@ import json
 import logging
 import math
 import secrets
+import ssl
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Generator
 from typing import Optional
@@ -41,6 +42,7 @@ class SmartAuthentication(httpx.Auth):
         access_token: Optional[str] = None,
         expires_at: Optional[datetime.datetime] = None,
         refresh_token: Optional[str] = None,
+        ssl_context: Optional[ssl.SSLContext] = None,
     ):
         self.username: str = username
         self.password: str = password
@@ -52,7 +54,24 @@ class SmartAuthentication(httpx.Auth):
         self.api_access_token: Optional[str] = None
         self.api_refresh_token: Optional[str] = None
         self.api_user_id: Optional[str] = None
+        self.ssl_context: Optional[ssl.SSLContext] = ssl_context
         _LOGGER.debug("Device ID initialized")
+
+    async def get_ssl_context(self) -> ssl.SSLContext:
+        """Get or create SSL context asynchronously.
+
+        This method creates an SSL context in a thread pool executor
+        to avoid blocking the async event loop.
+
+        Returns
+        -------
+            ssl.SSLContext: An SSL context for secure connections.
+
+        """
+        if self.ssl_context is None:
+            loop = asyncio.get_running_loop()
+            self.ssl_context = await loop.run_in_executor(None, ssl.create_default_context)
+        return self.ssl_context
 
     @property
     def login_lock(self) -> asyncio.Lock:
@@ -139,7 +158,8 @@ class SmartAuthentication(httpx.Auth):
     async def _refresh_access_token(self):
         """Refresh the access token."""
         try:
-            async with SmartLoginClient() as _:
+            ssl_ctx = await self.get_ssl_context()
+            async with SmartLoginClient(ssl_context=ssl_ctx) as _:
                 _LOGGER.debug("Refreshing access token via relogin because refresh token is not implemented")
                 await self._login()
         except SmartAPIError:
@@ -148,7 +168,8 @@ class SmartAuthentication(httpx.Auth):
 
     async def _login(self):
         """Login to Smart web services."""
-        async with SmartLoginClient() as client:
+        ssl_ctx = await self.get_ssl_context()
+        async with SmartLoginClient(ssl_context=ssl_ctx) as client:
             _LOGGER.info("Aquiring access token.")
 
             # Get Context
@@ -281,9 +302,24 @@ class SmartAuthentication(httpx.Auth):
 class SmartLoginClient(httpx.AsyncClient):
     """Client to login to the Smart API."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, ssl_context: Optional[ssl.SSLContext] = None, *args, **kwargs):
+        """Initialize the login client.
+
+        Args:
+        ----
+            ssl_context: Pre-created SSL context to avoid blocking calls.
+                        If not provided, SSL verification is still enabled
+                        but may cause blocking warnings in async environments.
+            *args: Additional arguments passed to httpx.AsyncClient
+            **kwargs: Additional keyword arguments passed to httpx.AsyncClient
+
+        """
         # Increase timeout to 30 seconds
         kwargs["timeout"] = httpx.Timeout(HTTPX_TIMEOUT)
+
+        # Use pre-created SSL context if provided to avoid blocking calls
+        if ssl_context is not None:
+            kwargs["verify"] = ssl_context
 
         # Register event hooks
         kwargs["event_hooks"] = defaultdict(list, **kwargs.get("event_hooks", {}))

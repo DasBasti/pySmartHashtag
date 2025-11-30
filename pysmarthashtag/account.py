@@ -46,8 +46,21 @@ class SmartAccount:
                 log_responses=log_responses,
             )
 
+    async def _ensure_ssl_context(self) -> None:
+        """Ensure SSL context is created asynchronously.
+
+        This method creates the SSL context in a thread pool executor
+        to avoid blocking the async event loop when httpx creates
+        SSL connections.
+        """
+        if self.config.ssl_context is None:
+            self.config.ssl_context = await self.config.get_ssl_context()
+            # Also set the SSL context on the authentication object
+            self.config.authentication.ssl_context = self.config.ssl_context
+
     async def login(self, force_refresh: bool = False) -> None:
         """Get the vehicles associated with the account."""
+        await self._ensure_ssl_context()
         if force_refresh is None:
             self.config.authentication = None
         await self.config.authentication.login()
@@ -55,6 +68,7 @@ class SmartAccount:
     async def _init_vehicles(self) -> None:
         """Initialize vehicles from Smart servers."""
         _LOGGER.debug("Getting initial vehicle list")
+        await self._ensure_ssl_context()
 
         fetched_at = datetime.datetime.now(datetime.timezone.utc)
 
@@ -98,6 +112,7 @@ class SmartAccount:
 
     async def get_vehicles(self, force_init: bool = False) -> None:
         """Get the vehicles associated with the account."""
+        await self._ensure_ssl_context()
         if self.config.authentication.api_user_id is None:
             await self.config.authentication.login()
 

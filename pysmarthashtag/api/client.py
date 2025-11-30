@@ -1,11 +1,13 @@
 import logging
+import ssl
 from collections import defaultdict, deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Optional
 
 import httpx
 
 from pysmarthashtag.api.authentication import SmartAuthentication
+from pysmarthashtag.api.ssl_context import get_ssl_context_async
 from pysmarthashtag.const import (
     HTTPX_TIMEOUT,
     SERVER_URL,
@@ -27,6 +29,7 @@ class SmartClientConfiguration:
 
     authentication: SmartAuthentication
     log_responses: Optional[bool] = False
+    ssl_context: Optional[ssl.SSLContext] = field(default=None)
 
     def set_log_responses(self, log_responses: bool) -> None:
         """Set if responses are logged and clear response store."""
@@ -34,13 +37,31 @@ class SmartClientConfiguration:
         self.log_responses = log_responses
         RESPONSE_STORE.clear()
 
+    async def get_ssl_context(self) -> ssl.SSLContext:
+        """Get or create SSL context asynchronously."""
+        if self.ssl_context is None:
+            self.ssl_context = await get_ssl_context_async()
+        return self.ssl_context
+
 
 class SmartClient(httpx.AsyncClient):
     """Async HTTP client based on `httpx.AsyncClient` with automated OAuth token refresh."""
 
     last_message: str = ""
 
-    def __init__(self, config: SmartClientConfiguration, *args, **kwargs):
+    def __init__(self, config: SmartClientConfiguration, ssl_context: Optional[ssl.SSLContext] = None, *args, **kwargs):
+        """Initialize the Smart client.
+
+        Args:
+        ----
+            config: Smart client configuration
+            ssl_context: Pre-created SSL context to avoid blocking calls.
+                        If not provided, SSL verification is still enabled
+                        but may cause blocking warnings in async environments.
+            *args: Additional arguments passed to httpx.AsyncClient
+            **kwargs: Additional keyword arguments passed to httpx.AsyncClient
+
+        """
         self.config = config
 
         # Add authentication
@@ -51,6 +72,12 @@ class SmartClient(httpx.AsyncClient):
 
         # Set default values
         kwargs["base_url"] = kwargs.get("base_url") or SERVER_URL
+
+        # Use pre-created SSL context if provided, or use config's SSL context
+        if ssl_context is not None:
+            kwargs["verify"] = ssl_context
+        elif config.ssl_context is not None:
+            kwargs["verify"] = config.ssl_context
 
         # Register event hooks
         kwargs["event_hooks"] = defaultdict(list, **kwargs.get("event_hooks", {}))
