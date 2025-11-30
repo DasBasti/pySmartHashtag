@@ -140,6 +140,18 @@ class TestSanitizeLogData:
         result = sanitize_log_data(data)
         assert result is not None
 
+        # Verify depth truncation occurs since nesting exceeds max_depth (10)
+        nested = result
+        depth = 0
+        while "nested" in nested and depth < 15:
+            nested = nested["nested"]
+            depth += 1
+        # Should have truncated before depth 15
+        assert depth <= 11  # max_depth (10) + 1 for truncation marker
+        # Check that truncation marker appears or depth was limited
+        if depth >= 10:
+            assert "..." in nested or nested == {"...": "max depth reached"}
+
 
 class TestGetDataSummary:
     """Test cases for get_data_summary function."""

@@ -308,15 +308,7 @@ class SmartLoginClient(httpx.AsyncClient):
         kwargs["event_hooks"]["response"].append(raise_for_status_handler)
 
         async def log_request(request):
-            if request.method == "POST":
-                await request.aread()
-                _LOGGER.debug(
-                    "Request: %s %s",
-                    request.method,
-                    request.url,
-                )
-            else:
-                _LOGGER.debug("Request: %s %s", request.method, request.url)
+            _LOGGER.debug("Request: %s %s", request.method, request.url)
 
         async def log_response(response):
             await response.aread()
