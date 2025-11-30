@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_element_from_dict_maybe
+from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_element_from_dict_maybe, get_field_as_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -41,13 +41,17 @@ class Position(VehicleDataBase):
         _LOGGER.debug("Parsing position data")
         retval: dict[str, Any] = {}
         position = get_element_from_dict_maybe(vehicle_data, "vehicleStatus", "basicVehicleStatus", "position")
+        if position is None:
+            _LOGGER.error("Position data not available in vehicle data")
+            return retval
         try:
-            retval["altitude"] = ValueWithUnit(int(position["altitude"]), "m")
-            retval["latitude"] = int(position["latitude"])
-            retval["longitude"] = int(position["longitude"])
-            retval["position_can_be_trusted"] = True if position["posCanBeTrusted"] == "true" else False
+            altitude = get_field_as_type(position, "altitude", int)
+            retval["altitude"] = ValueWithUnit(altitude, "m") if altitude is not None else None
+            retval["latitude"] = get_field_as_type(position, "latitude", int)
+            retval["longitude"] = get_field_as_type(position, "longitude", int)
+            retval["position_can_be_trusted"] = get_field_as_type(position, "posCanBeTrusted", bool)
 
         except KeyError as e:
-            _LOGGER.debug(f"Position info not available: {e}")
+            _LOGGER.error(f"Position info not available: {e}")
         finally:
             return retval

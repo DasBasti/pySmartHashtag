@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
-from pysmarthashtag.models import ValueWithUnit, VehicleDataBase
+from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -193,66 +193,84 @@ class Battery(VehicleDataBase):
         retval: dict[str, Any] = {}
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["electricVehicleStatus"]
-            if "distanceToEmptyOnBatteryOnly" in evStatus:
-                retval["remaining_range"] = ValueWithUnit(int(evStatus["distanceToEmptyOnBatteryOnly"]), "km")
-            if "distanceToEmptyOnBattery100Soc" in evStatus:
-                retval["remaining_range_at_full_charge"] = ValueWithUnit(
-                    int(evStatus["distanceToEmptyOnBattery100Soc"]), "km"
+
+            # Parse range values
+            range_only = get_field_as_type(evStatus, "distanceToEmptyOnBatteryOnly", int, log_missing=False)
+            if range_only is not None:
+                retval["remaining_range"] = ValueWithUnit(range_only, "km")
+
+            range_100 = get_field_as_type(evStatus, "distanceToEmptyOnBattery100Soc", int, log_missing=False)
+            if range_100 is not None:
+                retval["remaining_range_at_full_charge"] = ValueWithUnit(range_100, "km")
+
+            charge_level = get_field_as_type(evStatus, "chargeLevel", int, log_missing=False)
+            if charge_level is not None:
+                retval["remaining_battery_percent"] = ValueWithUnit(charge_level, "%")
+
+            charger_state = get_field_as_type(evStatus, "chargerState", int, log_missing=False)
+            if charger_state is not None:
+                retval["charging_status"] = (
+                    ChargingState[charger_state] if charger_state < len(ChargingState) else "UNKNOWN"
                 )
-            if "chargeLevel" in evStatus:
-                retval["remaining_battery_percent"] = ValueWithUnit(int(evStatus["chargeLevel"]), "%")
-            if "chargerState" in evStatus:
-                status = int(evStatus["chargerState"])
-                retval["charging_status"] = ChargingState[status] if status < len(ChargingState) else "UNKNOWN"
-                retval["charging_status_raw"] = int(evStatus["chargerState"])
+                retval["charging_status_raw"] = charger_state
                 retval["is_charger_connected"] = (
                     retval["charging_status"] == "PLUGGED_IN"
                     or retval["charging_status"] == "CHARGING"
                     or retval["charging_status"] == "DC_CHARGING"
                     or retval["charging_status"] == "COMPLETE"
                 )
-            if "statusOfChargerConnection" in evStatus:
-                retval["charger_connection_status"] = int(evStatus["statusOfChargerConnection"])
 
-            if "dcChargeIAct" in evStatus and retval["charging_status"] == "DC_CHARGING":
-                if retval["remaining_battery_percent"].value > 100:
-                    retval["remaining_battery_percent"].value = 100
-                retval["charging_voltage"] = ValueWithUnit(
-                    DcChargingVoltLevels[retval["remaining_battery_percent"].value], "V"
-                )
-                retval["charging_current"] = ValueWithUnit(abs(float(evStatus["dcChargeIAct"])), "A")
-                retval["charging_power"] = ValueWithUnit(
-                    math.floor(
-                        retval["charging_current"].value
-                        * DcChargingVoltLevels[retval["remaining_battery_percent"].value]
-                    ),
-                    "W",
-                )
-            elif "chargeUAct" in evStatus and "chargeIAct" in evStatus:
-                retval["charging_voltage"] = ValueWithUnit(float(evStatus["chargeUAct"]), "V")
-                retval["charging_current"] = ValueWithUnit(float(evStatus["chargeIAct"]), "A")
-                retval["charging_power"] = ValueWithUnit(
-                    float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"])
-                    if retval["charging_voltage"].value < 260
-                    else float(evStatus["chargeUAct"]) * float(evStatus["chargeIAct"]) * math.sqrt(3),
-                    "W",
-                )
+            charger_conn = get_field_as_type(evStatus, "statusOfChargerConnection", int, log_missing=False)
+            if charger_conn is not None:
+                retval["charger_connection_status"] = charger_conn
 
-            if "timeToFullyCharged" in evStatus:
-                retval["charging_time_remaining"] = (
-                    ValueWithUnit(int(evStatus["timeToFullyCharged"]), "min")
-                    if evStatus["timeToFullyCharged"] != "2047"
-                    else None
-                )
+            charging_status = retval.get("charging_status")
+            battery_percent = retval.get("remaining_battery_percent")
 
-            if "averPowerConsumption" in evStatus:
-                retval["average_power_consumption"] = ValueWithUnit(float(evStatus["averPowerConsumption"]), "W")
+            dc_charge_i = get_field_as_type(evStatus, "dcChargeIAct", float, log_missing=False)
+            if dc_charge_i is not None and charging_status == "DC_CHARGING" and battery_percent is not None:
+                battery_value = battery_percent.value
+                # Ensure battery_value is a valid integer index within DcChargingVoltLevels bounds
+                if isinstance(battery_value, (int, float)):
+                    battery_value = int(battery_value)
+                    # Clamp to valid index range: 0 to len(DcChargingVoltLevels) - 1
+                    max_index = len(DcChargingVoltLevels) - 1
+                    battery_value = max(0, min(battery_value, max_index))
+                    retval["charging_voltage"] = ValueWithUnit(DcChargingVoltLevels[battery_value], "V")
+                    retval["charging_current"] = ValueWithUnit(abs(dc_charge_i), "A")
+                    retval["charging_power"] = ValueWithUnit(
+                        math.floor(abs(dc_charge_i) * DcChargingVoltLevels[battery_value]),
+                        "W",
+                    )
+                else:
+                    _LOGGER.error(f"Invalid battery_value type for DC charging lookup: {type(battery_value)}")
+            else:
+                charge_u = get_field_as_type(evStatus, "chargeUAct", float, log_missing=False)
+                charge_i = get_field_as_type(evStatus, "chargeIAct", float, log_missing=False)
+                if charge_u is not None and charge_i is not None:
+                    retval["charging_voltage"] = ValueWithUnit(charge_u, "V")
+                    retval["charging_current"] = ValueWithUnit(charge_i, "A")
+                    retval["charging_power"] = ValueWithUnit(
+                        charge_u * charge_i if charge_u < 260 else charge_u * charge_i * math.sqrt(3),
+                        "W",
+                    )
+
+            time_to_charged = get_field_as_type(evStatus, "timeToFullyCharged", int, log_missing=False)
+            if time_to_charged is not None and time_to_charged != 2047:
+                retval["charging_time_remaining"] = ValueWithUnit(time_to_charged, "min")
+
+            avg_consumption = get_field_as_type(evStatus, "averPowerConsumption", float, log_missing=False)
+            if avg_consumption is not None:
+                retval["average_power_consumption"] = ValueWithUnit(avg_consumption, "W")
+
             if "vehicleStatus" in vehicle_data and "updateTime" in vehicle_data["vehicleStatus"]:
                 retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
-            if "soc" in vehicle_data:
-                retval["charging_target_soc"] = ValueWithUnit(float(vehicle_data["soc"]) / 10, "%")
+
+            soc = get_field_as_type(vehicle_data, "soc", float, log_missing=False)
+            if soc is not None:
+                retval["charging_target_soc"] = ValueWithUnit(soc / 10, "%")
         except KeyError as e:
-            _LOGGER.debug(f"Battery info not available: {e}")
+            _LOGGER.error(f"Battery info not available: {e}")
         except Exception as e:
             _LOGGER.error(f"Error parsing battery data: {e}")
         finally:

@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
-from pysmarthashtag.models import VehicleDataBase
+from pysmarthashtag.models import VehicleDataBase, get_field_as_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -113,36 +113,38 @@ class Safety(VehicleDataBase):
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["drivingSafetyStatus"]
 
-            retval["central_locking_status"] = int(evStatus.get("centralLockingStatus"))
-            retval["door_lock_status_driver"] = int(evStatus.get("doorLockStatusDriver"))
-            retval["door_lock_status_driver_rear"] = int(evStatus.get("doorLockStatusDriverRear"))
-            retval["door_lock_status_passenger"] = int(evStatus.get("doorLockStatusPassenger"))
-            retval["door_lock_status_passenger_rear"] = int(evStatus.get("doorLockStatusPassengerRear"))
-            retval["door_open_status_driver"] = int(evStatus.get("doorOpenStatusDriver"))
-            retval["door_open_status_driver_rear"] = int(evStatus.get("doorOpenStatusDriverRear"))
-            retval["door_open_status_passenger"] = int(evStatus.get("doorOpenStatusPassenger"))
-            retval["door_open_status_passenger_rear"] = int(evStatus.get("doorOpenStatusPassengerRear"))
-            retval["door_pos_driver"] = int(evStatus.get("doorPosDriver"))
-            retval["door_pos_driver_rear"] = int(evStatus.get("doorPosDriverRear"))
-            retval["door_pos_passenger"] = int(evStatus.get("doorPosPassenger"))
-            retval["door_pos_passenger_rear"] = int(evStatus.get("doorPosPassengerRear"))
-            retval["electric_park_brake_status"] = int(evStatus.get("electricParkBrakeStatus"))
-            retval["engine_hood_open_status"] = int(evStatus.get("engineHoodOpenStatus"))
-            retval["seat_belt_status_driver"] = bool(evStatus.get("seatBeltStatusDriver"))
-            retval["seat_belt_status_driver_rear"] = bool(evStatus.get("seatBeltStatusDriverRear"))
-            retval["seat_belt_status_mid_rear"] = bool(evStatus.get("seatBeltStatusMidRear"))
-            retval["seat_belt_status_passenger"] = bool(evStatus.get("seatBeltStatusPassenger"))
-            retval["seat_belt_status_passenger_rear"] = bool(evStatus.get("seatBeltStatusPassengerRear"))
-            retval["seat_belt_status_th_driver_rear"] = bool(evStatus.get("seatBeltStatusThDriverRear"))
-            retval["seat_belt_status_th_passenger_rear"] = bool(evStatus.get("seatBeltStatusThPassengerRear"))
-            retval["srs_crash_status"] = int(evStatus.get("srsCrashStatus"))
-            retval["tank_flap_status"] = int(evStatus.get("tankFlapStatus"))
-            retval["trunk_lock_status"] = int(evStatus.get("trunkLockStatus"))
-            retval["trunk_open_status"] = int(evStatus.get("trunkOpenStatus"))
+            retval["central_locking_status"] = get_field_as_type(evStatus, "centralLockingStatus", int)
+            retval["door_lock_status_driver"] = get_field_as_type(evStatus, "doorLockStatusDriver", int)
+            retval["door_lock_status_driver_rear"] = get_field_as_type(evStatus, "doorLockStatusDriverRear", int)
+            retval["door_lock_status_passenger"] = get_field_as_type(evStatus, "doorLockStatusPassenger", int)
+            retval["door_lock_status_passenger_rear"] = get_field_as_type(evStatus, "doorLockStatusPassengerRear", int)
+            retval["door_open_status_driver"] = get_field_as_type(evStatus, "doorOpenStatusDriver", int)
+            retval["door_open_status_driver_rear"] = get_field_as_type(evStatus, "doorOpenStatusDriverRear", int)
+            retval["door_open_status_passenger"] = get_field_as_type(evStatus, "doorOpenStatusPassenger", int)
+            retval["door_open_status_passenger_rear"] = get_field_as_type(evStatus, "doorOpenStatusPassengerRear", int)
+            retval["door_pos_driver"] = get_field_as_type(evStatus, "doorPosDriver", int)
+            retval["door_pos_driver_rear"] = get_field_as_type(evStatus, "doorPosDriverRear", int)
+            retval["door_pos_passenger"] = get_field_as_type(evStatus, "doorPosPassenger", int)
+            retval["door_pos_passenger_rear"] = get_field_as_type(evStatus, "doorPosPassengerRear", int)
+            retval["electric_park_brake_status"] = get_field_as_type(evStatus, "electricParkBrakeStatus", int)
+            retval["engine_hood_open_status"] = get_field_as_type(evStatus, "engineHoodOpenStatus", int)
+            retval["seat_belt_status_driver"] = get_field_as_type(evStatus, "seatBeltStatusDriver", bool)
+            retval["seat_belt_status_driver_rear"] = get_field_as_type(evStatus, "seatBeltStatusDriverRear", bool)
+            retval["seat_belt_status_mid_rear"] = get_field_as_type(evStatus, "seatBeltStatusMidRear", bool)
+            retval["seat_belt_status_passenger"] = get_field_as_type(evStatus, "seatBeltStatusPassenger", bool)
+            retval["seat_belt_status_passenger_rear"] = get_field_as_type(evStatus, "seatBeltStatusPassengerRear", bool)
+            retval["seat_belt_status_th_driver_rear"] = get_field_as_type(evStatus, "seatBeltStatusThDriverRear", bool)
+            retval["seat_belt_status_th_passenger_rear"] = get_field_as_type(
+                evStatus, "seatBeltStatusThPassengerRear", bool
+            )
+            retval["srs_crash_status"] = get_field_as_type(evStatus, "srsCrashStatus", int)
+            retval["tank_flap_status"] = get_field_as_type(evStatus, "tankFlapStatus", int)
+            retval["trunk_lock_status"] = get_field_as_type(evStatus, "trunkLockStatus", int)
+            retval["trunk_open_status"] = get_field_as_type(evStatus, "trunkOpenStatus", int)
             retval["vehicle_alarm"] = evStatus.get("vehicleAlarm")
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
         except KeyError as e:
-            _LOGGER.warning(f"Safety info not available: {e}")
+            _LOGGER.error(f"Safety info not available: {e}")
         finally:
             return retval

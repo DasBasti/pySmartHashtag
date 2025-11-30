@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
-from pysmarthashtag.models import ValueWithUnit, VehicleDataBase
+from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -115,37 +115,40 @@ class Running(VehicleDataBase):
         try:
             evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["runningStatus"]
             _LOGGER.debug("Parsing running data")
-            retval["ahbc_status"] = int(evStatus.get("ahbc"))
-            retval["goodbye"] = int(evStatus.get("goodbye"))
-            retval["home_safe"] = int(evStatus.get("homeSafe"))
-            retval["corner_light"] = int(evStatus.get("cornrgLi"))
-            retval["front_fog_light"] = int(evStatus.get("frntFog"))
-            retval["stop_light"] = int(evStatus.get("stopLi"))
-            retval["trip_meter1"] = ValueWithUnit(float(evStatus.get("tripMeter1")), "km")
-            retval["trip_meter2"] = ValueWithUnit(float(evStatus.get("tripMeter2")), "km")
-            retval["approach"] = int(evStatus.get("approach"))
-            retval["high_beam"] = int(evStatus.get("hiBeam"))
-            retval["engine_coolant_level_status"] = int(evStatus.get("engineCoolantLevelStatus"))
-            retval["low_beam"] = int(evStatus.get("loBeam"))
-            retval["position_light_rear"] = int(evStatus.get("posLiRe"))
-            retval["light_show"] = int(evStatus.get("ltgShow"))
-            retval["welcome"] = int(evStatus.get("welcome"))
-            retval["drl"] = int(evStatus.get("drl"))
-            retval["ahl"] = int(evStatus.get("ahl"))
-            retval["trun_indicator_left"] = int(evStatus.get("trunIndrLe"))
-            retval["trun_indicator_right"] = int(evStatus.get("trunIndrRi"))
-            retval["adaptive_front_light"] = int(evStatus.get("afs"))
-            retval["dbl"] = int(evStatus.get("dbl"))
-            retval["average_speed"] = ValueWithUnit(float(evStatus.get("avgSpeed")), "km/h")
-            retval["position_light_front"] = int(evStatus.get("posLiFrnt"))
-            retval["reverse_light"] = int(evStatus.get("reverseLi"))
-            retval["highway_light"] = int(evStatus.get("hwl"))
-            retval["rear_fog_light"] = int(evStatus.get("reFog"))
-            retval["flash_light"] = int(evStatus.get("flash"))
-            retval["all_weather_light"] = int(evStatus.get("allwl"))
+            retval["ahbc_status"] = get_field_as_type(evStatus, "ahbc", int)
+            retval["goodbye"] = get_field_as_type(evStatus, "goodbye", int)
+            retval["home_safe"] = get_field_as_type(evStatus, "homeSafe", int)
+            retval["corner_light"] = get_field_as_type(evStatus, "cornrgLi", int)
+            retval["front_fog_light"] = get_field_as_type(evStatus, "frntFog", int)
+            retval["stop_light"] = get_field_as_type(evStatus, "stopLi", int)
+            trip_meter1 = get_field_as_type(evStatus, "tripMeter1", float)
+            retval["trip_meter1"] = ValueWithUnit(trip_meter1, "km") if trip_meter1 is not None else None
+            trip_meter2 = get_field_as_type(evStatus, "tripMeter2", float)
+            retval["trip_meter2"] = ValueWithUnit(trip_meter2, "km") if trip_meter2 is not None else None
+            retval["approach"] = get_field_as_type(evStatus, "approach", int)
+            retval["high_beam"] = get_field_as_type(evStatus, "hiBeam", int)
+            retval["engine_coolant_level_status"] = get_field_as_type(evStatus, "engineCoolantLevelStatus", int)
+            retval["low_beam"] = get_field_as_type(evStatus, "loBeam", int)
+            retval["position_light_rear"] = get_field_as_type(evStatus, "posLiRe", int)
+            retval["light_show"] = get_field_as_type(evStatus, "ltgShow", int)
+            retval["welcome"] = get_field_as_type(evStatus, "welcome", int)
+            retval["drl"] = get_field_as_type(evStatus, "drl", int)
+            retval["ahl"] = get_field_as_type(evStatus, "ahl", int)
+            retval["trun_indicator_left"] = get_field_as_type(evStatus, "trunIndrLe", int)
+            retval["trun_indicator_right"] = get_field_as_type(evStatus, "trunIndrRi", int)
+            retval["adaptive_front_light"] = get_field_as_type(evStatus, "afs", int)
+            retval["dbl"] = get_field_as_type(evStatus, "dbl", int)
+            avg_speed = get_field_as_type(evStatus, "avgSpeed", float)
+            retval["average_speed"] = ValueWithUnit(avg_speed, "km/h") if avg_speed is not None else None
+            retval["position_light_front"] = get_field_as_type(evStatus, "posLiFrnt", int)
+            retval["reverse_light"] = get_field_as_type(evStatus, "reverseLi", int)
+            retval["highway_light"] = get_field_as_type(evStatus, "hwl", int)
+            retval["rear_fog_light"] = get_field_as_type(evStatus, "reFog", int)
+            retval["flash_light"] = get_field_as_type(evStatus, "flash", int)
+            retval["all_weather_light"] = get_field_as_type(evStatus, "allwl", int)
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
         except KeyError as e:
-            _LOGGER.warning(f"Running info not available: {e}")
+            _LOGGER.error(f"Running info not available: {e}")
         finally:
             return retval

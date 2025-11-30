@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
 
-from pysmarthashtag.models import ValueWithUnit, VehicleDataBase
+from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -52,32 +52,58 @@ class Tires(VehicleDataBase):
         retval: dict[str, Any] = {}
         try:
             maintenance_status = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["maintenanceStatus"]
+
+            # Parse temperature values
+            temp_driver = get_field_as_type(maintenance_status, "tyreTempDriver", float)
+            temp_driver_rear = get_field_as_type(maintenance_status, "tyreTempDriverRear", float)
+            temp_passenger = get_field_as_type(maintenance_status, "tyreTempPassenger", float)
+            temp_passenger_rear = get_field_as_type(maintenance_status, "tyreTempPassengerRear", float)
+
             retval["temperature"] = [
-                ValueWithUnit(float(maintenance_status["tyreTempDriver"]), "C"),
-                ValueWithUnit(float(maintenance_status["tyreTempDriverRear"]), "C"),
-                ValueWithUnit(float(maintenance_status["tyreTempPassenger"]), "C"),
-                ValueWithUnit(float(maintenance_status["tyreTempPassengerRear"]), "C"),
+                ValueWithUnit(temp_driver, "C") if temp_driver is not None else ValueWithUnit(None, "C"),
+                ValueWithUnit(temp_driver_rear, "C") if temp_driver_rear is not None else ValueWithUnit(None, "C"),
+                ValueWithUnit(temp_passenger, "C") if temp_passenger is not None else ValueWithUnit(None, "C"),
+                ValueWithUnit(temp_passenger_rear, "C")
+                if temp_passenger_rear is not None
+                else ValueWithUnit(None, "C"),
             ]
+
+            # Parse pre-warning values
             retval["temperature_pre_warning"] = [
-                maintenance_status["tyrePreWarningDriver"] == "1",
-                maintenance_status["tyrePreWarningDriverRear"] == "1",
-                maintenance_status["tyrePreWarningPassenger"] == "1",
-                maintenance_status["tyrePreWarningPassengerRear"] == "1",
+                get_field_as_type(maintenance_status, "tyrePreWarningDriver", bool),
+                get_field_as_type(maintenance_status, "tyrePreWarningDriverRear", bool),
+                get_field_as_type(maintenance_status, "tyrePreWarningPassenger", bool),
+                get_field_as_type(maintenance_status, "tyrePreWarningPassengerRear", bool),
             ]
+
+            # Parse tire pressure values
+            pressure_driver = get_field_as_type(maintenance_status, "tyreStatusDriver", float)
+            pressure_driver_rear = get_field_as_type(maintenance_status, "tyreStatusDriverRear", float)
+            pressure_passenger = get_field_as_type(maintenance_status, "tyreStatusPassenger", float)
+            pressure_passenger_rear = get_field_as_type(maintenance_status, "tyreStatusPassengerRear", float)
+
             retval["tire_pressure"] = [
-                ValueWithUnit(float(maintenance_status["tyreStatusDriver"]), "kPa"),
-                ValueWithUnit(float(maintenance_status["tyreStatusDriverRear"]), "kPa"),
-                ValueWithUnit(float(maintenance_status["tyreStatusPassenger"]), "kPa"),
-                ValueWithUnit(float(maintenance_status["tyreStatusPassengerRear"]), "kPa"),
+                ValueWithUnit(pressure_driver, "kPa") if pressure_driver is not None else ValueWithUnit(None, "kPa"),
+                ValueWithUnit(pressure_driver_rear, "kPa")
+                if pressure_driver_rear is not None
+                else ValueWithUnit(None, "kPa"),
+                ValueWithUnit(pressure_passenger, "kPa")
+                if pressure_passenger is not None
+                else ValueWithUnit(None, "kPa"),
+                ValueWithUnit(pressure_passenger_rear, "kPa")
+                if pressure_passenger_rear is not None
+                else ValueWithUnit(None, "kPa"),
             ]
+
+            # Parse temperature warning values
             retval["temperature_warning"] = [
-                maintenance_status["tyreTempWarningDriver"] == "1",
-                maintenance_status["tyreTempWarningDriverRear"] == "1",
-                maintenance_status["tyreTempWarningPassenger"] == "1",
-                maintenance_status["tyreTempWarningPassengerRear"] == "1",
+                get_field_as_type(maintenance_status, "tyreTempWarningDriver", bool),
+                get_field_as_type(maintenance_status, "tyreTempWarningDriverRear", bool),
+                get_field_as_type(maintenance_status, "tyreTempWarningPassenger", bool),
+                get_field_as_type(maintenance_status, "tyreTempWarningPassengerRear", bool),
             ]
 
         except KeyError as e:
-            _LOGGER.debug(f"Tire info not available: {e}")
+            _LOGGER.error(f"Tire info not available: {e}")
         finally:
             return retval

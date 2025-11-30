@@ -105,3 +105,48 @@ def get_element_from_dict_maybe(
     if path[0] not in data:
         return default
     return get_element_from_dict_maybe(data[path[0]], *path[1:])
+
+
+def get_field_as_type(
+    data: dict,
+    field: str,
+    target_type: type,
+    log_missing: bool = True,
+) -> Optional[Union[int, float, bool, str]]:
+    """Get a field from a dict and convert it to the target type.
+
+    This function safely extracts a field from a dictionary and converts it
+    to the specified type. If the field is missing or the conversion fails,
+    it logs an error and returns None without raising an exception.
+
+    Args:
+        data: The dictionary to extract the field from.
+        field: The field name to extract.
+        target_type: The target type to convert the value to (int, float, bool, str).
+        log_missing: Whether to log an error when the field is missing (default True).
+
+    Returns:
+        The converted value or None if the field is missing or conversion fails.
+
+    """
+    if field not in data:
+        if log_missing:
+            _LOGGER.error("Field '%s' not found in data", field)
+        return None
+
+    value = data[field]
+    if value is None:
+        if log_missing:
+            _LOGGER.error("Field '%s' has None value", field)
+        return None
+
+    try:
+        if target_type is bool:
+            # Handle string booleans like "true", "false", "0", "1"
+            if isinstance(value, str):
+                return value.lower() in ("true", "1")
+            return bool(value)
+        return target_type(value)
+    except (ValueError, TypeError) as e:
+        _LOGGER.error("Failed to convert field '%s' value '%s' to %s: %s", field, value, target_type.__name__, e)
+        return None
