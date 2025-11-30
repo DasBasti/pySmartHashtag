@@ -52,8 +52,20 @@ class ChargingControl:
             JSON string payload for the API request
 
         """
-        _payload = self.BASE_PAYLOAD_TEMPLATE.copy()
-        _payload["operationScheduling"] = self.BASE_PAYLOAD_TEMPLATE["operationScheduling"].copy()
+        # Create a new payload dictionary to avoid modifying the template
+        _payload = {
+            "creator": self.BASE_PAYLOAD_TEMPLATE["creator"],
+            "operationScheduling": {
+                "scheduledTime": None,
+                "interval": 0,
+                "occurs": 1,
+                "recurrentOperation": 0,
+                "duration": 6,
+            },
+            "serviceId": self.BASE_PAYLOAD_TEMPLATE["serviceId"],
+        }
+        # Per the API specification, command is always "start"
+        # The actual operation (start/stop) is controlled by the serviceParameters
         _payload["command"] = "start"
         _payload["timeStamp"] = utils.create_correct_timestamp()
         _payload["serviceParameters"] = [
