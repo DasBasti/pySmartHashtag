@@ -41,6 +41,9 @@ SENSITIVE_FIELDS = frozenset({
 VIN_PATTERN = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
 TOKEN_PATTERN = re.compile(r"(Bearer\s+)[A-Za-z0-9_\-]+\.?[A-Za-z0-9_\-]*\.?[A-Za-z0-9_\-]*")
 
+# Pre-computed normalized sensitive field names for efficient lookup
+_NORMALIZED_SENSITIVE_FIELDS = frozenset(f.replace("_", "") for f in SENSITIVE_FIELDS)
+
 
 def _mask_value(value: str, visible_chars: int = 4) -> str:
     """Mask a sensitive value, showing only the last few characters.
@@ -82,7 +85,7 @@ def _sanitize_dict(data: dict, depth: int = 0, max_depth: int = 10) -> dict:
     result = {}
     for key, value in data.items():
         lower_key = key.lower().replace("-", "").replace("_", "")
-        if lower_key in {f.replace("_", "") for f in SENSITIVE_FIELDS}:
+        if lower_key in _NORMALIZED_SENSITIVE_FIELDS:
             result[key] = _mask_value(str(value)) if value else value
         elif isinstance(value, dict):
             result[key] = _sanitize_dict(value, depth + 1, max_depth)
@@ -190,7 +193,7 @@ def get_data_summary(data: dict, include_keys: Union[list, None] = None) -> str:
         items = [
             (k, v)
             for k, v in data.items()
-            if k.lower().replace("-", "").replace("_", "") not in {f.replace("_", "") for f in SENSITIVE_FIELDS}
+            if k.lower().replace("-", "").replace("_", "") not in _NORMALIZED_SENSITIVE_FIELDS
             and not isinstance(v, (dict, list))
         ][:5]  # Limit to 5 items
 

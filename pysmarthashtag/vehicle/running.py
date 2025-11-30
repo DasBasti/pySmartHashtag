@@ -149,6 +149,6 @@ class Running(VehicleDataBase):
 
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
         except KeyError as e:
-            _LOGGER.error(f"Running info not available: {e}")
+            _LOGGER.error("Running info not available: %s", e)
         finally:
             return retval
