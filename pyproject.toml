@@ -1,6 +1,10 @@
+[build-system]
+requires = ["setuptools>=64", "setuptools-scm>=8"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "pySmartHashtag"
-version = "0.7.0"
+dynamic = ["version"]
 authors = [
     {"name" = "Bastian Neumann", "email" = "neumann.bastian@gmail.com"},
 ]
@@ -17,10 +21,17 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
 ]
+dependencies = [
+    "httpx",
+    "pycryptodome>=3.4",
+    "pyjwt>=2.1.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/DasBasti/pySmartHashtag"
 Issues = "https://github.com/DasBasti/pySmartHashtag/issues"
+
+[tool.setuptools_scm]
 
 [tool.black]
 line-length = 120
