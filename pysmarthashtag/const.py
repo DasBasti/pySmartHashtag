@@ -44,11 +44,16 @@ class EndpointUrls:
         return self.server_url if self.server_url is not None else SERVER_URL
 
     def get_auth_url(self) -> str:
-        """Get the auth URL, using the default if not set."""
+        """Get the auth URL, using the default if not set.
+
+        Note: For international endpoints, you should provide a complete custom auth_url
+        rather than relying on the api_key override, as the auth domain may differ.
+        """
         if self.auth_url is not None:
             return self.auth_url
-        # Reconstruct AUTH_URL using the current API key
-        return f"https://auth.smart.com/oidc/op/v1.0/{self.get_api_key()}/authorize/continue"
+        # Use the default AUTH_URL constant, which includes the default API key
+        # For custom API keys with the same auth domain, users should provide auth_url explicitly
+        return AUTH_URL
 
     def get_login_url(self) -> str:
         """Get the login URL, using the default if not set."""

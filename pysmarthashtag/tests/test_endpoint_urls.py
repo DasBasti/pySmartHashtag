@@ -36,8 +36,9 @@ class TestEndpointUrls:
         custom_api_key = "custom_api_key_12345"
         urls = EndpointUrls(api_key=custom_api_key)
         assert urls.get_api_key() == custom_api_key
-        # Auth URL should incorporate the custom API key
-        assert custom_api_key in urls.get_auth_url()
+        # Auth URL returns the default when not explicitly set
+        # For custom API keys, users should provide auth_url explicitly
+        assert urls.get_auth_url() == AUTH_URL
 
     def test_custom_server_url(self):
         """Test that custom server URL is used."""
