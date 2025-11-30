@@ -1,0 +1,18 @@
+{
+  "code": "1000",
+  "data": {
+    "diagnostics": null,
+    "serviceResult": { "error": null, "operationResult": 1 },
+    "trackPoint": null,
+    "vin": "TestVIN0000000001",
+    "sessionId": "a1b2c3d4e5f67890123456789abcdef0",
+    "serviceId": "rcs",
+    "taskId": null,
+    "timestamp": "1708190532207"
+  },
+  "success": true,
+  "hint": null,
+  "httpStatus": "OK",
+  "sessionId": "a1b2c3d4e5f67890123456789abcdef0",
+  "message": "operation succeed"
+}
