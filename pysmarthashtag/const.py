@@ -14,9 +14,78 @@ API_SESION_URL = "/auth/account/session/secure"
 API_SELECT_CAR_URL = "/device-platform/user/session/update"
 API_TELEMATICS_URL = "/remote-control/vehicle/telematics/"
 
+# INTL (International) API specific constants
+# Used for Hello Smart International app (Australia, Singapore, Israel, etc.)
+INTL_API_BASE = "https://sg-app-api.smart.com"
+INTL_LOGIN_URL = f"{INTL_API_BASE}/iam/service/api/v1/login"
+INTL_OAUTH_URL = f"{INTL_API_BASE}/iam/service/api/v1/oauth20/authorize"
+INTL_REFRESH_URL = f"{INTL_API_BASE}/iam/service/api/v1/refresh/"
+INTL_USER_INFO_URL = f"{INTL_API_BASE}/uc/api/user/toc/base/info"
+INTL_CA_KEY = "204587190"  # X-Ca-Key header value for INTL API Gateway
+INTL_APP_ID = "SMARTAPP-ISRAEL"  # x-app-id for vehicle API
+INTL_OPERATOR_CODE = "SMART-ISRAEL"  # x-operator-code for vehicle API
+# Note: INTL signing secret is stored in api/utils.py
+
 OTA_SERVER_URL = "https://ota.srv.smart.com/"
 
 HTTPX_TIMEOUT = 30.0
+
+
+class SmartRegion(str, Enum):
+    """Region presets for Smart API endpoints.
+
+    Use these region presets to easily configure the API for different geographic regions.
+    - EU: European region (default) - for users with Hello Smart EU app
+    - INTL: International region (Asia-Pacific) - for users with Hello Smart International app
+           (Australia, Singapore, and other international markets)
+    """
+
+    EU = "eu"
+    INTL = "intl"
+
+
+def get_endpoint_urls_for_region(region: SmartRegion) -> "EndpointUrls":
+    """Get pre-configured EndpointUrls for a specific region.
+
+    Args:
+    ----
+        region: The region to get endpoint URLs for.
+
+    Returns:
+    -------
+        EndpointUrls configured for the specified region.
+
+    Example:
+    -------
+        >>> from pysmarthashtag.const import SmartRegion, get_endpoint_urls_for_region
+        >>> from pysmarthashtag.account import SmartAccount
+        >>>
+        >>> # For Australian/International users
+        >>> endpoint_urls = get_endpoint_urls_for_region(SmartRegion.INTL)
+        >>> account = SmartAccount("user@example.com", "password", endpoint_urls=endpoint_urls)
+        >>>
+        >>> # For European users (default)
+        >>> endpoint_urls = get_endpoint_urls_for_region(SmartRegion.EU)
+        >>> account = SmartAccount("user@example.com", "password", endpoint_urls=endpoint_urls)
+
+    """
+    if region == SmartRegion.EU:
+        # European region - uses default endpoints
+        return EndpointUrls()
+    elif region == SmartRegion.INTL:
+        # International region (Asia-Pacific) - for Hello Smart International app
+        # Used in Australia, Singapore, Israel, and other international markets
+        # Note: INTL uses different auth system (sg-app-api.smart.com) but same data endpoints as EU
+        return EndpointUrls(
+            server_url="https://sg-app-api.smart.com/iam/service/api/v1/login",
+            auth_url="https://sg-app-api.smart.com/iam/service/api/v1/oauth20/authorize",
+            login_url="https://sg-app-api.smart.com/iam/service/api/v1/login",
+            # INTL uses same data endpoints as EU
+            api_base_url="https://api.ecloudeu.com",
+            api_base_url_v2="https://apiv2.ecloudeu.com",
+        )
+    else:
+        raise ValueError(f"Unknown region: {region}")
 
 
 @dataclass
