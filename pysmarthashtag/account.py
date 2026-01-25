@@ -7,10 +7,10 @@ from dataclasses import InitVar, dataclass, field
 from typing import Optional
 
 from pysmarthashtag.api import utils
-from pysmarthashtag.api.authentication import SmartAuthentication
+from pysmarthashtag.api.authentication import SmartAuthentication, SmartAuthenticationINTL
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.api.log_sanitizer import sanitize_log_data
-from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls
+from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls, SmartRegion
 from pysmarthashtag.models import SmartAuthError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
 
@@ -38,19 +38,70 @@ class SmartAccount:
     endpoint_urls: Optional[EndpointUrls] = None
     """Optional. Custom endpoint URLs for international API support."""
 
+    region: Optional[SmartRegion] = None
+    """Optional. Region preset (EU or INTL). If set, overrides endpoint_urls."""
+
     vehicles: dict[str, SmartVehicle] = field(default_factory=dict, init=False)
     """Vehicles associated with the account."""
 
     def __post_init__(self, password, log_responses):
         """Initialize the account."""
-        # Ensure endpoint_urls is set
-        if self.endpoint_urls is None:
+        # Import get_endpoint_urls_for_region here to avoid circular imports
+        from pysmarthashtag.const import get_endpoint_urls_for_region
+
+        # If region is specified, use it to get endpoint URLs
+        if self.region is not None:
+            self.endpoint_urls = get_endpoint_urls_for_region(self.region)
+        elif self.endpoint_urls is None:
             self.endpoint_urls = EndpointUrls()
+
+        # Choose authentication class based on region
+        if self.region == SmartRegion.INTL:
+            _LOGGER.info("Using INTL (International) authentication for region: %s", self.region)
+            auth = SmartAuthenticationINTL(self.username, password, endpoint_urls=self.endpoint_urls)
+        else:
+            _LOGGER.info("Using EU authentication (default)")
+            auth = SmartAuthentication(self.username, password, endpoint_urls=self.endpoint_urls)
 
         if self.config is None:
             self.config = SmartClientConfiguration(
-                SmartAuthentication(self.username, password, endpoint_urls=self.endpoint_urls),
+                auth,
                 log_responses=log_responses,
+            )
+
+    def _is_intl_region(self) -> bool:
+        """Check if using INTL (International) region."""
+        return self.region == SmartRegion.INTL
+
+    def _generate_api_headers(self, params: dict, method: str, url: str, body=None) -> dict[str, str]:
+        """Generate API headers based on region (EU or INTL).
+
+        This method automatically selects the correct header generator
+        based on whether the account is configured for INTL region.
+        """
+        auth = self.config.authentication
+
+        if self._is_intl_region():
+            # INTL region uses different headers and signing
+            client_id = getattr(auth, 'api_client_id', None)
+            return utils.generate_intl_header(
+                device_id=auth.device_id,
+                access_token=auth.api_access_token,
+                params=params,
+                method=method,
+                url=url,
+                body=body,
+                client_id=client_id,
+            )
+        else:
+            # EU region uses default headers
+            return utils.generate_default_header(
+                device_id=auth.device_id,
+                access_token=auth.api_access_token,
+                params=params,
+                method=method,
+                url=url,
+                body=body,
             )
 
     async def _ensure_ssl_context(self) -> None:
@@ -90,9 +141,7 @@ class SmartAccount:
                         # we do not know what type of car we have in our list so we fall back to the old API URL
                         self.endpoint_urls.get_api_base_url() + API_CARS_URL + "?" + utils.join_url_params(params),
                         headers={
-                            **utils.generate_default_header(
-                                client.config.authentication.device_id,
-                                client.config.authentication.api_access_token,
+                            **self._generate_api_headers(
                                 params=params,
                                 method="GET",
                                 url=API_CARS_URL,
@@ -152,9 +201,7 @@ class SmartAccount:
                     r_car_info = await client.post(
                         self.vehicles[vin].base_url + API_SELECT_CAR_URL,
                         headers={
-                            **utils.generate_default_header(
-                                client.config.authentication.device_id,
-                                client.config.authentication.api_access_token,
+                            **self._generate_api_headers(
                                 params={},
                                 method="POST",
                                 url=API_SELECT_CAR_URL,
@@ -176,28 +223,44 @@ class SmartAccount:
     async def get_vehicle_information(self, vin) -> str:
         """Get information about a vehicle."""
         _LOGGER.debug("Getting information for vehicle")
-        params = {
-            "latest": True,
-            "target": "basic%2Cmore",
-            "userId": self.config.authentication.api_user_id,
-        }
+
+        # INTL uses different API path and parameters than EU
+        if self._is_intl_region():
+            # INTL: No /api/v1/ prefix, latest=False to get all data including climate/doors/pollution
+            params = {
+                "latest": False,
+                "target": "basic,more",
+                "userId": self.config.authentication.api_user_id,
+            }
+            url_path = "/remote-control/vehicle/status/" + vin
+            # INTL uses api.ecloudeu.com without /api/v1/ prefix
+            base_url = self.endpoint_urls.get_api_base_url()
+        else:
+            # EU: Uses /api/v1/ prefix in the base_url setting
+            params = {
+                "latest": True,
+                "target": "basic,more",
+                "userId": self.config.authentication.api_user_id,
+            }
+            url_path = "/remote-control/vehicle/status/" + vin
+            base_url = self.vehicles[vin].base_url
+
         data = {}
         async with SmartClient(self.config) as client:
             for retry in range(3):
                 try:
+                    # Build URL with URL-encoded params for GET request
+                    url_params = {k: str(v).replace(",", "%2C") for k, v in params.items()}
                     r_car_info = await client.get(
-                        self.vehicles[vin].base_url
-                        + "/remote-control/vehicle/status/"
-                        + vin
+                        base_url
+                        + url_path
                         + "?"
-                        + utils.join_url_params(params),
+                        + utils.join_url_params(url_params),
                         headers={
-                            **utils.generate_default_header(
-                                client.config.authentication.device_id,
-                                client.config.authentication.api_access_token,
+                            **self._generate_api_headers(
                                 params=params,
                                 method="GET",
-                                url="/remote-control/vehicle/status/" + vin,
+                                url=url_path,
                             )
                         },
                     )
@@ -233,9 +296,7 @@ class SmartAccount:
                         + "?"
                         + utils.join_url_params(params),
                         headers={
-                            **utils.generate_default_header(
-                                client.config.authentication.device_id,
-                                client.config.authentication.api_access_token,
+                            **self._generate_api_headers(
                                 params=params,
                                 method="GET",
                                 url="/remote-control/vehicle/status/soc/" + vin,

@@ -123,9 +123,13 @@ class Safety(VehicleDataBase):
             retval["door_open_status_passenger"] = get_field_as_type(evStatus, "doorOpenStatusPassenger", int)
             retval["door_open_status_passenger_rear"] = get_field_as_type(evStatus, "doorOpenStatusPassengerRear", int)
             retval["door_pos_driver"] = get_field_as_type(evStatus, "doorPosDriver", int)
-            retval["door_pos_driver_rear"] = get_field_as_type(evStatus, "doorPosDriverRear", int)
+            retval["door_pos_driver_rear"] = get_field_as_type(
+                evStatus, "doorPosDriverRear", int, log_missing=False
+            )
             retval["door_pos_passenger"] = get_field_as_type(evStatus, "doorPosPassenger", int)
-            retval["door_pos_passenger_rear"] = get_field_as_type(evStatus, "doorPosPassengerRear", int)
+            retval["door_pos_passenger_rear"] = get_field_as_type(
+                evStatus, "doorPosPassengerRear", int, log_missing=False
+            )
             retval["electric_park_brake_status"] = get_field_as_type(evStatus, "electricParkBrakeStatus", int)
             retval["engine_hood_open_status"] = get_field_as_type(evStatus, "engineHoodOpenStatus", int)
             retval["seat_belt_status_driver"] = get_field_as_type(evStatus, "seatBeltStatusDriver", bool)

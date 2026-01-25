@@ -188,15 +188,15 @@ class TestSmartRegion:
         assert urls.get_ota_server_url() == OTA_SERVER_URL
 
     def test_region_intl_returns_asia_pacific_endpoints(self):
-        """Test that INTL region returns Asia-Pacific endpoints for international users."""
+        """Test that INTL region returns EU endpoints (same cloud infrastructure)."""
         urls = get_endpoint_urls_for_region(SmartRegion.INTL)
-        # International region uses Asia-Pacific cloud endpoints
-        assert urls.get_api_base_url() == "https://api.ecloudap.com"
-        assert urls.get_api_base_url_v2() == "https://apiv2.ecloudap.com"
-        # Other endpoints remain default (shared infrastructure)
-        assert urls.get_server_url() == SERVER_URL
-        assert urls.get_login_url() == LOGIN_URL
-        assert urls.get_auth_url() == AUTH_URL
+        # International region uses EU cloud endpoints (shared infrastructure)
+        assert urls.get_api_base_url() == "https://api.ecloudeu.com"
+        assert urls.get_api_base_url_v2() == "https://apiv2.ecloudeu.com"
+        # INTL uses different auth URLs (sg-app-api.smart.com)
+        assert urls.get_login_url() == "https://sg-app-api.smart.com/iam/service/api/v1/login"
+        assert urls.get_auth_url() == "https://sg-app-api.smart.com/iam/service/api/v1/oauth20/authorize"
+        assert urls.get_server_url() == "https://sg-app-api.smart.com/iam/service/api/v1/login"
 
     def test_region_enum_values(self):
         """Test that SmartRegion enum has expected values."""
@@ -221,8 +221,8 @@ class TestSmartRegion:
             password="testpass",
             endpoint_urls=urls,
         )
-        assert account.endpoint_urls.get_api_base_url() == "https://api.ecloudap.com"
-        assert account.endpoint_urls.get_api_base_url_v2() == "https://apiv2.ecloudap.com"
+        assert account.endpoint_urls.get_api_base_url() == "https://api.ecloudeu.com"
+        assert account.endpoint_urls.get_api_base_url_v2() == "https://apiv2.ecloudeu.com"
 
     def test_authentication_with_intl_region(self):
         """Test SmartAuthentication with INTL region preset."""
@@ -232,4 +232,4 @@ class TestSmartRegion:
             password="testpass",
             endpoint_urls=urls,
         )
-        assert auth.endpoint_urls.get_api_base_url() == "https://api.ecloudap.com"
+        assert auth.endpoint_urls.get_api_base_url() == "https://api.ecloudeu.com"
