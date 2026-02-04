@@ -262,7 +262,7 @@ class SmartAccount:
                     continue
                 break
 
-    async def get_vehicle_information(self, vin) -> str:
+    async def get_vehicle_information(self, vin) -> dict:
         """
         Fetch the latest details and status for the vehicle identified by VIN, using global endpoints when the account is configured for global authentication.
         

@@ -418,7 +418,7 @@ class SmartAuthentication(httpx.Auth):
                 return {}
 
             expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-                seconds=int(expires_in) if expires_in else HTTPX_TIMEOUT * 2
+                seconds=int(expires_in) if expires_in else 3600
             )
             api_access_token, api_refresh_token, api_user_id = await self._get_api_session(client, access_token)
             return {
