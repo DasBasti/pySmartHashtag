@@ -24,7 +24,14 @@ def environ_or_required(key):
 
 
 def main_parser() -> argparse.ArgumentParser:
-    """Create argument parser."""
+    """
+    Create and return the CLI ArgumentParser and configure module logging from SMART_LOG_LEVEL.
+    
+    The parser is configured with subcommands: `status`, `info`, `watch` (with `-i` interval), `climate` (with `--vin`, `--temp`, `--active`), and `seatheating` (with `--vin`, `--level`, `--temp`, `--active`). Default authentication/region arguments are added via the module helper and the parser's default `func` is set to the command dispatcher.
+    
+    Returns:
+        argparse.ArgumentParser: A fully configured ArgumentParser for the CLI.
+    """
 
     logging_config = {
         "version": 1,
@@ -167,7 +174,13 @@ async def set_seatheating(args) -> None:
 
 
 def _add_default_args(parser: argparse.ArgumentParser):
-    """Add the default arguments username, password to the parser."""
+    """
+    Add standard CLI options for Smart account credentials and API region.
+    
+    Adds the following arguments to the provided ArgumentParser:
+    - `--username` and `--password`: use values from `SMART_USERNAME` / `SMART_PASSWORD` when present; marked required if the corresponding environment variable is not set.
+    - `--region`: selects the Smart API region with choices `eu`, `intl`, `global`; defaults to the `SMART_REGION` environment variable or `"eu"` when not set.
+    """
     parser.add_argument("--username", help="Smart username", **environ_or_required("SMART_USERNAME"))
     parser.add_argument("--password", help="Smart password", **environ_or_required("SMART_PASSWORD"))
     parser.add_argument(
@@ -179,16 +192,14 @@ def _add_default_args(parser: argparse.ArgumentParser):
 
 
 def _get_endpoint_urls_from_args(args) -> EndpointUrls:
-    """Get EndpointUrls based on region argument.
-
-    Args:
-    ----
-        args: Parsed command line arguments containing the region.
-
+    """
+    Return endpoint URLs for the SmartRegion specified in args.region.
+    
+    Parameters:
+        args: Parsed command-line arguments with a `region` attribute ('eu', 'intl', or 'global').
+    
     Returns:
-    -------
-        EndpointUrls configured for the specified region.
-
+        EndpointUrls: Endpoint URLs configured for the specified region.
     """
     region = SmartRegion(args.region)
     return get_endpoint_urls_for_region(region)

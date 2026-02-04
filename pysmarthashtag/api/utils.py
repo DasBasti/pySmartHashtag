@@ -73,11 +73,25 @@ def generate_default_header(
 
 
 def create_correct_timestamp() -> str:
-    """Create a correct timestamp for the request."""
+    """
+    Generate a timestamp string representing the current time in milliseconds since the Unix epoch.
+    
+    Returns:
+        timestamp (str): Current time in milliseconds since 1970-01-01 UTC, formatted as a decimal string.
+    """
     return str(int(time.time() * 1000))
 
 
 def _ensure_bytes(body: Optional[object]) -> Optional[bytes]:
+    """
+    Normalize a request body to a UTF-8 bytes object when present.
+    
+    Parameters:
+        body (Optional[object]): The value to normalize. If `None`, no conversion is performed.
+    
+    Returns:
+        Optional[bytes]: `None` if input is `None`; the input unchanged if already `bytes`; otherwise the UTF-8 encoding of `str(body)`.
+    """
     if body is None:
         return None
     if isinstance(body, bytes):
@@ -86,7 +100,15 @@ def _ensure_bytes(body: Optional[object]) -> Optional[bytes]:
 
 
 def _global_md5_base64(body: bytes) -> str:
-    """Calculate MD5 hash and return the first 24 chars of base64 encoding."""
+    """
+    Return the first 24 characters of the base64-encoded MD5 digest of `body`.
+    
+    Parameters:
+        body (bytes): Input bytes to hash.
+    
+    Returns:
+        str: First 24 characters of the base64-encoded MD5 digest.
+    """
     md5_hash = hashlib.md5(body).digest()
     return base64.b64encode(md5_hash).decode("utf-8")[:24]
 
@@ -97,7 +119,20 @@ def _build_global_string_to_sign(
     headers: dict[str, str],
     content_md5: str = "",
 ) -> str:
-    """Build the string to sign for HMAC-SHA256 Global API requests."""
+    """
+    Construct the canonical string used to compute the HMAC-SHA256 signature for a Global API request.
+    
+    The resulting newline-separated string contains, in order: HTTP method, Accept header, the provided content MD5 value, Content-Type header, Date header, all `x-ca-*` headers (each as `key:value` on its own line), and the request path. This canonical string is intended to be the message passed to the signing HMAC.
+    
+    Parameters:
+        method (str): HTTP method (e.g., "GET", "POST").
+        path (str): Request path, including query string if applicable.
+        headers (dict[str, str]): Request headers; values for "accept", "content-type", "date", and any `x-ca-*` headers are used.
+        content_md5 (str): Base64-encoded MD5 of the request body when present, or an empty string if absent.
+    
+    Returns:
+        str: The canonical string to sign with HMAC-SHA256.
+    """
     string_to_sign = [
         method,
         headers.get("accept", ""),
@@ -129,7 +164,17 @@ def _generate_global_signature(
     headers: dict[str, str],
     body: Optional[bytes] = None,
 ) -> str:
-    """Generate HMAC-SHA256 signature for Global API requests."""
+    """
+    Create the HMAC-SHA256 signature used for Global API requests.
+    
+    If a request body is provided, its MD5 (base64, truncated to 24 chars) is computed and inserted into headers["content-md5"] before signing. The function builds the canonical string-to-sign from method, path, and headers, then returns the base64-encoded HMAC-SHA256 of that string using app_secret as the key.
+    
+    Parameters:
+        headers (dict[str, str]): Request headers; this dict will be mutated to include "content-md5" when a body is provided.
+    
+    Returns:
+        str: The base64-encoded HMAC-SHA256 signature.
+    """
     content_md5 = ""
     if body is not None:
         content_md5 = _global_md5_base64(body)
@@ -157,7 +202,27 @@ def generate_global_header(
     id_token: Optional[str] = None,
     extra_headers: Optional[dict[str, str]] = None,
 ) -> dict[str, str]:
-    """Generate signed headers for Global app requests."""
+    """
+    Builds HTTP headers for a Global API request and signs them with HMAC-SHA256.
+    
+    Assembles standard headers (date, content-type, host, user-agent, x-ca-timestamp, x-ca-nonce, x-ca-key, etc.), conditionally includes Authorization/x-smart-id/Xs-Auth-Token when provided, merges any extra_headers, and computes the `x-ca-signature` header using the provided `app_secret`.
+    
+    Parameters:
+        method (str): HTTP method (e.g., "GET", "POST") used when computing the signature.
+        path (str): Request path (URI) used in the signature calculation.
+        host (str): Host header value for the request.
+        app_key (str): Application key inserted as `x-ca-key`.
+        app_secret (str): Secret used to compute the HMAC-SHA256 signature.
+        body (Optional[object]): Request body; if provided it will be converted to bytes and included in the signature computation.
+        content_type (str): Value for `content-type` and `accept` headers. Defaults to "application/json".
+        access_token (Optional[str]): If provided, added as `Authorization: Bearer <token>`.
+        user_id (Optional[str]): If provided, added as `x-smart-id`.
+        id_token (Optional[str]): If provided, added as `Xs-Auth-Token` (and `Xs-App-Ver` is set).
+        extra_headers (Optional[dict[str, str]]): Additional headers to merge into the final header set.
+    
+    Returns:
+        dict[str, str]: A dictionary of HTTP headers ready to attach to the request, including the computed `x-ca-signature`.
+    """
     timestamp = create_correct_timestamp()
     nonce = str(uuid.uuid4())
     http_date = formatdate(timeval=None, localtime=False, usegmt=True)
