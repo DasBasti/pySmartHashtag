@@ -1,0 +1,22 @@
+{
+  "code": "0000",
+  "message": "success",
+  "result": [
+    {
+      "vin": "TestVIN0000000001",
+      "modelCode": "HX11_EUL_Premium+_RWD_000",
+      "modelName": "Smart #1",
+      "seriesName": "HX11",
+      "colorCode": "087",
+      "colorName": "SPECTRUM BLUE"
+    },
+    {
+      "vin": "TestVIN0000000002",
+      "modelCode": "HY11_EUL_Premium+_RWD_000",
+      "modelName": "Smart #3",
+      "seriesName": "HY11",
+      "colorCode": "087",
+      "colorName": "SPECTRUM BLUE"
+    }
+  ]
+}

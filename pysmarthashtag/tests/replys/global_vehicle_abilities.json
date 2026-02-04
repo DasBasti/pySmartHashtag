@@ -1,0 +1,25 @@
+{
+  "code": "0000",
+  "message": "success",
+  "result": {
+    "remoteControl": {
+      "climate": true,
+      "lock": true,
+      "unlock": true,
+      "horn": true,
+      "light": true
+    },
+    "chargingControl": {
+      "startCharging": true,
+      "stopCharging": true,
+      "setChargingLimit": true
+    },
+    "vehicleStatus": {
+      "battery": true,
+      "climate": true,
+      "doors": true,
+      "location": true,
+      "windows": true
+    }
+  }
+}
