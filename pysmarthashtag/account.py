@@ -220,7 +220,7 @@ class SmartAccount:
                     continue
                 break
 
-    async def get_vehicle_information(self, vin) -> str:
+    async def get_vehicle_information(self, vin) -> dict:
         """Get information about a vehicle."""
         if self._is_global_auth():
             return await self._get_vehicle_details_global(vin)
