@@ -30,11 +30,6 @@ async def test_login_global():
             return_value=Response(200, json=load_response(RESPONSE_DIR / "global_login_result.json"))
         )
 
-        # Mock API session endpoint
-        respx.post(GLOBAL_API_BASE_URL + "/iam/service/api/v1/session?identity_type=smart").mock(
-            return_value=Response(200, json=load_response(RESPONSE_DIR / "api_access.json"))
-        )
-
         auth = SmartAuthentication(
             username=TEST_USERNAME,
             password=TEST_PASSWORD,
