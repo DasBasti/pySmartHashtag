@@ -4,7 +4,7 @@ import datetime
 import logging
 from typing import Optional
 
-from pysmarthashtag.const import API_BASE_URL, API_BASE_URL_V2
+from pysmarthashtag.const import API_BASE_URL, API_BASE_URL_V2, SmartAuthMode
 from pysmarthashtag.models import ValueWithUnit, get_element_from_dict_maybe
 from pysmarthashtag.vehicle.battery import Battery
 from pysmarthashtag.vehicle.climate import Climate
@@ -74,21 +74,38 @@ class SmartVehicle:
         charging_settings: Optional[dict] = None,
         fetched_at: Optional[datetime.datetime] = None,
     ) -> None:
-        """Initialize the vehicle."""
+        """
+        Create a SmartVehicle instance by storing the account and merging provided vehicle data, then derive series code and select the appropriate API base URL.
+        
+        Merges vehicle_base, vehicle_state, and charging_settings into the instance data (optionally recording fetched_at), ensures a `seriesCodeVs` value is present when derivable, and chooses the API base URL according to the account authentication mode and the vehicle series code. Logs vehicle initialization.
+        
+        Parameters:
+            account (SmartAccount): Account that owns the vehicle and provides configuration and endpoint URLs.
+            vehicle_base (dict): Base vehicle information retrieved from the primary API.
+            vehicle_state (Optional[dict]): Optional dynamic state payload to merge into the base data.
+            charging_settings (Optional[dict]): Optional charging-related settings to merge into the base data.
+            fetched_at (Optional[datetime.datetime]): Optional timestamp indicating when the provided data was fetched.
+        """
         self.account = account
         self.data = {}
         self.combine_data(vehicle_base, vehicle_state, charging_settings, None, fetched_at)
-        if self.data["seriesCodeVs"].startswith("HX"):
+        series_code = self.data.get("seriesCodeVs") or self.data.get("modelCode") or ""
+        if "seriesCodeVs" not in self.data and series_code:
+            self.data["seriesCodeVs"] = series_code
+
+        if getattr(self.account.config.authentication, "auth_mode", None) == SmartAuthMode.GLOBAL_HMAC:
+            self.base_url = self.account.endpoint_urls.get_api_base_url()
+        elif series_code.startswith("HX"):
             _LOGGER.debug("Selected Vehicle is Smart #1 use V1 API")
             self.base_url = API_BASE_URL
-        elif self.data["seriesCodeVs"].startswith("HC"):
+        elif series_code.startswith("HC"):
             _LOGGER.debug("Selected Vehicle is Smart #3 use V1 API")
             self.base_url = API_BASE_URL
-        elif self.data["seriesCodeVs"].startswith("HY"):
+        elif series_code.startswith("HY"):
             _LOGGER.debug("Selected Vehicle is Smart #5 use V2 API")
             self.base_url = API_BASE_URL_V2
         else:
-            _LOGGER.warning("Unknown Series Code Prefix %s use default API", self.data["seriesCodeVs"])
+            _LOGGER.warning("Unknown Series Code Prefix %s use default API", series_code)
         _LOGGER.debug(
             "Initialized vehicle %s (%s)",
             self.name,

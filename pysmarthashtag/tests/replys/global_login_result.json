@@ -1,0 +1,11 @@
+{
+  "code": "0000",
+  "message": "Success",
+  "data": {
+    "accessToken": "TestGlobalAccessToken",
+    "refreshToken": "TestGlobalRefreshToken",
+    "idToken": "TestGlobalIdToken",
+    "userId": "global123456",
+    "expiresIn": 3600
+  }
+}
