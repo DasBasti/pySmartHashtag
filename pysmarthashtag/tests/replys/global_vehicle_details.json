@@ -1,0 +1,25 @@
+{
+  "code": "0000",
+  "message": "success",
+  "result": [
+    {
+      "vin": "TestVIN0000000001",
+      "modelCode": "HX11_EUL_Premium+_RWD_000",
+      "modelName": "Smart #1",
+      "seriesName": "HX11",
+      "seriesCodeVs": "HX11",
+      "colorCode": "087",
+      "colorName": "SPECTRUM BLUE",
+      "factoryCode": "1234",
+      "engineNo": "ABCDEFABC",
+      "plateNo": "",
+      "iccid": "01234567890123456789",
+      "msisdn": "112233445566770",
+      "updateTime": 1706199500000,
+      "vehicleType": 0,
+      "tboxPlatform": "tsp",
+      "ihuPlatform": "tsp",
+      "proprietaryPlatform": 0
+    }
+  ]
+}

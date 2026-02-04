@@ -1,5 +1,8 @@
 """Fixtures for Smart tests."""
 
+import json
+
+import httpx
 import respx
 
 from pysmarthashtag.const import (
@@ -10,11 +13,56 @@ from pysmarthashtag.const import (
     API_SESION_URL,
     AUTH_URL,
     EU_OAUTH_BASE_URL,
+    GLOBAL_API_BASE_URL,
     LOGIN_URL,
     OTA_SERVER_URL,
     SERVER_URL,
 )
 from pysmarthashtag.tests import RESPONSE_DIR, load_response
+
+
+def _create_vehicle_details_handler():
+    """Create a handler function for global vehicle details requests.
+
+    Returns a function that returns different mock responses based on VIN in request body.
+    """
+
+    def vehicle_details_handler(request, route):
+        body = json.loads(request.content)
+        vin = body.get("vin")
+        if vin == "TestVIN0000000001":
+            return httpx.Response(200, json=load_response(RESPONSE_DIR / "global_vehicle_details.json"))
+        elif vin == "TestVIN0000000002":
+            return httpx.Response(200, json=load_response(RESPONSE_DIR / "global_vehicle_details2.json"))
+        return httpx.Response(404, json={"code": "404", "message": "Vehicle not found"})
+
+    return vehicle_details_handler
+
+
+def _add_global_vehicle_routes(router: respx.MockRouter) -> None:
+    """Add global vehicle routes to the given router.
+
+    Args:
+    ----
+        router: The MockRouter to add routes to
+
+    """
+    # Global vehicle ownership list
+    router.post(GLOBAL_API_BASE_URL + "/vc/vehicle/v1/ownership/list").respond(
+        200,
+        json=load_response(RESPONSE_DIR / "global_vehicle_list.json"),
+    )
+
+    # Global vehicle details - use side_effect to return different responses based on request
+    router.post(GLOBAL_API_BASE_URL + "/vc/vehicle/v1/vehicleCustomerInfo").mock(
+        side_effect=_create_vehicle_details_handler()
+    )
+
+    # Global vehicle abilities (need to handle dynamic model codes)
+    router.route(method="GET", url__regex=r"^" + GLOBAL_API_BASE_URL + r"/vc/vehicle/v1/ability/.+/.+$").respond(
+        200,
+        json=load_response(RESPONSE_DIR / "global_vehicle_abilities.json"),
+    )
 
 
 class SmartMockRouter(respx.MockRouter):
@@ -117,3 +165,42 @@ class SmartMockRouter(respx.MockRouter):
             200,
             json=load_response(RESPONSE_DIR / "ota_response.json"),
         )
+
+    def add_global_routes(self) -> None:
+        """Add routes for global authentication mode."""
+        _add_global_vehicle_routes(self)
+
+
+class SmartGlobalMockRouter(respx.MockRouter):
+    """Stateful MockRouter for Smart Global APIs."""
+
+    def __init__(
+        self,
+    ) -> None:
+        """Initialize the SmartGlobalMockRouter with clean responses for global auth."""
+        super().__init__(assert_all_called=False)
+
+        self.add_login_routes()
+        self.add_global_routes()
+
+    def add_login_routes(self) -> None:
+        """Add routes for login (global HMAC flow)."""
+        # Global login uses a different endpoint
+        self.post(GLOBAL_API_BASE_URL + "/iam/service/api/v1/login").respond(
+            200,
+            json={
+                "code": "0000",
+                "message": "success",
+                "data": {
+                    "accessToken": "TestGlobalAccessToken",
+                    "refreshToken": "TestGlobalRefreshToken",
+                    "idToken": "TestGlobalIdToken",
+                    "userId": "112233",
+                    "expiresIn": 3600,
+                },
+            },
+        )
+
+    def add_global_routes(self) -> None:
+        """Add routes for global authentication mode."""
+        _add_global_vehicle_routes(self)
