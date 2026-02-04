@@ -22,8 +22,8 @@ def smart_global_fixture(request: pytest.FixtureRequest):
         yield router
 
 
-async def prepare_global_account_with_vehicles():
-    """Initialize account with global endpoints and get vehicles."""
+async def create_global_account_with_vehicles():
+    """Create and initialize account with global endpoints and get vehicles."""
     endpoint_urls = get_endpoint_urls_for_region(SmartRegion.GLOBAL)
     account = SmartAccount(TEST_USERNAME, TEST_PASSWORD, endpoint_urls=endpoint_urls)
     await account.get_vehicles()
@@ -42,7 +42,7 @@ async def test_global_login(smart_global_fixture: respx.Router):
 @pytest.mark.asyncio
 async def test_init_vehicles_global(smart_global_fixture: respx.Router):
     """Test _init_vehicles_global() correctly parses vehicles from global API."""
-    account = await prepare_global_account_with_vehicles()
+    account = await create_global_account_with_vehicles()
     
     # Verify that vehicles were initialized
     assert account is not None
@@ -68,7 +68,7 @@ async def test_init_vehicles_global(smart_global_fixture: respx.Router):
 @pytest.mark.asyncio
 async def test_update_global_vehicle_details(smart_global_fixture: respx.Router):
     """Test _update_global_vehicle_details() correctly populates combine_data and abilities."""
-    account = await prepare_global_account_with_vehicles()
+    account = await create_global_account_with_vehicles()
     
     # Verify that vehicles have detailed data from global API
     vehicle1 = account.vehicles["TestVIN0000000001"]

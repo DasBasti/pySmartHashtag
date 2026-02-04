@@ -1,5 +1,7 @@
 """Fixtures for Smart tests."""
 
+import json
+
 import httpx
 import respx
 
@@ -116,12 +118,19 @@ class SmartMockRouter(respx.MockRouter):
             200,
             json=load_response(RESPONSE_DIR / "global_vehicle_list.json"),
         )
-        # Global vehicle details for each test VIN
-        for vin in ["TestVIN0000000001", "TestVIN0000000002"]:
-            self.post(GLOBAL_API_BASE_URL + "/vc/vehicle/v1/vehicleCustomerInfo").respond(
-                200,
-                json=load_response(RESPONSE_DIR / "global_vehicle_details.json"),
-            )
+        
+        # Global vehicle details - use side_effect to return different responses based on request
+        def vehicle_details_handler(request, route):
+            body = json.loads(request.content)
+            vin = body.get("vin")
+            if vin == "TestVIN0000000001":
+                return httpx.Response(200, json=load_response(RESPONSE_DIR / "global_vehicle_details.json"))
+            elif vin == "TestVIN0000000002":
+                return httpx.Response(200, json=load_response(RESPONSE_DIR / "global_vehicle_details2.json"))
+            return httpx.Response(404, json={"code": "404", "message": "Vehicle not found"})
+        
+        self.post(GLOBAL_API_BASE_URL + "/vc/vehicle/v1/vehicleCustomerInfo").mock(side_effect=vehicle_details_handler)
+        
         # Global vehicle abilities (need to handle dynamic model codes)
         self.route(method="GET", url__regex=r"^" + GLOBAL_API_BASE_URL + r"/vc/vehicle/v1/ability/.+/.+$").respond(
             200,
@@ -169,8 +178,7 @@ class SmartGlobalMockRouter(respx.MockRouter):
         
         # Global vehicle details - use side_effect to return different responses based on request
         def vehicle_details_handler(request, route):
-            import json as json_mod
-            body = json_mod.loads(request.content)
+            body = json.loads(request.content)
             vin = body.get("vin")
             if vin == "TestVIN0000000001":
                 return httpx.Response(200, json=load_response(RESPONSE_DIR / "global_vehicle_details.json"))
