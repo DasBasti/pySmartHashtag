@@ -44,7 +44,18 @@ class SmartAccount:
     """Vehicles associated with the account."""
 
     def __post_init__(self, password, log_responses):
-        """Initialize the account."""
+        """
+        Set up endpoint URLs and client configuration for the Smart account.
+        
+        If `endpoint_urls` is None, assigns a default EndpointUrls instance.
+        If `config` is None, creates a SmartClientConfiguration using a SmartAuthentication
+        initialized with the instance `username`, the provided `password`, and the
+        resolved `endpoint_urls`, and applies the `log_responses` flag to the configuration.
+        
+        Parameters:
+            password (str): Password used to construct the SmartAuthentication instance.
+            log_responses (bool): Whether the created configuration should log server responses.
+        """
         # Ensure endpoint_urls is set
         if self.endpoint_urls is None:
             self.endpoint_urls = EndpointUrls()
@@ -56,15 +67,19 @@ class SmartAccount:
             )
 
     def _is_global_auth(self) -> bool:
-        """Return True when using the Global app authentication mode."""
+        """
+        Determine whether the account uses Global app authentication.
+        
+        Returns:
+            bool: `true` if the account's authentication mode equals `GLOBAL_HMAC`, `false` otherwise.
+        """
         return self.config.authentication.auth_mode == SmartAuthMode.GLOBAL_HMAC
 
     async def _ensure_ssl_context(self) -> None:
-        """Ensure SSL context is created asynchronously.
-
-        This method creates the SSL context in a thread pool executor
-        to avoid blocking the async event loop when httpx creates
-        SSL connections.
+        """
+        Ensure the configuration and its authentication both have an SSL context.
+        
+        If the configuration has no SSL context, obtain one via config.get_ssl_context() and assign it to config.ssl_context and config.authentication.ssl_context.
         """
         if self.config.ssl_context is None:
             self.config.ssl_context = await self.config.get_ssl_context()
@@ -79,7 +94,11 @@ class SmartAccount:
         await self.config.authentication.login()
 
     async def _init_vehicles(self) -> None:
-        """Initialize vehicles from Smart servers."""
+        """
+        Initialize and populate account vehicles from the Smart API.
+        
+        Ensures an SSL context is available, requests the account's vehicle list from the configured Smart endpoint, records the UTC fetch timestamp, and adds each returned vehicle to the account via add_vehicle (passing the fetch time). Retries the request up to three times on token-refresh errors and reattempts initialization when a human-car-connection error occurs.
+        """
         _LOGGER.debug("Getting initial vehicle list")
         await self._ensure_ssl_context()
 
@@ -120,7 +139,11 @@ class SmartAccount:
                 self.add_vehicle(vehicle, fetched_at)
 
     async def _init_vehicles_global(self) -> None:
-        """Initialize vehicles from Smart Global servers."""
+        """
+        Fetches the account's vehicle ownership list from the Smart Global endpoints and registers each vehicle with the account.
+        
+        Each discovered vehicle is added to the account's vehicle mapping along with the timestamp when the list was fetched.
+        """
         _LOGGER.debug("Getting initial vehicle list (global)")
         await self._ensure_ssl_context()
 
@@ -152,11 +175,24 @@ class SmartAccount:
                 self.add_vehicle(vehicle, fetched_at)
 
     def add_vehicle(self, vehicle, fetched_at):
-        """Add a vehicle to the account."""
+        """
+        Add a vehicle to the account's vehicle mapping.
+        
+        Parameters:
+            vehicle (dict): Vehicle data from the API; must include the `vin` key used as the mapping key.
+            fetched_at (datetime): UTC timestamp when the vehicle data was fetched.
+        """
         self.vehicles[vehicle.get("vin")] = SmartVehicle(self, vehicle, fetched_at=fetched_at)
 
     async def get_vehicles(self, force_init: bool = False) -> None:
-        """Get the vehicles associated with the account."""
+        """
+        Load and refresh the vehicles for this Smart account and populate the account's internal vehicle mapping.
+        
+        If the account is not authenticated, perform authentication first. When called with `force_init=True` or when no vehicles are known, fetch the list of vehicles. For global-auth mode the method fetches global vehicle listings and updates global details and abilities; for non-global mode it selects each vehicle and updates its information, state-of-charge, and OTA info by merging the retrieved data into each SmartVehicle instance.
+        
+        Parameters:
+        	force_init (bool): If True, re-initialize the vehicle list even if vehicles are already present.
+        """
         await self._ensure_ssl_context()
         if self.config.authentication.api_user_id is None:
             await self.config.authentication.login()
@@ -182,7 +218,13 @@ class SmartAccount:
             vehicle.combine_data(vehicle_info, charging_settings=vehicle_soc, ota_info=vehicle_ota_info)
 
     async def select_active_vehicle(self, vin) -> None:
-        """Select the active vehicle."""
+        """
+        Selects the given vehicle as the active vehicle for subsequent operations.
+        
+        This updates the remote session to mark the vehicle identified by `vin` as active. When the account is configured for global authentication, this is a no-op. The method may perform internal retries on transient token or human-car-connection errors.
+        Parameters:
+            vin (str): Vehicle Identification Number of the vehicle to select.
+        """
         if self._is_global_auth():
             return
         _LOGGER.debug("Selecting vehicle")
@@ -221,7 +263,15 @@ class SmartAccount:
                 break
 
     async def get_vehicle_information(self, vin) -> str:
-        """Get information about a vehicle."""
+        """
+        Fetch the latest details and status for the vehicle identified by VIN, using global endpoints when the account is configured for global authentication.
+        
+        Returns:
+            dict: The `data` payload from the vehicle status response containing status, basic, and more fields; empty dict if no data was retrieved.
+        
+        Raises:
+            SmartAuthError: If vehicle information cannot be retrieved after retrying.
+        """
         if self._is_global_auth():
             return await self._get_vehicle_details_global(vin)
         _LOGGER.debug("Getting information for vehicle")
@@ -266,7 +316,17 @@ class SmartAccount:
         return data
 
     async def get_vehicle_soc(self, vin) -> str:
-        """Get information about a vehicle."""
+        """
+        Retrieve the vehicle's state-of-charge (SOC) data.
+        
+        If the account is using global authentication, this returns an empty dict. On failure after retries, raises SmartAuthError.
+        
+        Returns:
+            dict: SOC data payload from the vehicle response, or an empty dict when using global authentication.
+        
+        Raises:
+            SmartAuthError: If the SOC data could not be retrieved after retrying.
+        """
         if self._is_global_auth():
             return {}
         _LOGGER.debug("Getting vehicle SOC")
@@ -309,7 +369,22 @@ class SmartAccount:
         return data
 
     async def get_vehicle_ota_info(self, vin) -> dict:
-        """Get information about a vehicle from OTA server."""
+        """
+        Retrieve OTA version information for the specified vehicle from the OTA server.
+        
+        If the account uses global authentication, no OTA request is performed and an empty dict is returned.
+        
+        Parameters:
+            vin (str): Vehicle Identification Number for the vehicle to query.
+        
+        Returns:
+            dict: A mapping with keys:
+                - `target_version`: OTA target version string or `None` if not present.
+                - `current_version`: Current vehicle OTA version string or `None` if not present.
+        
+        Raises:
+            SmartAuthError: When repeated authentication/token failures prevent retrieving OTA information.
+        """
         if self._is_global_auth():
             return {}
         _LOGGER.debug("Getting OTA information for vehicle")
@@ -351,13 +426,25 @@ class SmartAccount:
         return data
 
     async def _update_global_vehicle_details(self) -> None:
-        """Fetch global vehicle details and abilities."""
+        """
+        Fetch global details and abilities for each known vehicle and merge them into the corresponding SmartVehicle objects stored on the account.
+        
+        This updates each vehicle in-place with any details and capability information returned by the global service; no value is returned.
+        """
         for vin in list(self.vehicles.keys()):
             await self._get_vehicle_details_global(vin)
             await self._get_vehicle_abilities_global(vin)
 
     async def _get_vehicle_details_global(self, vin) -> dict:
-        """Get global vehicle details."""
+        """
+        Fetch global vehicle details for the given VIN and merge them into the corresponding SmartVehicle if available.
+        
+        Parameters:
+            vin (str): Vehicle Identification Number to fetch details for.
+        
+        Returns:
+            dict: Parsed vehicle details retrieved from the global endpoint, or an empty dict if no details were returned.
+        """
         _LOGGER.debug("Getting global vehicle details")
         await self._ensure_ssl_context()
         async with SmartLoginClient(ssl_context=self.config.ssl_context) as client:
@@ -389,7 +476,17 @@ class SmartAccount:
             return details or {}
 
     async def _get_vehicle_abilities_global(self, vin) -> dict:
-        """Get global vehicle abilities."""
+        """
+        Retrieve global ability information for a vehicle identified by VIN.
+        
+        Parameters:
+            vin (str): Vehicle Identification Number to query for abilities.
+        
+        Returns:
+            abilities (dict): Abilities data from the global API. The vehicle's `data["abilities"]`
+            is updated when abilities are present. Returns an empty dict if the vehicle has no
+            model code or if the API provides no abilities.
+        """
         _LOGGER.debug("Getting global vehicle abilities")
         await self._ensure_ssl_context()
         vehicle = self.vehicles.get(vin)
