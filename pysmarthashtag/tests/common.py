@@ -118,7 +118,7 @@ class SmartMockRouter(respx.MockRouter):
             200,
             json=load_response(RESPONSE_DIR / "global_vehicle_list.json"),
         )
-        
+
         # Global vehicle details - use side_effect to return different responses based on request
         def vehicle_details_handler(request, route):
             body = json.loads(request.content)
@@ -128,9 +128,9 @@ class SmartMockRouter(respx.MockRouter):
             elif vin == "TestVIN0000000002":
                 return httpx.Response(200, json=load_response(RESPONSE_DIR / "global_vehicle_details2.json"))
             return httpx.Response(404, json={"code": "404", "message": "Vehicle not found"})
-        
+
         self.post(GLOBAL_API_BASE_URL + "/vc/vehicle/v1/vehicleCustomerInfo").mock(side_effect=vehicle_details_handler)
-        
+
         # Global vehicle abilities (need to handle dynamic model codes)
         self.route(method="GET", url__regex=r"^" + GLOBAL_API_BASE_URL + r"/vc/vehicle/v1/ability/.+/.+$").respond(
             200,
@@ -175,7 +175,7 @@ class SmartGlobalMockRouter(respx.MockRouter):
             200,
             json=load_response(RESPONSE_DIR / "global_vehicle_list.json"),
         )
-        
+
         # Global vehicle details - use side_effect to return different responses based on request
         def vehicle_details_handler(request, route):
             body = json.loads(request.content)
@@ -185,9 +185,9 @@ class SmartGlobalMockRouter(respx.MockRouter):
             elif vin == "TestVIN0000000002":
                 return httpx.Response(200, json=load_response(RESPONSE_DIR / "global_vehicle_details2.json"))
             return httpx.Response(404, json={"code": "404", "message": "Vehicle not found"})
-        
+
         self.post(GLOBAL_API_BASE_URL + "/vc/vehicle/v1/vehicleCustomerInfo").mock(side_effect=vehicle_details_handler)
-        
+
         # Global vehicle abilities (need to handle dynamic model codes)
         self.route(method="GET", url__regex=r"^" + GLOBAL_API_BASE_URL + r"/vc/vehicle/v1/ability/.+/.+$").respond(
             200,
