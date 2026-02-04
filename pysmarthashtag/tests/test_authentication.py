@@ -14,6 +14,7 @@ from pysmarthashtag.const import (
     SmartRegion,
     get_endpoint_urls_for_region,
 )
+from pysmarthashtag.models import SmartAPIError
 from pysmarthashtag.tests import RESPONSE_DIR, TEST_PASSWORD, TEST_USERNAME, load_response
 
 _LOGGER = logging.getLogger(__name__)
@@ -148,11 +149,6 @@ async def test_auth_mode_selection_global():
             return_value=Response(200, json=load_response(RESPONSE_DIR / "global_login_result.json"))
         )
 
-        # Mock API session endpoint
-        respx.post(GLOBAL_API_BASE_URL + "/iam/service/api/v1/session?identity_type=smart").mock(
-            return_value=Response(200, json=load_response(RESPONSE_DIR / "api_access.json"))
-        )
-
         auth = SmartAuthentication(
             username=TEST_USERNAME,
             password=TEST_PASSWORD,
@@ -225,7 +221,7 @@ async def test_login_global_missing_access_token():
         )
 
         # Should raise SmartAPIError when access_token is missing
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(SmartAPIError) as exc_info:
             await auth._login_global()
 
         assert "Could not get access token from global login" in str(exc_info.value)
@@ -252,7 +248,7 @@ async def test_login_global_missing_user_id():
         )
 
         # Should raise SmartAPIError when userId is missing
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(SmartAPIError) as exc_info:
             await auth._login_global()
 
         assert "Could not get access token from global login" in str(exc_info.value)
@@ -276,7 +272,7 @@ async def test_login_global_no_data_field():
         )
 
         # Should raise SmartAPIError when data is missing
-        with pytest.raises(Exception) as exc_info:
+        with pytest.raises(SmartAPIError) as exc_info:
             await auth._login_global()
 
         assert "Could not get tokens from global login" in str(exc_info.value)
