@@ -15,6 +15,13 @@ API_SESION_URL = "/auth/account/session/secure"
 API_SELECT_CAR_URL = "/device-platform/user/session/update"
 API_TELEMATICS_URL = "/remote-control/vehicle/telematics/"
 
+GLOBAL_API_BASE_URL = "https://sg-app-api.smart.com"
+GLOBAL_APP_KEY = "204587190"
+GLOBAL_APP_SECRET = "vxnzkHbpQrkKKQKmFBZlOnL780rjXLFT"
+
+EU_OAUTH_BASE_URL = "https://api.app-auth.srv.smart.com/v1/"
+EU_OAUTH_API_KEY = "yHpsjnd9vzLq7GMowxBa"
+
 OTA_SERVER_URL = "https://ota.srv.smart.com/"
 
 HTTPX_TIMEOUT = 30.0
@@ -31,18 +38,29 @@ class SmartRegion(str, Enum):
 
     EU = "eu"
     INTL = "intl"
+    GLOBAL = "global"
+
+
+class SmartAuthMode(str, Enum):
+    """Authentication mode for Smart APIs."""
+
+    EU_OAUTH = "eu_oauth"
+    GLOBAL_HMAC = "global_hmac"
 
 
 def get_endpoint_urls_for_region(region: SmartRegion) -> "EndpointUrls":
     """Get pre-configured EndpointUrls for a specific region.
 
     Args:
+    ----
         region: The region to get endpoint URLs for.
 
     Returns:
+    -------
         EndpointUrls configured for the specified region.
 
     Example:
+    -------
         >>> from pysmarthashtag.const import SmartRegion, get_endpoint_urls_for_region
         >>> from pysmarthashtag.account import SmartAccount
         >>>
@@ -65,6 +83,12 @@ def get_endpoint_urls_for_region(region: SmartRegion) -> "EndpointUrls":
             api_base_url="https://api.ecloudap.com",
             api_base_url_v2="https://apiv2.ecloudap.com",
         )
+    elif region == SmartRegion.GLOBAL:
+        # Global app region (Australia/Israel) - uses sg-app-api endpoints
+        return EndpointUrls(
+            api_base_url=GLOBAL_API_BASE_URL,
+            api_base_url_v2=GLOBAL_API_BASE_URL,
+        )
     else:
         raise ValueError(f"Unknown region: {region}")
 
@@ -84,6 +108,10 @@ class EndpointUrls:
     api_base_url: Optional[str] = None
     api_base_url_v2: Optional[str] = None
     ota_server_url: Optional[str] = None
+    oauth_base_url: Optional[str] = None
+    oauth_api_key: Optional[str] = None
+    global_app_key: Optional[str] = None
+    global_app_secret: Optional[str] = None
 
     def get_api_key(self) -> str:
         """Get the API key, using the default if not set."""
@@ -120,3 +148,30 @@ class EndpointUrls:
     def get_ota_server_url(self) -> str:
         """Get the OTA server URL, using the default if not set."""
         return self.ota_server_url if self.ota_server_url is not None else OTA_SERVER_URL
+
+    def get_oauth_base_url(self) -> str:
+        """Get the OAuth base URL, using the default if not set."""
+        return self.oauth_base_url if self.oauth_base_url is not None else EU_OAUTH_BASE_URL
+
+    def get_oauth_api_key(self) -> str:
+        """Get the OAuth API key, using the default if not set."""
+        return self.oauth_api_key if self.oauth_api_key is not None else EU_OAUTH_API_KEY
+
+    def get_oauth_token_url(self) -> str:
+        """Get the OAuth token URL."""
+        return f"{self.get_oauth_base_url().rstrip('/')}/token"
+
+    def get_global_app_key(self) -> str:
+        """Get the Global app key, using the default if not set."""
+        return self.global_app_key if self.global_app_key is not None else GLOBAL_APP_KEY
+
+    def get_global_app_secret(self) -> str:
+        """Get the Global app secret, using the default if not set."""
+        return self.global_app_secret if self.global_app_secret is not None else GLOBAL_APP_SECRET
+
+    def infer_auth_mode(self) -> SmartAuthMode:
+        """Infer authentication mode based on endpoint URLs."""
+        api_base_url = self.get_api_base_url()
+        if "sg-app-api.smart.com" in api_base_url:
+            return SmartAuthMode.GLOBAL_HMAC
+        return SmartAuthMode.EU_OAUTH

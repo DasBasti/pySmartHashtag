@@ -6,11 +6,13 @@ import logging
 from dataclasses import InitVar, dataclass, field
 from typing import Optional
 
+import httpx
+
 from pysmarthashtag.api import utils
-from pysmarthashtag.api.authentication import SmartAuthentication
+from pysmarthashtag.api.authentication import SmartAuthentication, SmartLoginClient
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.api.log_sanitizer import sanitize_log_data
-from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls
+from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls, SmartAuthMode
 from pysmarthashtag.models import SmartAuthError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
 
@@ -52,6 +54,10 @@ class SmartAccount:
                 SmartAuthentication(self.username, password, endpoint_urls=self.endpoint_urls),
                 log_responses=log_responses,
             )
+
+    def _is_global_auth(self) -> bool:
+        """Return True when using the Global app authentication mode."""
+        return self.config.authentication.auth_mode == SmartAuthMode.GLOBAL_HMAC
 
     async def _ensure_ssl_context(self) -> None:
         """Ensure SSL context is created asynchronously.
@@ -113,6 +119,38 @@ class SmartAccount:
                 _LOGGER.debug("Found vehicle %s", sanitize_log_data(vehicle))
                 self.add_vehicle(vehicle, fetched_at)
 
+    async def _init_vehicles_global(self) -> None:
+        """Initialize vehicles from Smart Global servers."""
+        _LOGGER.debug("Getting initial vehicle list (global)")
+        await self._ensure_ssl_context()
+
+        fetched_at = datetime.datetime.now(datetime.timezone.utc)
+        async with SmartLoginClient(ssl_context=self.config.ssl_context) as client:
+            path = "/vc/vehicle/v1/ownership/list"
+            body = json.dumps({})
+            host = httpx.URL(self.endpoint_urls.get_api_base_url()).host
+            headers = utils.generate_global_header(
+                method="POST",
+                path=path,
+                host=host,
+                app_key=self.endpoint_urls.get_global_app_key(),
+                app_secret=self.endpoint_urls.get_global_app_secret(),
+                body=body,
+                access_token=self.config.authentication.access_token,
+                user_id=self.config.authentication.api_user_id,
+                id_token=self.config.authentication.id_token,
+            )
+            vehicles_response = await client.post(
+                self.endpoint_urls.get_api_base_url() + path,
+                headers=headers,
+                content=body,
+            )
+            data = vehicles_response.json()
+            vehicles = data.get("result") or data.get("data") or []
+            for vehicle in vehicles:
+                _LOGGER.debug("Found vehicle %s", sanitize_log_data(vehicle))
+                self.add_vehicle(vehicle, fetched_at)
+
     def add_vehicle(self, vehicle, fetched_at):
         """Add a vehicle to the account."""
         self.vehicles[vehicle.get("vin")] = SmartVehicle(self, vehicle, fetched_at=fetched_at)
@@ -126,7 +164,14 @@ class SmartAccount:
         _LOGGER.debug("Getting vehicles for account")
 
         if len(self.vehicles) == 0 or force_init:
-            await self._init_vehicles()
+            if self._is_global_auth():
+                await self._init_vehicles_global()
+            else:
+                await self._init_vehicles()
+
+        if self._is_global_auth():
+            await self._update_global_vehicle_details()
+            return
 
         for vin, vehicle in self.vehicles.items():
             _LOGGER.debug("Getting vehicle data")
@@ -138,6 +183,8 @@ class SmartAccount:
 
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
+        if self._is_global_auth():
+            return
         _LOGGER.debug("Selecting vehicle")
         data = json.dumps(
             {
@@ -175,6 +222,8 @@ class SmartAccount:
 
     async def get_vehicle_information(self, vin) -> str:
         """Get information about a vehicle."""
+        if self._is_global_auth():
+            return await self._get_vehicle_details_global(vin)
         _LOGGER.debug("Getting information for vehicle")
         params = {
             "latest": True,
@@ -218,6 +267,8 @@ class SmartAccount:
 
     async def get_vehicle_soc(self, vin) -> str:
         """Get information about a vehicle."""
+        if self._is_global_auth():
+            return {}
         _LOGGER.debug("Getting vehicle SOC")
         params = {
             "setting": "charging",
@@ -259,6 +310,8 @@ class SmartAccount:
 
     async def get_vehicle_ota_info(self, vin) -> dict:
         """Get information about a vehicle from OTA server."""
+        if self._is_global_auth():
+            return {}
         _LOGGER.debug("Getting OTA information for vehicle")
         data = {}
         async with SmartClient(self.config) as client:
@@ -296,3 +349,72 @@ class SmartAccount:
             if retry > 1:
                 raise SmartAuthError("Could not get vehicle information")
         return data
+
+    async def _update_global_vehicle_details(self) -> None:
+        """Fetch global vehicle details and abilities."""
+        for vin in list(self.vehicles.keys()):
+            await self._get_vehicle_details_global(vin)
+            await self._get_vehicle_abilities_global(vin)
+
+    async def _get_vehicle_details_global(self, vin) -> dict:
+        """Get global vehicle details."""
+        _LOGGER.debug("Getting global vehicle details")
+        await self._ensure_ssl_context()
+        async with SmartLoginClient(ssl_context=self.config.ssl_context) as client:
+            path = "/vc/vehicle/v1/vehicleCustomerInfo"
+            body = json.dumps({"vin": vin})
+            host = httpx.URL(self.endpoint_urls.get_api_base_url()).host
+            headers = utils.generate_global_header(
+                method="POST",
+                path=path,
+                host=host,
+                app_key=self.endpoint_urls.get_global_app_key(),
+                app_secret=self.endpoint_urls.get_global_app_secret(),
+                body=body,
+                access_token=self.config.authentication.access_token,
+                user_id=self.config.authentication.api_user_id,
+                id_token=self.config.authentication.id_token,
+            )
+            response = await client.post(
+                self.endpoint_urls.get_api_base_url() + path,
+                headers=headers,
+                content=body,
+            )
+            data = response.json()
+            details = data.get("result") or data.get("data") or []
+            if isinstance(details, list):
+                details = details[0] if details else {}
+            if details:
+                self.vehicles.get(vin).combine_data(details)
+            return details or {}
+
+    async def _get_vehicle_abilities_global(self, vin) -> dict:
+        """Get global vehicle abilities."""
+        _LOGGER.debug("Getting global vehicle abilities")
+        await self._ensure_ssl_context()
+        vehicle = self.vehicles.get(vin)
+        model_code = vehicle.data.get("modelCode") if vehicle else None
+        if not model_code:
+            return {}
+        async with SmartLoginClient(ssl_context=self.config.ssl_context) as client:
+            path = f"/vc/vehicle/v1/ability/{model_code}/{vin}"
+            host = httpx.URL(self.endpoint_urls.get_api_base_url()).host
+            headers = utils.generate_global_header(
+                method="GET",
+                path=path,
+                host=host,
+                app_key=self.endpoint_urls.get_global_app_key(),
+                app_secret=self.endpoint_urls.get_global_app_secret(),
+                access_token=self.config.authentication.access_token,
+                user_id=self.config.authentication.api_user_id,
+                id_token=self.config.authentication.id_token,
+            )
+            response = await client.get(
+                self.endpoint_urls.get_api_base_url() + path,
+                headers=headers,
+            )
+            data = response.json()
+            abilities = data.get("result") or data.get("data") or {}
+            if abilities and vehicle:
+                vehicle.data["abilities"] = abilities
+            return abilities or {}

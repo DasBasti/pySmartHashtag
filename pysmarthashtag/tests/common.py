@@ -9,6 +9,7 @@ from pysmarthashtag.const import (
     API_SELECT_CAR_URL,
     API_SESION_URL,
     AUTH_URL,
+    EU_OAUTH_BASE_URL,
     LOGIN_URL,
     OTA_SERVER_URL,
     SERVER_URL,
@@ -51,6 +52,15 @@ class SmartMockRouter(respx.MockRouter):
             200,
             json=load_response(RESPONSE_DIR / "login_result.json"),
             headers={"location": load_response(RESPONSE_DIR / "auth_result.url")},
+        )
+        self.post(EU_OAUTH_BASE_URL + "token").respond(
+            200,
+            json={
+                "accessToken": "TestAccessToken",
+                "refreshToken": "TestRefreshToken",
+                "idToken": "TestIdToken",
+                "expiresIn": 3600,
+            },
         )
         for base_url in [API_BASE_URL, API_BASE_URL_V2]:
             self.post(base_url + API_SESION_URL + "?identity_type=smart").respond(

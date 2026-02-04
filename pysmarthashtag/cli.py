@@ -56,6 +56,8 @@ def main_parser() -> argparse.ArgumentParser:
         },
     }
 
+    log_level = os.environ.get("SMART_LOG_LEVEL", "INFO").upper()
+    logging_config["loggers"]["pysmarthashtag"]["level"] = log_level
     logging.config.dictConfig(logging_config)
 
     parser = argparse.ArgumentParser(description="Smart API demo")
@@ -170,8 +172,8 @@ def _add_default_args(parser: argparse.ArgumentParser):
     parser.add_argument("--password", help="Smart password", **environ_or_required("SMART_PASSWORD"))
     parser.add_argument(
         "--region",
-        help="Region for Smart API (eu=Europe, intl=International/Australia/Asia-Pacific)",
-        choices=["eu", "intl"],
+        help="Region for Smart API (eu=Europe, intl=Asia-Pacific, global=Australia/Israel)",
+        choices=["eu", "intl", "global"],
         default=os.environ.get("SMART_REGION", "eu"),
     )
 
@@ -180,9 +182,11 @@ def _get_endpoint_urls_from_args(args) -> EndpointUrls:
     """Get EndpointUrls based on region argument.
 
     Args:
+    ----
         args: Parsed command line arguments containing the region.
 
     Returns:
+    -------
         EndpointUrls configured for the specified region.
 
     """

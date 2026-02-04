@@ -20,6 +20,7 @@ from pysmarthashtag.const import (
     API_SESION_URL,
     HTTPX_TIMEOUT,
     EndpointUrls,
+    SmartAuthMode,
 )
 from pysmarthashtag.models import SmartAPIError
 
@@ -51,8 +52,10 @@ class SmartAuthentication(httpx.Auth):
         self.api_access_token: Optional[str] = None
         self.api_refresh_token: Optional[str] = None
         self.api_user_id: Optional[str] = None
+        self.id_token: Optional[str] = None
         self.ssl_context: Optional[ssl.SSLContext] = ssl_context
         self.endpoint_urls: EndpointUrls = endpoint_urls if endpoint_urls is not None else EndpointUrls()
+        self.auth_mode: SmartAuthMode = self.endpoint_urls.infer_auth_mode()
         _LOGGER.debug("Device ID initialized")
 
     async def get_ssl_context(self) -> ssl.SSLContext:
@@ -150,6 +153,7 @@ class SmartAuthentication(httpx.Auth):
             self.api_access_token = token_data["api_access_token"]
             self.api_refresh_token = token_data["api_refresh_token"]
             self.api_user_id = token_data["api_user_id"]
+            self.id_token = token_data.get("id_token")
             self.expires_at = token_data["expires_at"]
             _LOGGER.debug("Login successful")
             return True
@@ -158,17 +162,27 @@ class SmartAuthentication(httpx.Auth):
 
     async def _refresh_access_token(self):
         """Refresh the access token."""
+        if self.auth_mode == SmartAuthMode.GLOBAL_HMAC:
+            try:
+                return await self._refresh_access_token_global()
+            except (SmartAPIError, httpx.HTTPError, ValueError):
+                _LOGGER.debug("Refreshing access token failed. Logging in again")
+                return {}
+
         try:
-            ssl_ctx = await self.get_ssl_context()
-            async with SmartLoginClient(ssl_context=ssl_ctx) as _:
-                _LOGGER.debug("Refreshing access token via relogin because refresh token is not implemented")
-                await self._login()
-        except SmartAPIError:
+            return await self._refresh_access_token_eu()
+        except (SmartAPIError, httpx.HTTPError, ValueError):
             _LOGGER.debug("Refreshing access token failed. Logging in again")
             return {}
 
     async def _login(self):
         """Login to Smart web services."""
+        if self.auth_mode == SmartAuthMode.GLOBAL_HMAC:
+            return await self._login_global()
+        return await self._login_eu()
+
+    async def _login_eu(self):
+        """Login to Smart web services (EU OAuth flow)."""
         ssl_ctx = await self.get_ssl_context()
         async with SmartLoginClient(ssl_context=ssl_ctx) as client:
             _LOGGER.info("Acquiring access token.")
@@ -263,32 +277,7 @@ class SmartAuthentication(httpx.Auth):
             except KeyError:
                 raise SmartAPIError("Could not get access token from auth page")
 
-            data = json.dumps({"accessToken": access_token}).replace(" ", "")
-            r_api_access = await client.post(
-                # we do not know what type of car we have in our list so we fall back to the old API URL
-                self.endpoint_urls.get_api_base_url() + API_SESION_URL + "?identity_type=smart",
-                headers={
-                    **utils.generate_default_header(
-                        self.device_id,
-                        None,
-                        params={
-                            "identity_type": "smart",
-                        },
-                        method="POST",
-                        url=API_SESION_URL,
-                        body=data,
-                    )
-                },
-                data=data,
-            )
-            api_result = r_api_access.json()
-            _LOGGER.debug("API access result: %s", sanitize_log_data(api_result))
-            try:
-                api_access_token = api_result["data"]["accessToken"]
-                api_refresh_token = api_result["data"]["refreshToken"]
-                api_user_id = api_result["data"]["userId"]
-            except KeyError:
-                raise SmartAPIError("Could not get API access token from API")
+            api_access_token, api_refresh_token, api_user_id = await self._get_api_session(client, access_token)
 
         return {
             "access_token": access_token,
@@ -296,6 +285,190 @@ class SmartAuthentication(httpx.Auth):
             "api_access_token": api_access_token,
             "api_refresh_token": api_refresh_token,
             "api_user_id": api_user_id,
+            "expires_at": expires_at,
+        }
+
+    async def _get_api_session(self, client: "SmartLoginClient", access_token: str) -> tuple[str, str, str]:
+        """Exchange OAuth access token for API session tokens."""
+        data = json.dumps({"accessToken": access_token}).replace(" ", "")
+        r_api_access = await client.post(
+            # we do not know what type of car we have in our list so we fall back to the old API URL
+            self.endpoint_urls.get_api_base_url() + API_SESION_URL + "?identity_type=smart",
+            headers={
+                **utils.generate_default_header(
+                    self.device_id,
+                    None,
+                    params={
+                        "identity_type": "smart",
+                    },
+                    method="POST",
+                    url=API_SESION_URL,
+                    body=data,
+                )
+            },
+            data=data,
+        )
+        api_result = r_api_access.json()
+        _LOGGER.debug("API access result: %s", sanitize_log_data(api_result))
+        try:
+            api_access_token = api_result["data"]["accessToken"]
+            api_refresh_token = api_result["data"]["refreshToken"]
+            api_user_id = api_result["data"]["userId"]
+        except KeyError:
+            raise SmartAPIError("Could not get API access token from API")
+        return api_access_token, api_refresh_token, api_user_id
+
+    async def _refresh_access_token_eu(self) -> dict:
+        """Refresh the EU OAuth access token."""
+        if not self.refresh_token:
+            return {}
+
+        ssl_ctx = await self.get_ssl_context()
+        async with SmartLoginClient(ssl_context=ssl_ctx) as client:
+            payload = {
+                "accessToken": "",
+                "refreshToken": self.refresh_token,
+            }
+            headers = {
+                "Content-Type": "application/json",
+                "User-Agent": "hello-smart/2.0.5 (Android)",
+                "X-API-Key": self.endpoint_urls.get_oauth_api_key(),
+            }
+            r_refresh = await client.post(
+                self.endpoint_urls.get_oauth_token_url(),
+                json=payload,
+                headers=headers,
+            )
+            refresh_result = r_refresh.json()
+            access_token = refresh_result.get("accessToken") or refresh_result.get("access_token")
+            refresh_token = refresh_result.get("refreshToken") or refresh_result.get("refresh_token")
+            id_token = refresh_result.get("idToken") or refresh_result.get("id_token")
+            expires_in = refresh_result.get("expiresIn") or refresh_result.get("expires_in")
+            if not access_token:
+                return {}
+
+            expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+                seconds=int(expires_in) if expires_in else HTTPX_TIMEOUT * 2
+            )
+            api_access_token, api_refresh_token, api_user_id = await self._get_api_session(client, access_token)
+            return {
+                "access_token": access_token,
+                "refresh_token": refresh_token or self.refresh_token,
+                "api_access_token": api_access_token,
+                "api_refresh_token": api_refresh_token,
+                "api_user_id": api_user_id,
+                "id_token": id_token,
+                "expires_at": expires_at,
+            }
+
+    async def _login_global(self) -> dict:
+        """Login to Smart Global app services (HMAC flow)."""
+        ssl_ctx = await self.get_ssl_context()
+        async with SmartLoginClient(ssl_context=ssl_ctx) as client:
+            _LOGGER.info("Acquiring access token (global app).")
+
+            path = "/iam/service/api/v1/login"
+            payload = {
+                "email": self.username,
+                "password": self.password,
+                "imageSessionId": "",
+                "imageCode": "",
+            }
+            body = json.dumps(payload)
+            host = httpx.URL(self.endpoint_urls.get_api_base_url()).host
+            headers = utils.generate_global_header(
+                method="POST",
+                path=path,
+                host=host,
+                app_key=self.endpoint_urls.get_global_app_key(),
+                app_secret=self.endpoint_urls.get_global_app_secret(),
+                body=body,
+            )
+
+            r_login = await client.post(
+                self.endpoint_urls.get_api_base_url() + path,
+                headers=headers,
+                content=body,
+            )
+            login_result = r_login.json()
+            _LOGGER.debug("Login result: %s", sanitize_log_data(login_result))
+            data = login_result.get("data") or login_result.get("result") or {}
+            if not data:
+                message = login_result.get("message", "Unknown error")
+                code = login_result.get("code", "unknown")
+                raise SmartAPIError(f"Could not get tokens from global login: {code} {message}")
+
+            access_token = data.get("accessToken")
+            refresh_token = data.get("refreshToken")
+            id_token = data.get("idToken")
+            api_user_id = data.get("userId")
+            expires_in = data.get("expiresIn") or data.get("expires_in")
+            if not access_token or not api_user_id:
+                raise SmartAPIError("Could not get access token from global login")
+
+            expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+                seconds=int(expires_in) if expires_in else HTTPX_TIMEOUT * 2
+            )
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "api_access_token": access_token,
+            "api_refresh_token": refresh_token,
+            "api_user_id": api_user_id,
+            "id_token": id_token,
+            "expires_at": expires_at,
+        }
+
+    async def _refresh_access_token_global(self) -> dict:
+        """Refresh the Global app access token."""
+        if not self.refresh_token:
+            return {}
+
+        ssl_ctx = await self.get_ssl_context()
+        async with SmartLoginClient(ssl_context=ssl_ctx) as client:
+            path = "/iam/service/api/v1/refresh/"
+            payload = {"refreshToken": self.refresh_token}
+            body = json.dumps(payload)
+            host = httpx.URL(self.endpoint_urls.get_api_base_url()).host
+            headers = utils.generate_global_header(
+                method="POST",
+                path=path,
+                host=host,
+                app_key=self.endpoint_urls.get_global_app_key(),
+                app_secret=self.endpoint_urls.get_global_app_secret(),
+                body=body,
+            )
+            r_refresh = await client.post(
+                self.endpoint_urls.get_api_base_url() + path,
+                headers=headers,
+                content=body,
+            )
+            refresh_result = r_refresh.json()
+            _LOGGER.debug("Refresh result: %s", sanitize_log_data(refresh_result))
+            data = refresh_result.get("data") or refresh_result.get("result") or {}
+            if not data:
+                return {}
+
+            access_token = data.get("accessToken")
+            refresh_token = data.get("refreshToken") or self.refresh_token
+            id_token = data.get("idToken")
+            api_user_id = data.get("userId")
+            expires_in = data.get("expiresIn") or data.get("expires_in")
+            if not access_token or not api_user_id:
+                return {}
+
+            expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+                seconds=int(expires_in) if expires_in else HTTPX_TIMEOUT * 2
+            )
+
+        return {
+            "access_token": access_token,
+            "refresh_token": refresh_token,
+            "api_access_token": access_token,
+            "api_refresh_token": refresh_token,
+            "api_user_id": api_user_id,
+            "id_token": id_token,
             "expires_at": expires_at,
         }
 

@@ -9,6 +9,7 @@ from pysmarthashtag.const import (
     API_BASE_URL,
     API_KEY,
     AUTH_URL,
+    GLOBAL_API_BASE_URL,
     LOGIN_URL,
     OTA_SERVER_URL,
     SERVER_URL,
@@ -202,6 +203,7 @@ class TestSmartRegion:
         """Test that SmartRegion enum has expected values."""
         assert SmartRegion.EU.value == "eu"
         assert SmartRegion.INTL.value == "intl"
+        assert SmartRegion.GLOBAL.value == "global"
 
     def test_account_with_eu_region(self):
         """Test creating SmartAccount with EU region preset."""
@@ -233,3 +235,9 @@ class TestSmartRegion:
             endpoint_urls=urls,
         )
         assert auth.endpoint_urls.get_api_base_url() == "https://api.ecloudap.com"
+
+    def test_region_global_returns_global_endpoints(self):
+        """Test that GLOBAL region returns sg-app-api endpoints."""
+        urls = get_endpoint_urls_for_region(SmartRegion.GLOBAL)
+        assert urls.get_api_base_url() == GLOBAL_API_BASE_URL
+        assert urls.get_api_base_url_v2() == GLOBAL_API_BASE_URL
