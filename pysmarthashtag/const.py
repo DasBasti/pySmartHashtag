@@ -169,9 +169,20 @@ class EndpointUrls:
         """Get the Global app secret, using the default if not set."""
         return self.global_app_secret if self.global_app_secret is not None else GLOBAL_APP_SECRET
 
+    def _is_global_api_base_url(self, api_base_url: str) -> bool:
+        """Determine if the given API base URL should use GLOBAL_HMAC auth.
+
+        This avoids substring checks by comparing against known-good base URLs,
+        normalizing away a trailing slash if present.
+        """
+        normalized = api_base_url.rstrip("/")
+        # Default global API base URL, plus any additional explicit variants if needed.
+        global_base = GLOBAL_API_BASE_URL.rstrip("/")
+        return normalized == global_base
+
     def infer_auth_mode(self) -> SmartAuthMode:
         """Infer authentication mode based on endpoint URLs."""
         api_base_url = self.get_api_base_url()
-        if "sg-app-api.smart.com" in api_base_url:
+        if self._is_global_api_base_url(api_base_url):
             return SmartAuthMode.GLOBAL_HMAC
         return SmartAuthMode.EU_OAUTH
