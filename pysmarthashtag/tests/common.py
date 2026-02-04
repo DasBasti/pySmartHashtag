@@ -81,7 +81,18 @@ class SmartMockRouter(respx.MockRouter):
     # # # # # # # # # # # # # # # # # # # # # # # #
 
     def add_login_routes(self) -> None:
-        """Add routes for login."""
+        """
+        Register mocked HTTP routes for the Smart API login flow and related endpoints.
+        
+        This sets up a stateful sequence of mocked responses used by tests, including:
+        - initial server redirect and authentication context endpoints,
+        - login endpoint returning a test session token and intermediate redirect,
+        - OAuth token endpoint returning access/refresh/id tokens,
+        - SMART session and vehicle-related endpoints (for both API_BASE_URL and API_BASE_URL_V2) used to fetch car lists, select a car, retrieve vehicle status and SOC, and perform telematics/remote-control actions,
+        - OTA app info endpoints for test VINs.
+        
+        Responses use predefined JSON fixtures loaded from the test RESPONSE_DIR.
+        """
 
         # Login context
         self.get(SERVER_URL).respond(302, headers={"location": load_response(RESPONSE_DIR / "auth_context.url")})

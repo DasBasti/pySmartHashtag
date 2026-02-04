@@ -74,7 +74,18 @@ class SmartVehicle:
         charging_settings: Optional[dict] = None,
         fetched_at: Optional[datetime.datetime] = None,
     ) -> None:
-        """Initialize the vehicle."""
+        """
+        Create a SmartVehicle instance by storing the account and merging provided vehicle data, then derive series code and select the appropriate API base URL.
+        
+        Merges vehicle_base, vehicle_state, and charging_settings into the instance data (optionally recording fetched_at), ensures a `seriesCodeVs` value is present when derivable, and chooses the API base URL according to the account authentication mode and the vehicle series code. Logs vehicle initialization.
+        
+        Parameters:
+            account (SmartAccount): Account that owns the vehicle and provides configuration and endpoint URLs.
+            vehicle_base (dict): Base vehicle information retrieved from the primary API.
+            vehicle_state (Optional[dict]): Optional dynamic state payload to merge into the base data.
+            charging_settings (Optional[dict]): Optional charging-related settings to merge into the base data.
+            fetched_at (Optional[datetime.datetime]): Optional timestamp indicating when the provided data was fetched.
+        """
         self.account = account
         self.data = {}
         self.combine_data(vehicle_base, vehicle_state, charging_settings, None, fetched_at)
