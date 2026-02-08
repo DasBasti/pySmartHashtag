@@ -111,7 +111,7 @@ def get_field_as_type(
     data: dict,
     field: str,
     target_type: type,
-    log_missing: bool = True,
+    log_missing: bool = False,
 ) -> Optional[Union[int, float, bool, str]]:
     """Get a field from a dict and convert it to the target type.
 
@@ -120,12 +120,14 @@ def get_field_as_type(
     it logs an error and returns None without raising an exception.
 
     Args:
+    ----
         data: The dictionary to extract the field from.
         field: The field name to extract.
         target_type: The target type to convert the value to (int, float, bool, str).
-        log_missing: Whether to log an error when the field is missing (default True).
+        log_missing: Whether to log an error when the field is missing (default False).
 
     Returns:
+    -------
         The converted value or None if the field is missing or conversion fails.
 
     """
