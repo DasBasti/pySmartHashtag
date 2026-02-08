@@ -595,7 +595,8 @@ class SmartAuthenticationINTL(SmartAuthentication):
 
                 if oauth_result.get("code") != "200":
                     error_msg = oauth_result.get("message", "Unknown error")
-                    _LOGGER.error("INTL OAuth failed: %s", error_msg)
+                    sanitized_error_msg = sanitize_log_data(error_msg)
+                    _LOGGER.error("INTL OAuth failed: %s", sanitized_error_msg)
                     raise SmartAPIError(f"INTL OAuth failed: {error_msg}")
 
                 # Result is directly the authCode string (e.g., "CODE-xxx")
