@@ -127,7 +127,7 @@ def _sanitize_list(data: list, depth: int = 0, max_depth: int = 10) -> list:
 
 
 def _sanitize_string(data: str) -> str:
-    """Sanitize a string by masking VINs and tokens.
+    """Sanitize a string by masking VINs, tokens, and potentially sensitive content.
 
     Args:
     ----
@@ -142,6 +142,17 @@ def _sanitize_string(data: str) -> str:
     result = VIN_PATTERN.sub(lambda m: _mask_value(m.group()), data)
     # Mask Bearer tokens
     result = TOKEN_PATTERN.sub(r"\1***", result)
+
+    # As a defensive fallback, avoid logging very long or opaque strings in full.
+    # This helps when upstream services accidentally include secrets in generic
+    # "message" fields that do not match our specific patterns.
+    max_visible_length = 80
+    if len(result) > max_visible_length:
+        # Preserve only a short prefix/suffix to keep logs useful while hiding content.
+        prefix = result[:40]
+        suffix = result[-10:]
+        return f"{prefix}***{suffix}"
+
     return result
 
 
@@ -166,7 +177,11 @@ def sanitize_log_data(data: Any) -> Any:
         return _sanitize_list(data)
     elif isinstance(data, str):
         return _sanitize_string(data)
-    return data
+
+    # For any other type (including numbers, custom objects, etc.), avoid
+    # returning the raw value to prevent accidental leakage of sensitive data.
+    # Represent the value generically instead.
+    return f"<sanitized {type(data).__name__}>"
 
 
 def get_data_summary(data: dict, include_keys: Union[list, None] = None) -> str:
