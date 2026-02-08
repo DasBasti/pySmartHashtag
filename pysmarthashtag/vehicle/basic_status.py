@@ -148,5 +148,4 @@ class BasicStatus(VehicleDataBase):
 
         except KeyError as e:
             _LOGGER.info(f"Basic status info not available: {e}")
-        finally:
-            return retval
+        return retval
