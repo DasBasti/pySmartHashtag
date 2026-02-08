@@ -13,6 +13,8 @@ from pysmarthashtag.const import (
     OTA_SERVER_URL,
     SERVER_URL,
     EndpointUrls,
+    SmartRegion,
+    get_endpoint_urls_for_region,
 )
 from pysmarthashtag.tests import TEST_PASSWORD, TEST_USERNAME
 from pysmarthashtag.tests.conftest import prepare_account_with_vehicles
