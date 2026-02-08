@@ -129,7 +129,7 @@ class ChargingControl:
                                 body=params,
                             )
                         },
-                        data=params,
+                        content=params.encode("utf-8"),
                     )
                     api_result = response.json()
                     return api_result["success"]
