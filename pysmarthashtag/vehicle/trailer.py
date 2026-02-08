@@ -65,5 +65,4 @@ class Trailer(VehicleDataBase):
 
         except KeyError as e:
             _LOGGER.info(f"Trailer status info not available: {e}")
-        finally:
-            return retval
+        return retval
