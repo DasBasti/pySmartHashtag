@@ -479,7 +479,7 @@ class SmartAuthenticationINTL(SmartAuthentication):
 
         return headers
 
-    def _generate_vehicle_api_headers(self, body: str = None) -> dict[str, str]:
+    def _generate_vehicle_api_headers(self, body: Optional[str] = None) -> dict[str, str]:
         """Generate headers for vehicle API (ecloudeu) requests.
 
         These headers are used for the session/secure endpoint on apiv2.ecloudeu.com.
@@ -574,7 +574,7 @@ class SmartAuthenticationINTL(SmartAuthentication):
                 _LOGGER.info("INTL: Login successful for user %s", self.intl_user_id)
 
             except (KeyError, ValueError, TypeError) as e:
-                raise SmartAPIError(f"Could not parse INTL login response: {e}")
+                raise SmartAPIError(f"Could not parse INTL login response: {e}") from e
 
             # Step 2: Exchange accessToken for authCode via OAuth
             # Note: OAuth uses just accessToken in URL param, and idToken in Xs-Auth-Token header
@@ -607,7 +607,7 @@ class SmartAuthenticationINTL(SmartAuthentication):
                 _LOGGER.debug("INTL: Got authCode.")
 
             except (KeyError, ValueError, TypeError) as e:
-                raise SmartAPIError(f"Could not parse INTL OAuth response: {e}")
+                raise SmartAPIError(f"Could not parse INTL OAuth response: {e}") from e
 
             # Step 3: Exchange authCode for vehicle API session
             _LOGGER.debug("INTL: Step 3 - Exchanging authCode for vehicle API session")
@@ -644,7 +644,7 @@ class SmartAuthenticationINTL(SmartAuthentication):
                 _LOGGER.info("INTL: Successfully authenticated, user ID: %s", api_user_id)
 
             except (KeyError, ValueError, TypeError) as e:
-                raise SmartAPIError(f"Could not parse INTL session response: {e}")
+                raise SmartAPIError(f"Could not parse INTL session response: {e}") from e
 
         return {
             "access_token": api_access_token,

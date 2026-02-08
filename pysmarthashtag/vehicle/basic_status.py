@@ -117,7 +117,7 @@ class BasicStatus(VehicleDataBase):
                 retval["notification_reason"] = get_field_as_type(notification, "reason", int)
                 notif_time = get_field_as_type(notification, "time", int)
                 if notif_time is not None:
-                    retval["notification_time"] = datetime.fromtimestamp(notif_time)
+                    retval["notification_time"] = datetime.fromtimestamp(notif_time / 1000.0)
                 retval["notification_parameters"] = get_field_as_type(notification, "parameters", str)
 
             # Parse eGuard (eg)

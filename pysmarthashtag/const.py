@@ -78,12 +78,10 @@ def get_endpoint_urls_for_region(region: SmartRegion) -> "EndpointUrls":
         # Used in Australia, Singapore, Israel, and other international markets
         # Note: INTL uses different auth system (sg-app-api.smart.com) but same data endpoints as EU
         return EndpointUrls(
-            server_url="https://sg-app-api.smart.com/iam/service/api/v1/login",
-            auth_url="https://sg-app-api.smart.com/iam/service/api/v1/oauth20/authorize",
-            login_url="https://sg-app-api.smart.com/iam/service/api/v1/login",
-            # INTL uses same data endpoints as EU
-            api_base_url="https://api.ecloudeu.com",
-            api_base_url_v2="https://apiv2.ecloudeu.com",
+            server_url=INTL_LOGIN_URL,
+            auth_url=INTL_OAUTH_URL,
+            login_url=INTL_LOGIN_URL,
+            # INTL uses same data endpoints as EU (leave as None to use defaults)
         )
     else:
         raise ValueError(f"Unknown region: {region}")

@@ -4,6 +4,7 @@ import hmac
 import logging
 import secrets
 import time
+from typing import Optional
 from urllib.parse import quote
 
 _LOGGER = logging.getLogger(__name__)
@@ -26,7 +27,7 @@ def _create_sign(
     timestamp: str,
     method: str,
     url: str,
-    body=None,
+    body: Optional[str] = None,
     use_intl: bool = False,
     url_encode_params: bool = False,
 ) -> str:
@@ -81,7 +82,7 @@ x-api-signature-version:1.0
 
 
 def generate_default_header(
-    device_id: str, access_token: str, params: dict, method: str, url: str, body=None
+    device_id: str, access_token: str, params: dict, method: str, url: str, body: Optional[str] = None
 ) -> dict[str, str]:
     """Generate a header for HTTP requests to the server."""
     timestamp = create_correct_timestamp()
@@ -116,7 +117,13 @@ def generate_default_header(
 
 
 def generate_intl_header(
-    device_id: str, access_token: str, params: dict, method: str, url: str, body=None, client_id: str = None
+    device_id: str,
+    access_token: str,
+    params: dict,
+    method: str,
+    url: str,
+    body: Optional[str] = None,
+    client_id: Optional[str] = None,
 ) -> dict[str, str]:
     """Generate a header for HTTP requests to the INTL (International) API.
 
@@ -147,6 +154,11 @@ def generate_intl_header(
     url_encode_params = method.upper() == "GET"
     sign = _create_sign(nonce, params, timestamp, method, url, body, use_intl=True, url_encode_params=url_encode_params)
 
+    # Get vehicle series from params if available (passed as _vehicle_series)
+    vehicle_series = params.pop("_vehicle_series", None) if params else None
+    if not vehicle_series:
+        raise ValueError("vehicle_series is required for INTL API requests. Pass it in params as '_vehicle_series'.")
+
     header = {
         "x-app-id": "SMARTAPP-ISRAEL",
         "accept": "application/json;responseformat=3",
@@ -167,7 +179,7 @@ def generate_intl_header(
         "x-signature": sign,
         "x-timestamp": timestamp,
         "platform": "NON-CMA",
-        "x-vehicle-series": "HC1H2D3B6213-01_IL",
+        "x-vehicle-series": vehicle_series,
     }
 
     if access_token:
