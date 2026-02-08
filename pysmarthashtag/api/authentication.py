@@ -591,7 +591,7 @@ class SmartAuthenticationINTL(SmartAuthentication):
 
             try:
                 oauth_result = r_oauth.json()
-                _LOGGER.debug("INTL OAuth response code: %s", oauth_result.get("code"))
+                _LOGGER.debug("INTL OAuth response received.")
 
                 if oauth_result.get("code") != "200":
                     error_msg = oauth_result.get("message", "Unknown error")
