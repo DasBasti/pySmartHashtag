@@ -1,5 +1,8 @@
 """Library to read data from the Smart API."""
 
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
-__version__ = version("pySmartHashtag")
+try:
+    __version__ = version("pySmartHashtag")
+except PackageNotFoundError:
+    __version__ = "0.0.0"
