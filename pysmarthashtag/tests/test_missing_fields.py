@@ -341,15 +341,15 @@ class TestTrailerExceptionHandling:
 class TestBasicStatusExceptionHandling:
     """Test that BasicStatus exception handling works correctly after fixing finally block."""
 
-    def test_basic_status_keyerror_is_caught_and_logged(self, caplog):
-        """Test that KeyError exceptions are caught and logged, not propagated."""
-        # Create a scenario where KeyError might occur
-        # Note: BasicStatus uses .get() so KeyError is less likely, but we can still test the handler
+    def test_basic_status_from_vehicle_data_returns_none_when_empty(self, caplog):
+        """Test that BasicStatus.from_vehicle_data returns None when no data can be parsed."""
+        # With empty vehicleStatus, BasicStatus uses .get() so it won't raise KeyError
+        # Instead, it should return None since no meaningful data was parsed
         vehicle_data = {
-            "vehicleStatus": {}  # Minimal data that might cause issues
+            "vehicleStatus": {}  # Minimal data that won't trigger parsing
         }
         with caplog.at_level(logging.INFO):
-            # Should not raise KeyError
+            # Should not raise KeyError, should return None
             result = BasicStatus.from_vehicle_data(vehicle_data)
 
         # Should return None since no meaningful data was parsed

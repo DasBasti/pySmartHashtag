@@ -567,6 +567,21 @@ class SmartAuthenticationINTL(SmartAuthentication):
                 self.intl_refresh_token = result.get("refreshToken")
                 self.intl_id_token = result.get("idToken")
                 self.intl_user_id = result.get("userId")
+
+                # Validate that required tokens are present
+                missing_tokens = []
+                if not self.intl_access_token:
+                    missing_tokens.append("accessToken")
+                if not self.intl_id_token:
+                    missing_tokens.append("idToken")
+                if not self.intl_user_id:
+                    missing_tokens.append("userId")
+
+                if missing_tokens:
+                    error_msg = f"INTL login response missing required tokens: {', '.join(missing_tokens)}"
+                    _LOGGER.error(error_msg)
+                    raise SmartAPIError(error_msg)
+
                 expires_in = result.get("expiresIn", 86400)
 
                 expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=expires_in)
@@ -629,7 +644,8 @@ class SmartAuthenticationINTL(SmartAuthentication):
 
                 if session_result.get("code") != 1000:
                     error_msg = session_result.get("message", "Unknown error")
-                    _LOGGER.error("INTL session failed: %s (code: %s)", error_msg, session_result.get("code"))
+                    sanitized_code = sanitize_log_data(session_result.get("code"))
+                    _LOGGER.error("INTL session failed: %s (code: %s)", sanitize_log_data(error_msg), sanitized_code)
                     raise SmartAPIError(f"INTL session failed: {error_msg}")
 
                 data = session_result.get("data", {})
@@ -641,14 +657,15 @@ class SmartAuthenticationINTL(SmartAuthentication):
                 # Store client_id on the auth object for use in API requests
                 self.api_client_id = api_client_id
 
-                _LOGGER.info("INTL: Successfully authenticated, user ID: %s", api_user_id)
+                _LOGGER.info("INTL: Successfully authenticated, user ID: %s", sanitize_log_data(api_user_id))
 
             except (KeyError, ValueError, TypeError) as e:
                 raise SmartAPIError(f"Could not parse INTL session response: {e}") from e
 
+        # Return OAuth tokens for standard access, and session API tokens for vehicle API
         return {
-            "access_token": api_access_token,
-            "refresh_token": api_refresh_token,
+            "access_token": self.intl_access_token,
+            "refresh_token": self.intl_refresh_token,
             "api_access_token": api_access_token,
             "api_refresh_token": api_refresh_token,
             "api_user_id": api_user_id,
