@@ -604,7 +604,7 @@ class SmartAuthenticationINTL(SmartAuthentication):
                 if isinstance(auth_code, dict):
                     auth_code = auth_code.get("authCode", auth_code)
 
-                _LOGGER.debug("INTL: Got authCode: %s...", str(auth_code)[:30] if auth_code else "None")
+                _LOGGER.debug("INTL: Got authCode.")
 
             except (KeyError, ValueError, TypeError) as e:
                 raise SmartAPIError(f"Could not parse INTL OAuth response: {e}")
