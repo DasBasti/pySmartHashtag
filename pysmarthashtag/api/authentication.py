@@ -279,7 +279,7 @@ class SmartAuthentication(httpx.Auth):
                         body=data,
                     )
                 },
-                data=data,
+                content=data.encode("utf-8"),
             )
             api_result = r_api_access.json()
             _LOGGER.debug("API access result: %s", sanitize_log_data(api_result))

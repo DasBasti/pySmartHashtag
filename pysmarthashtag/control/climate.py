@@ -123,7 +123,7 @@ class ClimateControll:
                                 body=params,
                             )
                         },
-                        data=params,
+                        content=params.encode("utf-8"),
                     )
                     api_result = vehicles_response.json()
                     return api_result["success"]
