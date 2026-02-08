@@ -1,7 +1,7 @@
 {
-  "name": "ludeeus/integration_blueprint",
+  "name": "pySmartHashtag",
   "image": "mcr.microsoft.com/devcontainers/python:dev-3.14-bookworm",
-  "postCreateCommand": "pip install -r requirements-test.txt",
+  "postCreateCommand": "pip install -r requirements.txt && pip install -r requirements-test.txt && pip install -e .",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -14,10 +14,8 @@
       "settings": {
         "files.eol": "\n",
         "editor.tabSize": 4,
-        "python.pythonPath": "/usr/bin/python3",
         "python.analysis.autoSearchPaths": false,
-        "python.formatting.provider": "black",
-        "python.formatting.blackPath": "/usr/local/py-utils/bin/black",
+        "editor.defaultFormatter": "charliermarsh.ruff",
         "editor.formatOnPaste": false,
         "editor.formatOnSave": true,
         "editor.formatOnType": true,
