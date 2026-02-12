@@ -2,7 +2,10 @@
 
 import logging
 
+import pytest
+
 from pysmarthashtag.models import get_field_as_type
+from pysmarthashtag.vehicle.basic_status import BasicStatus
 from pysmarthashtag.vehicle.battery import Battery
 from pysmarthashtag.vehicle.climate import Climate
 from pysmarthashtag.vehicle.maintenance import Maintenance
@@ -10,6 +13,7 @@ from pysmarthashtag.vehicle.position import Position
 from pysmarthashtag.vehicle.running import Running
 from pysmarthashtag.vehicle.safety import Safety
 from pysmarthashtag.vehicle.tires import Tires
+from pysmarthashtag.vehicle.trailer import Trailer
 
 
 class TestGetFieldAsType:
@@ -270,3 +274,134 @@ class TestMissingFieldsInVehicleData:
         assert battery.charging_voltage is not None
         # Should use the first element in DcChargingVoltLevels
         assert battery.charging_voltage.value == DcChargingVoltLevels[0]
+
+
+class TestTrailerExceptionHandling:
+    """Test that Trailer exception handling works correctly after fixing finally block."""
+
+    def test_trailer_keyerror_is_caught_and_logged(self, caplog):
+        """Test that KeyError exceptions are caught and logged, not propagated."""
+        # Missing 'additionalVehicleStatus' will cause KeyError on line 52
+        vehicle_data = {
+            "vehicleStatus": {
+                # Missing 'additionalVehicleStatus'
+                "updateTime": "1706028240000",
+            }
+        }
+        with caplog.at_level(logging.INFO):
+            # Should not raise KeyError, but should log it
+            result = Trailer.from_vehicle_data(vehicle_data)
+
+        # KeyError should be caught and logged
+        assert "Trailer status info not available" in caplog.text
+        # Should return None since no data was parsed
+        assert result is None
+
+    def test_trailer_non_keyerror_propagates(self):
+        """Test that non-KeyError exceptions (e.g., ValueError) propagate correctly."""
+        # Invalid updateTime that will cause ValueError in int() conversion
+        vehicle_data = {
+            "vehicleStatus": {
+                "additionalVehicleStatus": {
+                    "trailerStatus": {
+                        "trailerTurningLampSts": "0",
+                    }
+                },
+                "updateTime": "not_a_number",  # Will cause ValueError in int()
+            }
+        }
+
+        # ValueError should propagate, not be swallowed
+        with pytest.raises(ValueError):
+            Trailer.from_vehicle_data(vehicle_data)
+
+    def test_trailer_with_valid_data_returns_object(self):
+        """Test that valid trailer data parses correctly."""
+        vehicle_data = {
+            "vehicleStatus": {
+                "additionalVehicleStatus": {
+                    "trailerStatus": {
+                        "trailerTurningLampSts": "0",
+                        "trailerFogLampSts": "1",
+                        "trailerBreakLampSts": "0",
+                        "trailerReversingLampSts": "0",
+                        "trailerPosLampSts": "1",
+                    }
+                },
+                "updateTime": "1706028240000",
+            }
+        }
+
+        trailer = Trailer.from_vehicle_data(vehicle_data)
+        assert trailer is not None
+        assert trailer.turning_lamp_status == 0
+        assert trailer.fog_lamp_status == 1
+
+
+class TestBasicStatusExceptionHandling:
+    """Test that BasicStatus exception handling works correctly after fixing finally block."""
+
+    def test_basic_status_from_vehicle_data_returns_none_when_empty(self, caplog):
+        """Test that BasicStatus.from_vehicle_data returns None when no data can be parsed."""
+        # With empty vehicleStatus, BasicStatus uses .get() so it won't raise KeyError
+        # Instead, it should return None since no meaningful data was parsed
+        vehicle_data = {
+            "vehicleStatus": {}  # Minimal data that won't trigger parsing
+        }
+        with caplog.at_level(logging.INFO):
+            # Should not raise KeyError, should return None
+            result = BasicStatus.from_vehicle_data(vehicle_data)
+
+        # Should return None since no meaningful data was parsed
+        assert result is None
+
+    def test_basic_status_non_keyerror_propagates(self):
+        """Test that non-KeyError exceptions (e.g., ValueError) propagate correctly."""
+        # Invalid updateTime that will cause ValueError in int() conversion
+        vehicle_data = {
+            "vehicleStatus": {
+                "basicVehicleStatus": {
+                    "speed": "50.0",
+                },
+                "updateTime": "invalid_timestamp",  # Will cause ValueError in int()
+            }
+        }
+
+        # ValueError should propagate, not be swallowed
+        with pytest.raises(ValueError):
+            BasicStatus.from_vehicle_data(vehicle_data)
+
+    def test_basic_status_with_invalid_notification_time_propagates(self):
+        """Test that ValueError from datetime.fromtimestamp propagates."""
+        # Very large timestamp value that will cause OSError/ValueError
+        vehicle_data = {
+            "vehicleStatus": {
+                "notification": {
+                    "time": 999999999999999999999,  # Absurdly large timestamp
+                },
+                "updateTime": "1706028240000",
+            }
+        }
+
+        # Should propagate the exception from datetime.fromtimestamp
+        with pytest.raises((ValueError, OSError, OverflowError)):
+            BasicStatus.from_vehicle_data(vehicle_data)
+
+    def test_basic_status_with_valid_data_returns_object(self):
+        """Test that valid basic status data parses correctly."""
+        vehicle_data = {
+            "vehicleStatus": {
+                "basicVehicleStatus": {
+                    "speed": "50.0",
+                    "direction": "N",
+                    "engineStatus": "engine_off",
+                },
+                "updateTime": "1706028240000",
+            }
+        }
+
+        basic_status = BasicStatus.from_vehicle_data(vehicle_data)
+        assert basic_status is not None
+        assert basic_status.speed is not None
+        assert basic_status.speed.value == 50.0
+        assert basic_status.direction == "N"
