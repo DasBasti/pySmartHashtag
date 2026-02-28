@@ -55,9 +55,17 @@ class TestGetFieldAsType:
         """Test that a missing field logs an error."""
         data = {}
         with caplog.at_level(logging.ERROR):
-            result = get_field_as_type(data, "missing_field", int)
+            result = get_field_as_type(data, "missing_field", int, True)
         assert result is None
         assert "Field 'missing_field' not found in data" in caplog.text
+
+    def test_missing_field_not_logs_error_by_default(self, caplog):
+        """Test that a missing field logs an error."""
+        data = {}
+        with caplog.at_level(logging.ERROR):
+            result = get_field_as_type(data, "missing_field", int)
+        assert result is None
+        assert "Field 'missing_field' not found in data" not in caplog.text
 
     def test_missing_field_no_log(self, caplog):
         """Test that a missing field does not log when log_missing=False."""
@@ -71,9 +79,17 @@ class TestGetFieldAsType:
         """Test that a None value logs an error."""
         data = {"value": None}
         with caplog.at_level(logging.ERROR):
-            result = get_field_as_type(data, "value", int)
+            result = get_field_as_type(data, "value", int, True)
         assert result is None
         assert "Field 'value' has None value" in caplog.text
+
+    def test_none_value_logs_no_error_by_default(self, caplog):
+        """Test that a None value logs an error."""
+        data = {"value": None}
+        with caplog.at_level(logging.ERROR):
+            result = get_field_as_type(data, "value", int)
+        assert result is None
+        assert "Field 'value' has None value" not in caplog.text
 
     def test_conversion_failure_logs_error(self, caplog):
         """Test that a conversion failure logs an error."""

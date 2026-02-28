@@ -225,7 +225,7 @@ class SmartAccount:
                                 body=data,
                             )
                         },
-                        data=data,
+                        content=data.encode("utf-8"),
                     )
                     _LOGGER.debug("Got response %d", r_car_info.status_code)
                 except SmartTokenRefreshNecessary:

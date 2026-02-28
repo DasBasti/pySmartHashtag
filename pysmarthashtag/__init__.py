@@ -1,14 +1,9 @@
 """Library to read data from the Smart API."""
 
-from importlib.metadata import version
+from importlib.metadata import PackageNotFoundError, version
 
-from pysmarthashtag.const import EndpointUrls, SmartRegion, get_endpoint_urls_for_region
 
-__version__ = version("pySmartHashtag")
-
-__all__ = [
-    "__version__",
-    "SmartRegion",
-    "EndpointUrls",
-    "get_endpoint_urls_for_region",
-]
+try:
+    __version__ = version("pySmartHashtag")
+except PackageNotFoundError:
+    __version__ = "0.0.0"

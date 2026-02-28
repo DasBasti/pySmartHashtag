@@ -15,42 +15,6 @@ Get this custom integration into homeassistant
 
 [![Project Maintenance][maintenance-shield]](https://platinenmacher.tech)
 
-## Region Support
-
-The library supports both European and International (Asia-Pacific) regions. This is important for users with the **Hello Smart International** app (used in Australia, Singapore, and other international markets).
-
-### Usage
-
-```python
-from pysmarthashtag.account import SmartAccount
-from pysmarthashtag.const import SmartRegion, get_endpoint_urls_for_region
-
-# For European users (default)
-account = SmartAccount("user@example.com", "password")
-
-# For International/Asia-Pacific users (Australia, Singapore, etc.)
-endpoint_urls = get_endpoint_urls_for_region(SmartRegion.INTL)
-account = SmartAccount("user@example.com", "password", endpoint_urls=endpoint_urls)
-```
-
-### CLI Usage
-
-When using the command-line interface, you can specify the region with the `--region` flag:
-
-```bash
-# European region (default)
-python -m pysmarthashtag.cli --username user@example.com --password secret status
-
-# International region
-python -m pysmarthashtag.cli --username user@example.com --password secret --region intl status
-```
-
-You can also set the region via environment variable:
-
-```bash
-export SMART_REGION=intl
-```
-
 ## AI Disclosure
 
 This project uses AI to assist with development.
