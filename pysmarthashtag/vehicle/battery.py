@@ -145,6 +145,9 @@ class Battery(VehicleDataBase):
     remaining_range_at_full_charge: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """Remaining range at full charge of the vehicle."""
 
+    remaining_range_at_20_percent: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """Remaining range when battery reaches 20% SoC."""
+
     remaining_battery_percent: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """Remaining battery percent of the vehicle."""
 
@@ -177,6 +180,48 @@ class Battery(VehicleDataBase):
 
     average_power_consumption: Optional[ValueWithUnit] = ValueWithUnit(None, "W")
     """Current average consumption"""
+
+    # V2L (Vehicle-to-Load) discharge data
+    v2l_discharge_voltage: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """V2L discharge voltage (disChargeUAct)."""
+
+    v2l_discharge_current: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """V2L discharge current (disChargeIAct)."""
+
+    v2l_discharge_power: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """V2L discharge power (calculated from voltage * current)."""
+
+    v2l_connection_status: Optional[int] = None
+    """V2L connection status (disChargeConnectStatus). 0=not connected."""
+
+    v2l_time_remaining: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """Time to target discharge (timeToTargetDisCharged). 2047=not discharging."""
+
+    # Charge port status
+    charge_lid_ac_status: Optional[int] = None
+    """AC charge lid status (chargeLidAcStatus). 2=closed."""
+
+    charge_lid_dc_status: Optional[int] = None
+    """DC charge lid status (chargeLidDcAcStatus). 2=closed."""
+
+    # Scheduled charging
+    scheduled_charging_status: Optional[int] = None
+    """Scheduled/book charging status (bookChargeSts). 0=off."""
+
+    # DC-DC converter status
+    dcdc_activated: Optional[int] = None
+    """DC-DC converter activated status (dcDcActvd). 0=not active."""
+
+    dcdc_connection_status: Optional[int] = None
+    """DC-DC connection status (dcDcConnectStatus). 0=not connected."""
+
+    # Wireless charging
+    wireless_charging_alignment: Optional[int] = None
+    """Wireless power transfer fine alignment status (wptFineAlignt). 0=not aligned."""
+
+    # Instantaneous power consumption
+    instant_power_consumption: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    """Instantaneous power consumption (indPowerConsumption)."""
 
     @classmethod
     def from_vehicle_data(cls, vehicle_data: dict):
@@ -262,6 +307,62 @@ class Battery(VehicleDataBase):
             avg_consumption = get_field_as_type(evStatus, "averPowerConsumption", float, log_missing=False)
             if avg_consumption is not None:
                 retval["average_power_consumption"] = ValueWithUnit(avg_consumption, "W")
+
+            # Range at 20% SoC
+            range_20 = get_field_as_type(evStatus, "distanceToEmptyOnBattery20Soc", int, log_missing=False)
+            if range_20 is not None:
+                retval["remaining_range_at_20_percent"] = ValueWithUnit(range_20, "km")
+
+            # V2L (Vehicle-to-Load) discharge data
+            discharge_u = get_field_as_type(evStatus, "disChargeUAct", float, log_missing=False)
+            discharge_i = get_field_as_type(evStatus, "disChargeIAct", float, log_missing=False)
+            if discharge_u is not None:
+                retval["v2l_discharge_voltage"] = ValueWithUnit(discharge_u, "V")
+            if discharge_i is not None:
+                retval["v2l_discharge_current"] = ValueWithUnit(discharge_i, "A")
+            if discharge_u is not None and discharge_i is not None and discharge_u > 0 and discharge_i > 0:
+                retval["v2l_discharge_power"] = ValueWithUnit(discharge_u * discharge_i, "W")
+
+            discharge_conn = get_field_as_type(evStatus, "disChargeConnectStatus", int, log_missing=False)
+            if discharge_conn is not None:
+                retval["v2l_connection_status"] = discharge_conn
+
+            time_to_discharged = get_field_as_type(evStatus, "timeToTargetDisCharged", int, log_missing=False)
+            if time_to_discharged is not None and time_to_discharged != 2047:
+                retval["v2l_time_remaining"] = ValueWithUnit(time_to_discharged, "min")
+
+            # Charge lid status
+            charge_lid_ac = get_field_as_type(evStatus, "chargeLidAcStatus", int, log_missing=False)
+            if charge_lid_ac is not None:
+                retval["charge_lid_ac_status"] = charge_lid_ac
+
+            charge_lid_dc = get_field_as_type(evStatus, "chargeLidDcAcStatus", int, log_missing=False)
+            if charge_lid_dc is not None:
+                retval["charge_lid_dc_status"] = charge_lid_dc
+
+            # Scheduled charging
+            book_charge = get_field_as_type(evStatus, "bookChargeSts", int, log_missing=False)
+            if book_charge is not None:
+                retval["scheduled_charging_status"] = book_charge
+
+            # DC-DC converter status
+            dcdc_active = get_field_as_type(evStatus, "dcDcActvd", int, log_missing=False)
+            if dcdc_active is not None:
+                retval["dcdc_activated"] = dcdc_active
+
+            dcdc_conn = get_field_as_type(evStatus, "dcDcConnectStatus", int, log_missing=False)
+            if dcdc_conn is not None:
+                retval["dcdc_connection_status"] = dcdc_conn
+
+            # Wireless charging alignment
+            wpt_align = get_field_as_type(evStatus, "wptFineAlignt", int, log_missing=False)
+            if wpt_align is not None:
+                retval["wireless_charging_alignment"] = wpt_align
+
+            # Instantaneous power consumption
+            instant_consumption = get_field_as_type(evStatus, "indPowerConsumption", float, log_missing=False)
+            if instant_consumption is not None:
+                retval["instant_power_consumption"] = ValueWithUnit(instant_consumption, "W")
 
             if "vehicleStatus" in vehicle_data and "updateTime" in vehicle_data["vehicleStatus"]:
                 retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)

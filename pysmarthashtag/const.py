@@ -6,6 +6,7 @@ from typing import Optional
 
 API_KEY = "3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a"
 SERVER_URL = "https://awsapi.future.smart.com/login-app/api/v1/authorize?uiLocales=de-DE"
+EU_REFRESH_URL = "https://awsapi.future.smart.com/login-app/api/v1/token"
 AUTH_URL = f"https://auth.smart.com/oidc/op/v1.0/{API_KEY}/authorize/continue"
 LOGIN_URL = "https://auth.smart.com/accounts.login"
 API_BASE_URL = "https://api.ecloudeu.com"
@@ -14,6 +15,18 @@ API_CARS_URL = "/device-platform/user/vehicle/secure"
 API_SESION_URL = "/auth/account/session/secure"
 API_SELECT_CAR_URL = "/device-platform/user/session/update"
 API_TELEMATICS_URL = "/remote-control/vehicle/telematics/"
+
+# INTL (International) API specific constants
+# Used for Hello Smart International app (Australia, Singapore, Israel, etc.)
+INTL_API_BASE = "https://sg-app-api.smart.com"
+INTL_LOGIN_URL = f"{INTL_API_BASE}/iam/service/api/v1/login"
+INTL_OAUTH_URL = f"{INTL_API_BASE}/iam/service/api/v1/oauth20/authorize"
+INTL_REFRESH_URL = f"{INTL_API_BASE}/iam/service/api/v1/refresh/"
+INTL_USER_INFO_URL = f"{INTL_API_BASE}/uc/api/user/toc/base/info"
+INTL_CA_KEY = "204587190"  # X-Ca-Key header value for INTL API Gateway
+INTL_APP_ID = "SMARTAPP-ISRAEL"  # x-app-id for vehicle API
+INTL_OPERATOR_CODE = "SMART-ISRAEL"  # x-operator-code for vehicle API
+# Note: INTL signing secret is stored in api/utils.py
 
 OTA_SERVER_URL = "https://ota.srv.smart.com/"
 
@@ -60,10 +73,15 @@ def get_endpoint_urls_for_region(region: SmartRegion) -> "EndpointUrls":
         return EndpointUrls()
     elif region == SmartRegion.INTL:
         # International region (Asia-Pacific) - for Hello Smart International app
-        # Used in Australia, Singapore, and other international markets
+        # Used in Australia, Singapore, Israel, and other international markets
+        # Note: INTL uses different auth system (sg-app-api.smart.com) but same data endpoints as EU
         return EndpointUrls(
-            api_base_url="https://api.ecloudap.com",
-            api_base_url_v2="https://apiv2.ecloudap.com",
+            server_url="https://sg-app-api.smart.com/iam/service/api/v1/login",
+            auth_url="https://sg-app-api.smart.com/iam/service/api/v1/oauth20/authorize",
+            login_url="https://sg-app-api.smart.com/iam/service/api/v1/login",
+            # INTL uses same data endpoints as EU
+            api_base_url="https://api.ecloudeu.com",
+            api_base_url_v2="https://apiv2.ecloudeu.com",
         )
     else:
         raise ValueError(f"Unknown region: {region}")

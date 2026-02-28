@@ -8,6 +8,8 @@ SENSITIVE_FIELDS = frozenset(
     {
         # VIN
         "vin",
+        # Credentials
+        "password",
         # User identifiers
         "username",
         "userid",

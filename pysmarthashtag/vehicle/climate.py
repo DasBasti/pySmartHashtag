@@ -134,6 +134,15 @@ class Climate(VehicleDataBase):
     interior_PM25: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """The interior PM2.5 value."""
 
+    interior_PM25_level: Optional[int] = None
+    """The interior PM2.5 air quality level (0-5 scale)."""
+
+    interior_secondary_PM25_level: Optional[int] = None
+    """The interior secondary PM2.5 level (interiorSecondPM25Level)."""
+
+    exterior_PM25_level: Optional[int] = None
+    """The exterior PM2.5 air quality level (0-5 scale)."""
+
     relative_humidity: Optional[ValueWithUnit] = ValueWithUnit(None, None)
     """The relative humidity."""
 
@@ -203,6 +212,9 @@ class Climate(VehicleDataBase):
             if pollutionStatus:
                 interior_pm25 = get_field_as_type(pollutionStatus, "interiorPM25", float)
                 retval["interior_PM25"] = ValueWithUnit(interior_pm25, "μg/m³") if interior_pm25 is not None else None
+                retval["interior_PM25_level"] = get_field_as_type(pollutionStatus, "interiorPM25Level", int)
+                retval["interior_secondary_PM25_level"] = get_field_as_type(pollutionStatus, "interiorSecondPM25Level", int)
+                retval["exterior_PM25_level"] = get_field_as_type(pollutionStatus, "exteriorPM25Level", int)
                 rel_hum = get_field_as_type(pollutionStatus, "relHumSts", float)
                 retval["relative_humidity"] = ValueWithUnit(rel_hum, "%") if rel_hum is not None else None
 
