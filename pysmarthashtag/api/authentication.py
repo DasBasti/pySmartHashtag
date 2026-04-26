@@ -54,7 +54,7 @@ class SmartAuthentication(httpx.Auth):
     _BACKOFF_CAP = datetime.timedelta(minutes=90)
     _BACKOFF_GROW = 1.5
     _BACKOFF_SHRINK = datetime.timedelta(minutes=1)
-    _OTHER_FAILURE_BACKOFF = datetime.timedelta(minutes=5)
+    _OTHER_FAILURE_BACKOFF = datetime.timedelta(seconds=60)
 
     def __init__(
         self,
@@ -199,7 +199,7 @@ class SmartAuthentication(httpx.Auth):
             _LOGGER.debug("Refreshing access token failed. Logging in again")
             return {}
 
-    async def _login(self):
+    async def _login(self) -> dict:
         """Login to Smart web services with adaptive rate-limit backoff (PATCH).
 
         Wraps the original login flow (now ``_do_login``) with:
@@ -300,13 +300,14 @@ class SmartAuthentication(httpx.Auth):
             try:
                 context = r_context.url.params["context"]
                 _LOGGER.debug("Context: %s", context)
-            except KeyError:
+            except KeyError as err:
                 # PATCH: include status + body so the breaker can classify (rate-limit vs other).
+                # Body is run through sanitize_log_data() so any tokens/PII are masked.
                 raise SmartAPIError(
                     "Could not get context from login page "
                     f"(HTTP {r_context.status_code}, "
-                    f"body={r_context.text[:200]!r})"
-                )
+                    f"body={sanitize_log_data(r_context.text[:200])!r})"
+                ) from err
 
             # Get login token from Smart API
             r_login = await client.post(
@@ -344,13 +345,14 @@ class SmartAuthentication(httpx.Auth):
                 expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
                     seconds=int(login_result["sessionInfo"]["expires_in"])
                 )
-            except (KeyError, ValueError):
+            except (KeyError, ValueError) as err:
                 # PATCH: include status + body so the breaker can classify.
+                # Body is run through sanitize_log_data() so any tokens/PII are masked.
                 raise SmartAPIError(
                     "Could not get login token from login page "
                     f"(HTTP {r_login.status_code}, "
-                    f"body={r_login.text[:200]!r})"
-                )
+                    f"body={sanitize_log_data(r_login.text[:200])!r})"
+                ) from err
 
             auth_url = self.endpoint_urls.get_auth_url() + "?context=" + context + "&login_token=" + login_token
             cookie = f"gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4; glt_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a={login_token}"  # noqa: E501

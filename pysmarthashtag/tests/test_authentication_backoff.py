@@ -141,7 +141,9 @@ class TestAdaptiveBackoff:
         assert auth._state.quiet_until is not None
 
         delta = auth._state.quiet_until - datetime.datetime.now(datetime.timezone.utc)
-        assert datetime.timedelta(minutes=4) < delta <= auth._OTHER_FAILURE_BACKOFF
+        # Allow a small clock-skew tolerance below the configured suppress window.
+        lower_bound = auth._OTHER_FAILURE_BACKOFF - datetime.timedelta(seconds=5)
+        assert lower_bound < delta <= auth._OTHER_FAILURE_BACKOFF
 
     @pytest.mark.asyncio
     async def test_floor_invariant(self):
