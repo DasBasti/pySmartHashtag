@@ -47,6 +47,7 @@ jobs:
           pytest --cov=pysmarthashtag --cov-report=xml --cov-report=term-missing --cov-fail-under=80 pysmarthashtag/tests/
       - name: Pytest coverage comment
         id: coverageComment
+        if: github.event_name != 'pull_request'
         uses: MishaKav/pytest-coverage-comment@main
         with:
           pytest-xml-coverage-path: ./coverage.xml
