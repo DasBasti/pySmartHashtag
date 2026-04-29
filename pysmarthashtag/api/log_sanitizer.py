@@ -126,8 +126,41 @@ def _sanitize_list(data: list, depth: int = 0, max_depth: int = 10) -> list:
     return result
 
 
+def _looks_like_secret(s: str) -> bool:
+    """Check if a string looks like a secret (high entropy, no whitespace, base64/hex-like).
+
+    Args:
+    ----
+        s: String to check
+
+    Returns:
+    -------
+        True if the string appears to be a secret/token
+
+    """
+    # If it has whitespace, it's likely a human-readable message, not a secret
+    if any(c.isspace() for c in s):
+        return False
+
+    # Long strings with only alphanumeric characters and common encoding chars
+    # (likely base64, hex, or URL-safe tokens)
+    alphanumeric_chars = sum(1 for c in s if c.isalnum())
+    special_chars = sum(1 for c in s if c in "-_=+/")
+    total_chars = len(s)
+
+    # If mostly alphanumeric with some special chars, and no whitespace, looks like a secret
+    if total_chars > 20 and (alphanumeric_chars + special_chars) / total_chars > 0.95:
+        return True
+
+    # Check for common secret patterns: long hex strings, base64-like strings
+    if len(s) >= 32 and all(c in "0123456789abcdefABCDEF" for c in s):
+        return True  # Hex string
+
+    return False
+
+
 def _sanitize_string(data: str) -> str:
-    """Sanitize a string by masking VINs and tokens.
+    """Sanitize a string by masking VINs, tokens, and potentially sensitive content.
 
     Args:
     ----
@@ -142,6 +175,18 @@ def _sanitize_string(data: str) -> str:
     result = VIN_PATTERN.sub(lambda m: _mask_value(m.group()), data)
     # Mask Bearer tokens
     result = TOKEN_PATTERN.sub(r"\1***", result)
+
+    # As a defensive fallback, avoid logging very long or opaque strings in full.
+    # This helps when upstream services accidentally include secrets in generic
+    # "message" fields that do not match our specific patterns.
+    # Only truncate if it looks like a secret and is long enough
+    max_visible_length = 512
+    if len(result) > max_visible_length and _looks_like_secret(result):
+        # Preserve only a short prefix/suffix to keep logs useful while hiding content.
+        prefix = result[:40]
+        suffix = result[-10:]
+        return f"{prefix}***{suffix}"
+
     return result
 
 
@@ -166,7 +211,15 @@ def sanitize_log_data(data: Any) -> Any:
         return _sanitize_list(data)
     elif isinstance(data, str):
         return _sanitize_string(data)
-    return data
+
+    # For any other type (including numbers, custom objects, etc.), avoid
+    # returning the raw value to prevent accidental leakage of sensitive data.
+    # Allowlist safe primitives while keeping generic sanitization for other types.
+    if isinstance(data, (int, float, bool)):
+        return str(data)
+    if data is None:
+        return "None"
+    return f"<sanitized {type(data).__name__}>"
 
 
 def get_data_summary(data: dict, include_keys: Union[list, None] = None) -> str:

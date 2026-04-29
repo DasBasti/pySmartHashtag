@@ -6,6 +6,7 @@ from typing import Optional
 
 from pysmarthashtag.const import API_BASE_URL, API_BASE_URL_V2
 from pysmarthashtag.models import ValueWithUnit, get_element_from_dict_maybe
+from pysmarthashtag.vehicle.basic_status import BasicStatus
 from pysmarthashtag.vehicle.battery import Battery
 from pysmarthashtag.vehicle.climate import Climate
 from pysmarthashtag.vehicle.maintenance import Maintenance
@@ -13,6 +14,7 @@ from pysmarthashtag.vehicle.position import Position
 from pysmarthashtag.vehicle.running import Running
 from pysmarthashtag.vehicle.safety import Safety
 from pysmarthashtag.vehicle.tires import Tires
+from pysmarthashtag.vehicle.trailer import Trailer
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -55,6 +57,12 @@ class SmartVehicle:
 
     safety: Optional[Safety] = None
     """The safety status of the vehicle."""
+
+    basic_status: Optional[BasicStatus] = None
+    """The basic status of the vehicle (speed, engine, eGuard, park time, etc.)."""
+
+    trailer: Optional[Trailer] = None
+    """The trailer status of the vehicle."""
 
     climate_control: Optional["ClimateControll"] = None  # noqa: F821
 
@@ -121,6 +129,8 @@ class SmartVehicle:
         self.running = Running.from_vehicle_data(self.data)
         self.climate = Climate.from_vehicle_data(self.data)
         self.safety = Safety.from_vehicle_data(self.data)
+        self.basic_status = BasicStatus.from_vehicle_data(self.data)
+        self.trailer = Trailer.from_vehicle_data(self.data)
 
         from pysmarthashtag.control.climate import ClimateControll
 
