@@ -74,3 +74,9 @@ venv.bak/
 
 # Generated response files
 response-*.json
+
+# Development/debug scripts (not for distribution)
+dev/
+
+# Docker development environment (contains credentials)
+docker/

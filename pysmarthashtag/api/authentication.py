@@ -18,7 +18,14 @@ from pysmarthashtag.api import utils
 from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import (
     API_SESION_URL,
+    EU_REFRESH_URL,
     HTTPX_TIMEOUT,
+    INTL_CA_KEY,
+    INTL_LOGIN_URL,
+    INTL_OAUTH_URL,
+    INTL_REFRESH_URL,
+    INTL_APP_ID,
+    INTL_OPERATOR_CODE,
     EndpointUrls,
 )
 from pysmarthashtag.models import SmartAPIError
@@ -80,6 +87,22 @@ class SmartAuthentication(httpx.Auth):
         if not self._lock:
             self._lock = asyncio.Lock()
         return self._lock
+
+    def clear_credentials(self) -> None:
+        """Clear sensitive credentials from memory.
+
+        Call this method when you no longer need to perform fresh logins
+        and want to minimize the exposure of credentials in memory.
+        Note: After calling this, re-authentication will fail if the
+        refresh token expires or becomes invalid.
+
+        This clears:
+        - Password (used for initial login)
+        - Username (used for initial login)
+        """
+        self.password = None
+        self.username = None
+        _LOGGER.debug("Credentials cleared from memory")
 
     def sync_auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         """Handle synchronous authentication flow for requests."""
@@ -157,18 +180,101 @@ class SmartAuthentication(httpx.Auth):
             raise SmartAPIError("Could not login to Smart API")
 
     async def _refresh_access_token(self):
-        """Refresh the access token."""
+        """Refresh the EU access token using the token endpoint.
+        
+        EU refresh flow:
+        - POST to /login-app/api/v1/token with {accessToken, refreshToken}
+        - Response: {access_token, refresh_token, id_token}
+        - Then exchange new access_token for vehicle API session
+        """
+        if not self.refresh_token or not self.access_token:
+            _LOGGER.debug("No refresh token available, will perform full login")
+            return {}
+            
         try:
             ssl_ctx = await self.get_ssl_context()
-            async with SmartLoginClient(ssl_context=ssl_ctx) as _:
-                _LOGGER.debug("Refreshing access token via relogin because refresh token is not implemented")
-                await self._login()
-        except SmartAPIError:
-            _LOGGER.debug("Refreshing access token failed. Logging in again")
+            async with SmartLoginClient(ssl_context=ssl_ctx) as client:
+                _LOGGER.debug("EU: Refreshing access token via token endpoint")
+                
+                refresh_data = json.dumps({
+                    "accessToken": self.access_token,
+                    "refreshToken": self.refresh_token,
+                })
+                
+                r_refresh = await client.post(
+                    EU_REFRESH_URL,
+                    content=refresh_data,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Accept": "application/json",
+                        "x-app-id": "SmartAPPEU",
+                        "x-requested-with": "com.smart.hellosmart",
+                        "User-Agent": "Hello smart/2.0.5 (iPhone; iOS 17.1; Scale/3.00)",
+                    },
+                )
+                
+                refresh_result = r_refresh.json()
+                _LOGGER.debug("EU refresh response: %s", sanitize_log_data(refresh_result))
+                
+                # Response has snake_case keys: access_token, refresh_token, id_token
+                access_token = refresh_result.get("access_token")
+                refresh_token = refresh_result.get("refresh_token")
+                
+                if not access_token or not refresh_token:
+                    _LOGGER.warning("EU refresh failed: missing tokens in response")
+                    return {}
+                
+                _LOGGER.info("EU: Token refresh successful")
+                
+                # Now exchange the new access token for vehicle API session
+                # (same as final step of login)
+                data = json.dumps({"accessToken": access_token}).replace(" ", "")
+                r_api_access = await client.post(
+                    self.endpoint_urls.get_api_base_url() + API_SESION_URL + "?identity_type=smart",
+                    headers={
+                        **utils.generate_default_header(
+                            self.device_id,
+                            None,
+                            params={"identity_type": "smart"},
+                            method="POST",
+                            url=API_SESION_URL,
+                            body=data,
+                        )
+                    },
+                    data=data,
+                )
+                api_result = r_api_access.json()
+                _LOGGER.debug("EU API session result: %s", sanitize_log_data(api_result))
+                
+                api_access_token = api_result["data"]["accessToken"]
+                api_refresh_token = api_result["data"]["refreshToken"]
+                api_user_id = api_result["data"]["userId"]
+                
+                # Use existing expiry or default to 24 hours
+                expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=24)
+                
+                return {
+                    "access_token": access_token,
+                    "refresh_token": refresh_token,
+                    "api_access_token": api_access_token,
+                    "api_refresh_token": api_refresh_token,
+                    "api_user_id": api_user_id,
+                    "expires_at": expires_at,
+                }
+                
+        except Exception as e:
+            _LOGGER.debug("EU token refresh failed: %s. Will perform full login.", e)
             return {}
 
     async def _login(self):
         """Login to Smart web services."""
+        # Check if credentials are available (may have been cleared)
+        if not self.password or not self.username:
+            raise SmartAPIError(
+                "Cannot login: credentials have been cleared. "
+                "Create a new authentication instance with valid credentials."
+            )
+        
         ssl_ctx = await self.get_ssl_context()
         async with SmartLoginClient(ssl_context=ssl_ctx) as client:
             _LOGGER.info("Acquiring access token.")
@@ -388,6 +494,381 @@ class SmartLoginRetry(httpx.Auth):
                             exc,
                         )
                         raise
+
+
+class SmartAuthenticationINTL(SmartAuthentication):
+    """Authentication handler for Smart International (INTL) API.
+
+    This class handles authentication for the Hello Smart International app,
+    which is used in Australia, Singapore, Israel, and other international markets.
+
+    The INTL auth flow is different from EU:
+    1. POST login with email/password to sg-app-api.smart.com -> get accessToken, idToken
+    2. GET oauth20/authorize with accessToken -> get authCode  
+    3. POST session/secure with authCode to apiv2.ecloudeu.com -> get vehicle API tokens
+
+    Note: The sg-app-api.smart.com endpoints do not require X-Ca-Signature validation,
+    which simplifies the authentication process significantly.
+    """
+
+    def __init__(
+        self,
+        username: str,
+        password: str,
+        access_token: Optional[str] = None,
+        expires_at: Optional[datetime.datetime] = None,
+        refresh_token: Optional[str] = None,
+        ssl_context: Optional[ssl.SSLContext] = None,
+        endpoint_urls: Optional[EndpointUrls] = None,
+    ):
+        super().__init__(
+            username=username,
+            password=password,
+            access_token=access_token,
+            expires_at=expires_at,
+            refresh_token=refresh_token,
+            ssl_context=ssl_context,
+            endpoint_urls=endpoint_urls,
+        )
+        # INTL-specific tokens
+        self.intl_access_token: Optional[str] = None
+        self.intl_refresh_token: Optional[str] = None
+        self.intl_id_token: Optional[str] = None
+        self.intl_user_id: Optional[str] = None
+        self.session_id: str = secrets.token_hex(16).upper()
+        self.device_identifier: str = secrets.token_hex(16)
+        self.client_id: str = "2232193363e44527"  # INTL OAuth client ID
+        _LOGGER.debug("SmartAuthenticationINTL initialized for INTL region")
+
+    def _generate_intl_headers(self, auth_token: str = "") -> dict[str, str]:
+        """Generate headers for INTL API requests (sg-app-api.smart.com).
+
+        The sg-app-api.smart.com endpoints do not validate X-Ca-Signature,
+        so we can use empty or minimal signatures.
+        """
+        import time
+        import uuid
+        
+        timestamp = str(int(time.time() * 1000))
+        nonce = str(uuid.uuid4()).upper()
+
+        headers = {
+            "Host": "sg-app-api.smart.com",
+            "User-Agent": "GlobalSmart/1.0.7 (iPhone; iOS 18.6.1; Scale/3.00)",
+            "X-Ca-Key": INTL_CA_KEY,
+            "X-Ca-Timestamp": timestamp,
+            "X-Ca-Nonce": nonce,
+            "X-Ca-Signature-Method": "HmacSHA256",
+            "X-Ca-Signature": "",  # Not validated by server
+            "X-Ca-Signature-Headers": "Accept-Language,User-Agent,X-Ca-Nonce,X-Ca-Timestamp,Xs-App-Ver,Xs-Auth-Token,Xs-Client-Id,Xs-Di,Xs-Os,Xs-Session-Id,Xs-Ui",
+            "Xs-Os": "iOS",
+            "Xs-App-Ver": "1.0.7",
+            "Xs-Session-Id": self.session_id,
+            "Xs-Di": self.device_identifier,
+            "Xs-Ui": secrets.token_hex(16),
+            "Xs-Auth-Token": auth_token,
+            "Xs-Client-Id": self.client_id,
+            "Accept": "*/*",
+            "Accept-Language": "en-AU;q=1",
+            "Content-Type": "application/json",
+            "Cache-Control": "no-cache",
+        }
+
+        return headers
+
+    def _generate_vehicle_api_headers(self, body: str = None) -> dict[str, str]:
+        """Generate headers for vehicle API (ecloudeu) requests.
+        
+        These headers are used for the session/secure endpoint on apiv2.ecloudeu.com.
+        The x-signature is calculated using the INTL signing secret.
+        """
+        import time
+        import uuid
+        
+        timestamp = str(int(time.time() * 1000))
+        nonce = str(uuid.uuid4()).upper()
+
+        headers = {
+            "x-app-id": INTL_APP_ID,
+            "x-operator-code": INTL_OPERATOR_CODE,
+            "x-agent-type": "iOS",
+            "x-agent-version": "18.6.1",
+            "x-device-type": "mobile",
+            "x-device-identifier": self.device_identifier,
+            "x-device-manufacture": "Apple",
+            "x-device-brand": "Apple",
+            "x-device-model": "iPhone",
+            "x-env-type": "production",
+            "x-api-signature-version": "1.0",
+            "x-api-signature-nonce": nonce,
+            "x-timestamp": timestamp,
+            "platform": "NON-CMA",
+            "accept": "application/json;responseformat=3",
+            "accept-language": "en_US",
+            "content-type": "application/json",
+            "user-agent": "GlobalSmart/1.0.7 (iPhone; iOS 18.6.1; Scale/3.00)",
+        }
+        
+        # Calculate signature using INTL secret
+        if body is not None:
+            headers["x-signature"] = utils._create_sign(
+                nonce=nonce,
+                params={"identity_type": "smart-israel"},
+                timestamp=timestamp,
+                method="POST",
+                url=API_SESION_URL,
+                body=body,
+                use_intl=True,  # Use INTL signing secret
+            )
+
+        return headers
+
+    async def _login(self):
+        """Login to Smart INTL web services.
+
+        INTL login flow (uses sg-app-api.smart.com which doesn't require signatures):
+        1. POST to login endpoint with email/password -> accessToken, idToken
+        2. GET oauth20/authorize with accessToken -> authCode
+        3. POST session/secure to apiv2.ecloudeu.com with authCode -> vehicle API tokens
+        """
+        # Check if credentials are available (may have been cleared)
+        if not self.password or not self.username:
+            raise SmartAPIError(
+                "Cannot login: credentials have been cleared. "
+                "Create a new authentication instance with valid credentials."
+            )
+        
+        ssl_ctx = await self.get_ssl_context()
+        async with SmartLoginClient(ssl_context=ssl_ctx) as client:
+            _LOGGER.info("INTL: Acquiring access token via Hello Smart International API")
+
+            # Step 1: Login with email/password (no signature required!)
+            _LOGGER.debug("INTL: Step 1 - Logging in with credentials")
+            login_data = json.dumps({
+                "email": self.username,
+                "password": self.password,
+            })
+
+            r_login = await client.post(
+                INTL_LOGIN_URL,
+                content=login_data,
+                headers=self._generate_intl_headers(),
+            )
+
+            try:
+                login_result = r_login.json()
+                _LOGGER.debug("INTL login response code: %s", login_result.get("code"))
+
+                if login_result.get("code") != "200":
+                    error_msg = login_result.get("message", "Unknown error")
+                    _LOGGER.error("INTL login failed: %s", error_msg)
+                    raise SmartAPIError(f"INTL login failed: {error_msg}")
+
+                result = login_result.get("result", {})
+                self.intl_access_token = result.get("accessToken")
+                self.intl_refresh_token = result.get("refreshToken")
+                self.intl_id_token = result.get("idToken")
+                self.intl_user_id = result.get("userId")
+                expires_in = result.get("expiresIn", 86400)
+
+                expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=expires_in)
+
+                _LOGGER.info("INTL: Login successful for user %s", self.intl_user_id)
+
+            except (KeyError, ValueError, TypeError) as e:
+                raise SmartAPIError(f"Could not parse INTL login response: {e}")
+
+            # Step 2: Exchange accessToken for authCode via OAuth
+            # Note: OAuth uses just accessToken in URL param, and idToken in Xs-Auth-Token header
+            _LOGGER.debug("INTL: Step 2 - Exchanging accessToken for authCode")
+            
+            oauth_url = f"{INTL_OAUTH_URL}?accessToken={self.intl_access_token}"
+
+            oauth_headers = self._generate_intl_headers(self.intl_id_token)
+
+            r_oauth = await client.get(
+                oauth_url,
+                headers=oauth_headers,
+            )
+
+            try:
+                oauth_result = r_oauth.json()
+                _LOGGER.debug("INTL OAuth response code: %s", oauth_result.get("code"))
+
+                if oauth_result.get("code") != "200":
+                    error_msg = oauth_result.get("message", "Unknown error")
+                    _LOGGER.error("INTL OAuth failed: %s", error_msg)
+                    raise SmartAPIError(f"INTL OAuth failed: {error_msg}")
+
+                # Result is directly the authCode string (e.g., "CODE-xxx")
+                auth_code = oauth_result.get("result")
+                if isinstance(auth_code, dict):
+                    auth_code = auth_code.get("authCode", auth_code)
+                    
+                _LOGGER.debug("INTL: Got authCode: %s...", str(auth_code)[:30] if auth_code else "None")
+
+            except (KeyError, ValueError, TypeError) as e:
+                raise SmartAPIError(f"Could not parse INTL OAuth response: {e}")
+
+            # Step 3: Exchange authCode for vehicle API session
+            _LOGGER.debug("INTL: Step 3 - Exchanging authCode for vehicle API session")
+            
+            session_url = f"{self.endpoint_urls.get_api_base_url_v2()}{API_SESION_URL}?identity_type=smart-israel"
+            session_data = json.dumps({"authCode": auth_code}, separators=(',', ':'))
+
+            session_headers = self._generate_vehicle_api_headers(body=session_data)
+
+            r_session = await client.post(
+                session_url,
+                content=session_data,
+                headers=session_headers,
+            )
+            
+            try:
+                session_result = r_session.json()
+                _LOGGER.debug("INTL Session response: %s", sanitize_log_data(session_result))
+
+                if session_result.get("code") != 1000:
+                    error_msg = session_result.get("message", "Unknown error")
+                    _LOGGER.error("INTL session failed: %s (code: %s)", error_msg, session_result.get("code"))
+                    raise SmartAPIError(f"INTL session failed: {error_msg}")
+
+                data = session_result.get("data", {})
+                api_access_token = data.get("accessToken")
+                api_refresh_token = data.get("refreshToken")
+                api_user_id = data.get("userId")
+                api_client_id = data.get("clientId")
+                
+                # Store client_id on the auth object for use in API requests
+                self.api_client_id = api_client_id
+
+                _LOGGER.info("INTL: Successfully authenticated, user ID: %s", api_user_id)
+
+            except (KeyError, ValueError, TypeError) as e:
+                raise SmartAPIError(f"Could not parse INTL session response: {e}")
+
+        return {
+            "access_token": api_access_token,
+            "refresh_token": api_refresh_token,
+            "api_access_token": api_access_token,
+            "api_refresh_token": api_refresh_token,
+            "api_user_id": api_user_id,
+            "expires_at": expires_at,
+        }
+
+    async def _refresh_access_token(self):
+        """Refresh the INTL access token using the IAM refresh endpoint.
+        
+        INTL refresh flow:
+        - POST to /iam/service/api/v1/refresh/ with {refreshToken}
+        - Response: {code: "200", result: {accessToken, refreshToken, idToken, expiresIn, userId}}
+        - Then exchange new accessToken for authCode via OAuth
+        - Finally exchange authCode for vehicle API session
+        """
+        if not self.intl_refresh_token:
+            _LOGGER.debug("INTL: No refresh token available, will perform full login")
+            return {}
+            
+        try:
+            ssl_ctx = await self.get_ssl_context()
+            async with SmartLoginClient(ssl_context=ssl_ctx) as client:
+                _LOGGER.debug("INTL: Refreshing access token via IAM refresh endpoint")
+                
+                refresh_data = json.dumps({
+                    "refreshToken": self.intl_refresh_token,
+                })
+                
+                r_refresh = await client.post(
+                    INTL_REFRESH_URL,
+                    content=refresh_data,
+                    headers=self._generate_intl_headers(self.intl_id_token or ""),
+                )
+                
+                refresh_result = r_refresh.json()
+                _LOGGER.debug("INTL refresh response code: %s", refresh_result.get("code"))
+                
+                if refresh_result.get("code") != "200":
+                    error_msg = refresh_result.get("message", "Unknown error")
+                    _LOGGER.warning("INTL refresh failed: %s", error_msg)
+                    return {}
+                
+                result = refresh_result.get("result", {})
+                self.intl_access_token = result.get("accessToken")
+                self.intl_refresh_token = result.get("refreshToken")
+                self.intl_id_token = result.get("idToken")
+                self.intl_user_id = result.get("userId")
+                expires_in = result.get("expiresIn", 86400)
+                
+                expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(seconds=expires_in)
+                
+                _LOGGER.info("INTL: Token refresh successful for user %s", self.intl_user_id)
+                
+                # Step 2: Exchange new accessToken for authCode via OAuth
+                _LOGGER.debug("INTL: Exchanging refreshed accessToken for authCode")
+                
+                oauth_url = f"{INTL_OAUTH_URL}?accessToken={self.intl_access_token}"
+                oauth_headers = self._generate_intl_headers(self.intl_id_token)
+                
+                r_oauth = await client.get(
+                    oauth_url,
+                    headers=oauth_headers,
+                )
+                
+                oauth_result = r_oauth.json()
+                if oauth_result.get("code") != "200":
+                    error_msg = oauth_result.get("message", "Unknown error")
+                    _LOGGER.warning("INTL OAuth after refresh failed: %s", error_msg)
+                    return {}
+                
+                auth_code = oauth_result.get("result")
+                if isinstance(auth_code, dict):
+                    auth_code = auth_code.get("authCode", auth_code)
+                
+                _LOGGER.debug("INTL: Got authCode from refresh flow")
+                
+                # Step 3: Exchange authCode for vehicle API session
+                _LOGGER.debug("INTL: Exchanging authCode for vehicle API session")
+                
+                session_url = f"{self.endpoint_urls.get_api_base_url_v2()}{API_SESION_URL}?identity_type=smart-israel"
+                session_data = json.dumps({"authCode": auth_code}, separators=(',', ':'))
+                session_headers = self._generate_vehicle_api_headers(body=session_data)
+                
+                r_session = await client.post(
+                    session_url,
+                    content=session_data,
+                    headers=session_headers,
+                )
+                
+                session_result = r_session.json()
+                _LOGGER.debug("INTL Session response: %s", sanitize_log_data(session_result))
+                
+                if session_result.get("code") != 1000:
+                    error_msg = session_result.get("message", "Unknown error")
+                    _LOGGER.warning("INTL session after refresh failed: %s", error_msg)
+                    return {}
+                
+                data = session_result.get("data", {})
+                api_access_token = data.get("accessToken")
+                api_refresh_token = data.get("refreshToken")
+                api_user_id = data.get("userId")
+                api_client_id = data.get("clientId")
+                
+                self.api_client_id = api_client_id
+                
+                _LOGGER.info("INTL: Refresh flow completed successfully")
+                
+                return {
+                    "access_token": api_access_token,
+                    "refresh_token": api_refresh_token,
+                    "api_access_token": api_access_token,
+                    "api_refresh_token": api_refresh_token,
+                    "api_user_id": api_user_id,
+                    "expires_at": expires_at,
+                }
+                
+        except Exception as e:
+            _LOGGER.debug("INTL token refresh failed: %s. Will perform full login.", e)
+            return {}
 
 
 def get_retry_wait_time(response: httpx.Response) -> int:
