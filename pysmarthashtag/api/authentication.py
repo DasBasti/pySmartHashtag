@@ -10,6 +10,7 @@ import ssl
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Generator
 from typing import Optional
+from urllib.parse import parse_qs, urlparse
 
 import httpx
 from httpx._models import Request, Response
@@ -19,6 +20,8 @@ from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import (
     API_SESION_URL,
     HTTPX_TIMEOUT,
+    MAX_REDIRECT_HOPS,
+    WEBVIEW_USER_AGENT,
     EndpointUrls,
 )
 from pysmarthashtag.models import SmartAPIError
@@ -168,31 +171,118 @@ class SmartAuthentication(httpx.Auth):
             return {}
 
     async def _login(self):
-        """Login to Smart web services."""
+        """Login to Smart web services.
+
+        Implements the EU 4.5-step OIDC + Gigya flow that the live cloud
+        currently expects:
+
+        1. Walk the OIDC redirect chain looking for ``?context=`` (it now
+           lives on hop 2: ``app.id.smart.com/proxy``, not hop 1).
+        1.5. Bootstrap a Gigya session via ``socialize.getIDs`` to obtain
+           a fresh ``gmid`` + ``ucid`` and build the
+           ``gig_bootstrap_<APIKey>=auth_ver4`` cookie.
+        2. POST ``accounts.login`` with the bootstrap cookie.
+        3. Walk ``authorize/continue`` redirects looking for
+           ``access_token`` (in query OR fragment).
+        4. Exchange the OAuth access token for an API session via
+           ``/auth/account/session/secure``.
+        """
         ssl_ctx = await self.get_ssl_context()
         async with SmartLoginClient(ssl_context=ssl_ctx) as client:
             _LOGGER.info("Acquiring access token.")
+            api_key = self.endpoint_urls.get_api_key()
 
-            # Get Context
-            r_context = await client.get(
-                self.endpoint_urls.get_server_url(),
-                headers={
-                    "x-app-id": "SmartAPPEU",
-                    "accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.7",  # noqa: E501
-                    "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
-                    "x-requested-with": "com.smart.hellosmart",
-                    "user-agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36",  # noqa: E501
-                    "content-type": "application/json; charset=utf-8",
-                },
-                follow_redirects=True,
-            )
-            try:
-                context = r_context.url.params["context"]
-                _LOGGER.debug("Context: %s", context)
-            except KeyError:
+            # ---- Step 1: walk redirects to find ?context= -----------------
+            # Smart's chain currently looks like:
+            #   awsapi.future.smart.com -> auth.smart.com/oidc/.../authorize
+            #     -> app.id.smart.com/proxy?context=<JWT>&...
+            # The context= used to be on hop 1; it moved to hop 2 (different
+            # host). Walking up to MAX_REDIRECT_HOPS keeps this resilient if
+            # Smart shifts hops again.
+            context_headers = {
+                "x-app-id": "SmartAPPEU",
+                "accept": (
+                    "text/html,application/xhtml+xml,application/xml;q=0.9,"
+                    "image/avif,image/webp,image/apng,*/*;q=0.8,"
+                    "application/signed-exchange;v=b3;q=0.7"
+                ),
+                "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
+                "x-requested-with": "com.smart.hellosmart",
+                "user-agent": WEBVIEW_USER_AGENT,
+                "content-type": "application/json; charset=utf-8",
+            }
+            current_url = self.endpoint_urls.get_server_url()
+            context: Optional[str] = None
+            last_status: Optional[int] = None
+            last_location = ""
+            for hop in range(MAX_REDIRECT_HOPS):
+                r_context = await client.get(
+                    current_url,
+                    headers=context_headers,
+                    follow_redirects=False,
+                )
+                last_status = r_context.status_code
+                last_location = r_context.headers.get("location", "")
+                if last_status not in (301, 302, 303, 307, 308):
+                    if hop == 0 and last_status == 403:
+                        _LOGGER.error(
+                            "EU auth gateway rejected request (HTTP 403): " "possible UA filtering or API change",
+                        )
+                    break
+
+                parsed_location = urlparse(last_location)
+                params = parse_qs(parsed_location.query)
+                if "context" in params:
+                    context = params["context"][0]
+                    _LOGGER.debug(
+                        "Step 1: extracted context= at redirect hop %d (host=%s)",
+                        hop + 1,
+                        parsed_location.hostname or "?",
+                    )
+                    break
+                current_url = last_location
+
+            if not context:
+                _LOGGER.error(
+                    "Context extraction failed: redirect chain ended without "
+                    "context= parameter (last_status=%s, last_host=%s)",
+                    last_status,
+                    urlparse(last_location).hostname or "?",
+                )
                 raise SmartAPIError("Could not get context from login page")
 
-            # Get login token from Smart API
+            # ---- Step 1.5: bootstrap a Gigya session ----------------------
+            # Smart's Gigya tenant won't accept accounts.login from a "fresh"
+            # client; it expects gmid + ucid + hasGmid + gig_bootstrap
+            # cookies. socialize.getIDs is the canonical endpoint that issues
+            # these to a JS-SDK client.
+            ids_url = (
+                f"{self.endpoint_urls.get_gigya_socialize_url()}/socialize.getIDs"
+                f"?APIKey={api_key}&format=json&includeTicket=true"
+            )
+            r_ids = await client.get(ids_url)
+            try:
+                ids_data = r_ids.json()
+            except ValueError as err:
+                raise SmartAPIError("Gigya socialize.getIDs returned non-JSON") from err
+
+            if ids_data.get("errorCode") != 0:
+                _LOGGER.error(
+                    "socialize.getIDs failed: code=%s message=%s",
+                    ids_data.get("errorCode"),
+                    ids_data.get("errorMessage"),
+                )
+                raise SmartAPIError("Gigya socialize.getIDs failed: cannot bootstrap session")
+
+            gmid = ids_data.get("gmid", "")
+            ucid = ids_data.get("ucid", "")
+            if not gmid:
+                raise SmartAPIError("Gigya gmid missing — cannot proceed")
+
+            gigya_cookie = f"gmid={gmid}; ucid={ucid}; hasGmid=ver4; " f"gig_bootstrap_{api_key}=auth_ver4"
+            _LOGGER.debug("Step 1.5: Gigya bootstrap cookies built")
+
+            # ---- Step 2: POST Gigya login --------------------------------
             r_login = await client.post(
                 self.endpoint_urls.get_login_url(),
                 data={
@@ -200,67 +290,120 @@ class SmartAuthentication(httpx.Auth):
                     "password": self.password,
                     "sessionExpiration": 2592000,
                     "targetEnv": "jssdk",
-                    "include": "profile%2Cdata%2Cemails%2Csubscriptions%2Cpreferences%2C",
+                    "include": "profile,data,emails,subscriptions,preferences,",
                     "includeUserInfo": True,
                     "loginMode": "standard",
                     "lang": "de",
-                    "APIKey": self.endpoint_urls.get_api_key(),
+                    "APIKey": api_key,
                     "source": "showScreenSet",
                     "sdk": "js_latest",
-                    "pageURL": "https%3A%2F%2Fapp.id.smart.com%2Flogin%3Fgig_ui_locales%3Dde-DE",
+                    "pageURL": "https://app.id.smart.com/login?gig_ui_locales=de-DE",
                     "sdkBuild": 15482,
                     "format": "json",
-                    "riskContext": "%7B%22b0%22%3A41187%2C%22b1%22%3A%5B0%2C2%2C3%2C1%5D%2C%22b2%22%3A4%2C%22b3%22%3A%5B%22-23%7C0.383%22%2C%22-81.33333587646484%7C0.236%22%5D%2C%22b4%22%3A3%2C%22b5%22%3A1%2C%22b6%22%3A%22Mozilla%2F5.0%20%28Linux%3B%20Android%209%3B%20ANE-LX1%20Build%2FHUAWEIANE-L21%3B%20wv%29%20AppleWebKit%2F537.36%20%28KHTML%2C%20like%20Gecko%29%20Version%2F4.0%20Chrome%2F118.0.0.0%20Mobile%20Safari%2F537.36%22%2C%22b7%22%3A%5B%5D%2C%22b8%22%3A%2216%3A33%3A26%22%2C%22b9%22%3A-60%2C%22b10%22%3Anull%2C%22b11%22%3Afalse%2C%22b12%22%3A%7B%22charging%22%3Atrue%2C%22chargingTime%22%3Anull%2C%22dischargingTime%22%3Anull%2C%22level%22%3A0.58%7D%2C%22b13%22%3A%5B5%2C%22360%7C760%7C24%22%2Cfalse%2Ctrue%5D%7D",  # noqa: E501
                 },
                 headers={
                     "accept": "*/*",
                     "accept-language": "de",
                     "content-type": "application/x-www-form-urlencoded",
                     "x-requested-with": "com.smart.hellosmart",
-                    "cookie": "gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4",  # noqa: E501
+                    "cookie": gigya_cookie,
                     "origin": "https://app.id.smart.com",
-                    "user-agent": "Hello smart/1.4.0 (iPhone; iOS 17.1; Scale/3.00)",
+                    "user-agent": WEBVIEW_USER_AGENT,
                 },
             )
             try:
                 login_result = r_login.json()
-                login_token = login_result["sessionInfo"]["login_token"]
+            except ValueError as err:
+                raise SmartAPIError("Gigya login returned non-JSON") from err
+
+            # Gigya returns 200 even on errors; surface the code/message.
+            if login_result.get("errorCode", 0) != 0:
+                gigya_code = login_result.get("errorCode")
+                gigya_message = login_result.get("errorMessage", "")
+                _LOGGER.error(
+                    "Gigya login error: code=%s message=%s",
+                    gigya_code,
+                    gigya_message,
+                )
+                raise SmartAPIError(f"Gigya login error (code={gigya_code}): {gigya_message}")
+
+            try:
+                session_info = login_result["sessionInfo"]
+                login_token = session_info["login_token"]
                 expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
-                    seconds=int(login_result["sessionInfo"]["expires_in"])
+                    seconds=int(session_info["expires_in"])
                 )
             except (KeyError, ValueError):
                 raise SmartAPIError("Could not get login token from login page")
 
+            # ---- Step 3: walk authorize/continue redirects ---------------
+            # Smart returns the OAuth tokens on the LAST hop of a 2-hop chain,
+            # in the URL's query string (newer flow) or fragment (older flow).
+            # Handle both for forward compatibility. The /authorize/continue
+            # handler authenticates via cookies, not query params: the Gigya
+            # bootstrap cookie PLUS glt_<APIKey>=<login_token>.
             auth_url = self.endpoint_urls.get_auth_url() + "?context=" + context + "&login_token=" + login_token
-            cookie = f"gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4; glt_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a={login_token}"  # noqa: E501
-            r_auth = await client.get(
-                auth_url,
-                headers={
-                    "accept": "*/*",
-                    "cookie": cookie,
-                    "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
-                    "x-requested-with": "com.smart.hellosmart",
-                    "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36",  # noqa: E501
-                },
-            )
-            if "location" not in r_auth.headers:
-                raise SmartAPIError("Could not get location from auth page")
+            authorize_cookie = f"{gigya_cookie}; glt_{api_key}={login_token}"
+            authorize_headers = {
+                "accept": "*/*",
+                "cookie": authorize_cookie,
+                "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
+                "x-requested-with": "com.smart.hellosmart",
+                "user-agent": WEBVIEW_USER_AGENT,
+            }
+            access_token: Optional[str] = None
+            refresh_token: Optional[str] = None
+            current_url = auth_url
+            for hop in range(MAX_REDIRECT_HOPS):
+                r_auth = await client.get(
+                    current_url,
+                    headers=authorize_headers,
+                    follow_redirects=False,
+                )
+                last_status = r_auth.status_code
+                last_location = r_auth.headers.get("location", "")
+                if last_status not in (301, 302, 303, 307, 308):
+                    break
 
-            r_auth = await client.get(
-                r_auth.headers["location"],
-                headers={
-                    "accept": "*/*",
-                    "cookie": cookie,
-                    "accept-language": "de-DE,de;q=0.9,en-DE;q=0.8,en-US;q=0.7,en;q=0.6",
-                    "x-requested-with": "com.smart.hellosmart",
-                    "user-agent": "Mozilla/5.0 (Linux; Android 9; ANE-LX1 Build/HUAWEIANE-L21; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/118.0.0.0 Mobile Safari/537.36",  # noqa: E501
-                },
-            )
-            try:
-                auth_result = httpx.URL(r_auth.headers["location"])
-                access_token = auth_result.params["access_token"]
-                refresh_token = auth_result.params["refresh_token"]
-            except KeyError:
+                parsed_redirect = urlparse(last_location)
+                fragment_params = parse_qs(parsed_redirect.fragment)
+                query_params = parse_qs(parsed_redirect.query)
+
+                # Smart surfaces auth errors via redirect to /proxy?mode=error
+                if query_params.get("mode", [None])[0] == "error":
+                    err_code = query_params.get("errorCode", [""])[0]
+                    err_msg = query_params.get("errorMessage", [""])[0]
+                    _LOGGER.error(
+                        "authorize/continue redirected to error page: " "code=%s message=%s",
+                        err_code,
+                        err_msg,
+                    )
+                    raise SmartAPIError(f"authorize/continue error (code={err_code}): {err_msg}")
+
+                access_token = (
+                    query_params.get("access_token", [None])[0] or fragment_params.get("access_token", [None])[0]
+                )
+                refresh_token = (
+                    query_params.get("refresh_token", [None])[0] or fragment_params.get("refresh_token", [None])[0]
+                )
+                if access_token:
+                    _LOGGER.debug(
+                        "Step 3: access_token extracted from redirect hop %d (host=%s, source=%s)",
+                        hop + 1,
+                        parsed_redirect.hostname or "?",
+                        "query" if query_params.get("access_token") else "fragment",
+                    )
+                    break
+
+                current_url = last_location
+
+            if not access_token:
+                _LOGGER.error(
+                    "Access token extraction failed after %d hops; " "last_status=%s last_host=%s",
+                    MAX_REDIRECT_HOPS,
+                    last_status,
+                    urlparse(last_location).hostname or "?",
+                )
                 raise SmartAPIError("Could not get access token from auth page")
 
             data = json.dumps({"accessToken": access_token}).replace(" ", "")
