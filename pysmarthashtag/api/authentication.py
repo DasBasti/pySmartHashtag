@@ -10,7 +10,7 @@ import ssl
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Generator
 from typing import Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urljoin, urlparse
 
 import httpx
 from httpx._models import Request, Response
@@ -240,7 +240,10 @@ class SmartAuthentication(httpx.Auth):
                         parsed_location.hostname or "?",
                     )
                     break
-                current_url = last_location
+                # Resolve relative Locations against the response URL so a
+                # bare path (e.g. "/proxy?...") in a future Smart-cloud change
+                # doesn't break the next hop.
+                current_url = urljoin(str(r_context.url), last_location)
 
             if not context:
                 _LOGGER.error(
@@ -395,7 +398,9 @@ class SmartAuthentication(httpx.Auth):
                     )
                     break
 
-                current_url = last_location
+                # See note in step 1: resolve relative Locations against the
+                # current response URL.
+                current_url = urljoin(str(r_auth.url), last_location)
 
             if not access_token:
                 _LOGGER.error(
