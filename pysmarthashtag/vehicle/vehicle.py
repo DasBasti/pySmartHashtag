@@ -8,6 +8,7 @@ from pysmarthashtag.const import API_BASE_URL, API_BASE_URL_V2
 from pysmarthashtag.models import ValueWithUnit, get_element_from_dict_maybe
 from pysmarthashtag.vehicle.battery import Battery
 from pysmarthashtag.vehicle.climate import Climate
+from pysmarthashtag.vehicle.journal import TripJournal
 from pysmarthashtag.vehicle.maintenance import Maintenance
 from pysmarthashtag.vehicle.position import Position
 from pysmarthashtag.vehicle.running import Running
@@ -56,6 +57,9 @@ class SmartVehicle:
     safety: Optional[Safety] = None
     """The safety status of the vehicle."""
 
+    last_trip: Optional[TripJournal] = None
+    """The most recent trip from the journal log (server-side reverse-geocoded)."""
+
     climate_control: Optional["ClimateControll"] = None  # noqa: F821
 
     charging_control: Optional["ChargingControl"] = None  # noqa: F821
@@ -102,6 +106,7 @@ class SmartVehicle:
         charging_settings: Optional[dict] = None,
         ota_info: Optional[dict] = None,
         fetched_at: Optional[datetime.datetime] = None,
+        journal_response: Optional[dict] = None,
     ) -> dict:
         """Combine all data into one dictionary."""
         self.data.update(vehicle_base)
@@ -121,6 +126,11 @@ class SmartVehicle:
         self.running = Running.from_vehicle_data(self.data)
         self.climate = Climate.from_vehicle_data(self.data)
         self.safety = Safety.from_vehicle_data(self.data)
+        if journal_response is not None:
+            # Only overwrite when the caller actually has fresh journal data.
+            # Other endpoints (e.g. status, SOC, OTA) call combine_data without
+            # this kwarg and must not blow away an already-populated trip.
+            self.last_trip = TripJournal.from_response(journal_response)
 
         from pysmarthashtag.control.climate import ClimateControll
 

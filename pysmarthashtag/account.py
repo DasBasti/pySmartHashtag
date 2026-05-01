@@ -134,7 +134,22 @@ class SmartAccount:
             vehicle_info = await self.get_vehicle_information(vin)
             vehicle_soc = await self.get_vehicle_soc(vin)
             vehicle_ota_info = await self.get_vehicle_ota_info(vin)
-            vehicle.combine_data(vehicle_info, charging_settings=vehicle_soc, ota_info=vehicle_ota_info)
+            # Trip journal is best-effort: the endpoint can return 8153
+            # ("data unavailable") on vehicles where on-vehicle trip
+            # recording is OFF, or transiently when the per-session auth
+            # grant hasn't been accepted yet. Never let an empty journal
+            # fail the whole refresh.
+            journal_response = None
+            try:
+                journal_response = await self.get_trip_journal(vin)
+            except Exception:
+                _LOGGER.debug("Trip journal fetch failed for %s", vin, exc_info=True)
+            vehicle.combine_data(
+                vehicle_info,
+                charging_settings=vehicle_soc,
+                ota_info=vehicle_ota_info,
+                journal_response=journal_response,
+            )
 
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
@@ -255,6 +270,109 @@ class SmartAccount:
                 break
             if retry > 1:
                 raise SmartAuthError("Could not get vehicle information")
+        return data
+
+    async def grant_journal_authorization(self, vin) -> bool:
+        """Grant cloud-side authorization for trip-journal data access.
+
+        ``POST /remote-control/user/authorization/insert`` with
+        ``{"serviceCode": "travelLogBusiCode", "authStatus": 1, "vin": <vin>}``.
+        This is a one-time-per-session handshake that unlocks the
+        journalLogV4 endpoint — without it, journalLogV4 returns
+        ``code: 8153`` ("data unavailable") even on vehicles where the
+        on-vehicle recording flag is set and trip data exists cloud-side.
+
+        Idempotent: re-issuing always succeeds, so calling it on every
+        ``get_trip_journal`` invocation is safe and small overhead.
+        """
+        _LOGGER.debug("Granting journal authorization for %s", vin)
+        path = "/remote-control/user/authorization/insert"
+        body = json.dumps({"serviceCode": "travelLogBusiCode", "authStatus": 1, "vin": vin})
+        async with SmartClient(self.config) as client:
+            for retry in range(3):
+                try:
+                    r = await client.post(
+                        self.vehicles[vin].base_url + path,
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params={},
+                                method="POST",
+                                url=path,
+                                body=body,
+                            )
+                        },
+                        content=body.encode("utf-8"),
+                    )
+                    payload = r.json()
+                    return bool(payload.get("success") or payload.get("code") == "1000")
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug("Token refresh needed during auth-grant retry %d", retry)
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug("Human-car connection error during auth-grant retry %d", retry)
+                    await self.select_active_vehicle(vin)
+                    continue
+                break
+        return False
+
+    async def get_trip_journal(self, vin, page_size: int = 20, window_days: int = 14) -> dict:
+        """Fetch the most recent trip-journal entries for a vehicle.
+
+        Hits ``/geelyTCAccess/tcservices/vehicle/status/journalLogV4/{vin}``
+        — the endpoint that carries server-side reverse-geocoded start/end
+        addresses alongside per-trip energy/distance/speed metrics.
+
+        Sends ``startTime`` / ``endTime`` (ms-epoch window), ``pageIndex``,
+        ``pageSize``, and ``userId`` as query params. The endpoint requires
+        a one-time-per-session authorization grant
+        (:meth:`grant_journal_authorization`), which this method calls
+        first; without it the endpoint returns ``code: 8153``.
+
+        Returns the raw response dict (with ``code``/``message``/``data``)
+        or an empty dict when the request fails server-side; raising is
+        avoided so a single flaky vehicle doesn't break the whole refresh.
+        """
+        await self.grant_journal_authorization(vin)
+        _LOGGER.debug("Getting trip journal for vehicle")
+        end_ms = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+        start_ms = end_ms - window_days * 86400 * 1000
+        params = {
+            "endTime": str(end_ms),
+            "pageIndex": "1",
+            "pageSize": str(page_size),
+            "startTime": str(start_ms),
+            "userId": str(self.config.authentication.api_user_id),
+        }
+        path = "/geelyTCAccess/tcservices/vehicle/status/journalLogV4/" + vin
+        url = path + "?" + utils.join_url_params(params)
+        data: dict = {}
+        async with SmartClient(self.config) as client:
+            for retry in range(3):
+                try:
+                    r_journal = await client.get(
+                        self.vehicles[vin].base_url + url,
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params=params,
+                                method="GET",
+                                url=path,
+                            )
+                        },
+                    )
+                    _LOGGER.debug("Got response %d", r_journal.status_code)
+                    data = r_journal.json()
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                    await self.select_active_vehicle(vin)
+                    continue
+                break
         return data
 
     async def get_vehicle_ota_info(self, vin) -> dict:
