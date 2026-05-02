@@ -132,6 +132,14 @@ class SmartMockRouter(respx.MockRouter):
                     "message": "operation succeed",
                 },
             )
+            self.put(base_url + "/remote-control/vehicle/status/journalLog/TestVIN0000000001").respond(
+                200,
+                json=load_response(RESPONSE_DIR / "journal_toggle_success.json"),
+            )
+            self.put(base_url + "/remote-control/vehicle/status/journalLog/TestVIN0000000002").respond(
+                200,
+                json=load_response(RESPONSE_DIR / "journal_toggle_success.json"),
+            )
 
         self.get(OTA_SERVER_URL + "app/info/TestVIN0000000001").respond(
             200,

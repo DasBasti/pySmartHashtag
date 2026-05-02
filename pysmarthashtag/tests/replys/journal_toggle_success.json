@@ -1,0 +1,9 @@
+{
+  "code": "1000",
+  "data": {},
+  "success": true,
+  "hint": null,
+  "httpStatus": "OK",
+  "sessionId": "test-session-journal-toggle",
+  "message": "operation succeed"
+}

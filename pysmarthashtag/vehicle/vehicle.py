@@ -65,6 +65,9 @@ class SmartVehicle:
     charging_control: Optional["ChargingControl"] = None  # noqa: F821
     """Control for starting/stopping charging."""
 
+    journal_recording_control: Optional["JournalRecordingControl"] = None  # noqa: F821
+    """Control for enabling/disabling on-vehicle trip recording."""
+
     engine_state: Optional[str] = None
     """The state of the engine."""
 
@@ -139,6 +142,10 @@ class SmartVehicle:
         from pysmarthashtag.control.charging import ChargingControl
 
         self.charging_control = ChargingControl(self.account, self.vin)
+
+        from pysmarthashtag.control.journal import JournalRecordingControl
+
+        self.journal_recording_control = JournalRecordingControl(self.account, self.vin)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
