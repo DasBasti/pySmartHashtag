@@ -336,8 +336,8 @@ class SmartAuthentication(httpx.Auth):
                 expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
                     seconds=int(session_info["expires_in"])
                 )
-            except (KeyError, ValueError):
-                raise SmartAPIError("Could not get login token from login page")
+            except (KeyError, ValueError) as err:
+                raise SmartAPIError("Could not get login token from login page") from err
 
             # ---- Step 3: walk authorize/continue redirects ---------------
             # Smart returns the OAuth tokens on the LAST hop of a 2-hop chain,
