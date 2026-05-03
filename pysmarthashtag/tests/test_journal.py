@@ -125,6 +125,55 @@ async def test_get_vehicles_populates_last_trip(smart_fixture: respx.Router):
 
 
 @pytest.mark.asyncio
+async def test_grant_authorization_caches_per_vin_token(smart_fixture: respx.Router):
+    """Repeated grant_journal_authorization calls under the same access_token
+    short-circuit on the cache; only the first call POSTs to the cloud.
+
+    The grant POST rotates the access_token server-side (observed empirically
+    against the live cloud). Without caching, every poll would burn 2x calls
+    (failed call + token-refresh + retry). The cache stores the token under
+    which the grant was accepted; subsequent calls under the *same* token
+    are no-ops; ``force=True`` bypasses; token rotation auto-invalidates.
+    """
+    account = await prepare_account_with_vehicles()
+    vin = "TestVIN0000000001"
+
+    # The mock router registered POST /authorization/insert during fixture
+    # setup; find it and count calls.
+    import re
+    insert_route = next(
+        r for r in smart_fixture.routes
+        if re.search(r"authorization/insert", str(r.pattern))
+        and "POST" in str(r.pattern)
+    )
+    insert_route.calls.reset()
+
+    # First call: should POST and cache.
+    ok = await account.grant_journal_authorization(vin)
+    assert ok is True
+    assert insert_route.calls.call_count == 1
+    cached_token = account._journal_grant_cache.get(vin)
+    assert cached_token is not None
+
+    # Second call under the same token: should NOT POST.
+    ok2 = await account.grant_journal_authorization(vin)
+    assert ok2 is True
+    assert insert_route.calls.call_count == 1, "second call should hit the cache"
+
+    # force=True bypasses the cache.
+    ok3 = await account.grant_journal_authorization(vin, force=True)
+    assert ok3 is True
+    assert insert_route.calls.call_count == 2, "force=True should re-POST"
+
+    # Manually rotate the token; cache should auto-invalidate on the
+    # next call (token mismatch in the lookup).
+    account.config.authentication.api_access_token = "rotated-token-xyz"
+    ok4 = await account.grant_journal_authorization(vin)
+    assert ok4 is True
+    assert insert_route.calls.call_count == 3, "token rotation should invalidate cache"
+
+
+@pytest.mark.asyncio
 async def test_get_vehicles_survives_journal_error(smart_fixture: respx.Router):
     """If journalLogV4 returns 8153 / etc., the rest of the refresh still works.
 

@@ -41,6 +41,15 @@ class SmartAccount:
     vehicles: dict[str, SmartVehicle] = field(default_factory=dict, init=False)
     """Vehicles associated with the account."""
 
+    _journal_grant_cache: dict[str, str] = field(default_factory=dict, init=False)
+    """Per-VIN cache of the access_token under which the trip-journal
+    authorization grant was last accepted. ``{vin: access_token_string}``.
+    Used to skip the redundant grant POST when the same token is still
+    valid; auto-invalidates as soon as the token rotates (any reason —
+    expiry, manual relogin, future refresh-token flow). Maintained by
+    :meth:`grant_journal_authorization`.
+    """
+
     def __post_init__(self, password, log_responses):
         """Initialize the account."""
         # Ensure endpoint_urls is set
@@ -272,19 +281,42 @@ class SmartAccount:
                 raise SmartAuthError("Could not get vehicle information")
         return data
 
-    async def grant_journal_authorization(self, vin) -> bool:
+    async def grant_journal_authorization(self, vin, force: bool = False) -> bool:
         """Grant cloud-side authorization for trip-journal data access.
 
         ``POST /remote-control/user/authorization/insert`` with
         ``{"serviceCode": "travelLogBusiCode", "authStatus": 1, "vin": <vin>}``.
-        This is a one-time-per-session handshake that unlocks the
-        journalLogV4 endpoint — without it, journalLogV4 returns
-        ``code: 8153`` ("data unavailable") even on vehicles where the
-        on-vehicle recording flag is set and trip data exists cloud-side.
+        This is a per-session handshake that unlocks the journalLogV4
+        endpoint — without it, journalLogV4 returns ``code: 8153``
+        ("data unavailable") even on vehicles where the on-vehicle
+        recording flag is set and trip data exists cloud-side.
 
-        Idempotent: re-issuing always succeeds, so calling it on every
-        ``get_trip_journal`` invocation is safe and small overhead.
+        Cached per-VIN per-access-token. The grant POST is observed to
+        rotate the access_token server-side (every poll without the cache
+        returns ``1402 token invalid`` on the next call, forcing a
+        re-login). The cache stores the access_token under which the
+        grant was accepted; subsequent calls under the *same* token
+        skip the redundant POST. The cache auto-invalidates as soon as
+        the token rotates (relogin, refresh, expiry — any reason).
+
+        Args:
+            vin: Vehicle identification number.
+            force: If True, ignore the cache and re-issue the grant.
+                Use this for explicit init flows where you want to be
+                certain the grant is fresh.
+
+        Returns:
+            True if the grant succeeded (or was already cached);
+            False if the POST failed.
         """
+        token = self.config.authentication.api_access_token
+        if not force and token and self._journal_grant_cache.get(vin) == token:
+            _LOGGER.debug(
+                "Journal authorization cached for %s under current token; skipping POST",
+                vin,
+            )
+            return True
+
         _LOGGER.debug("Granting journal authorization for %s", vin)
         path = "/remote-control/user/authorization/insert"
         body = json.dumps({"serviceCode": "travelLogBusiCode", "authStatus": 1, "vin": vin})
@@ -306,7 +338,15 @@ class SmartAccount:
                         content=body.encode("utf-8"),
                     )
                     payload = r.json()
-                    return bool(payload.get("success") or payload.get("code") == "1000")
+                    success = bool(payload.get("success") or payload.get("code") == "1000")
+                    if success:
+                        # Record the token under which this grant was accepted.
+                        # Re-read after the POST since the server may have rotated
+                        # it during the call.
+                        self._journal_grant_cache[vin] = (
+                            self.config.authentication.api_access_token
+                        )
+                    return success
                 except SmartTokenRefreshNecessary:
                     _LOGGER.debug("Token refresh needed during auth-grant retry %d", retry)
                     continue
@@ -326,9 +366,11 @@ class SmartAccount:
 
         Sends ``startTime`` / ``endTime`` (ms-epoch window), ``pageIndex``,
         ``pageSize``, and ``userId`` as query params. The endpoint requires
-        a one-time-per-session authorization grant
+        a per-session authorization grant
         (:meth:`grant_journal_authorization`), which this method calls
-        first; without it the endpoint returns ``code: 8153``.
+        first; without it the endpoint returns ``code: 8153``. The grant
+        is cached per-VIN per-access-token, so subsequent calls under the
+        same token skip the grant POST.
 
         Returns the raw response dict (with ``code``/``message``/``data``)
         or an empty dict when the request fails server-side; raising is
