@@ -44,7 +44,8 @@ class SmartMockRouter(respx.MockRouter):
             200,
         )
         # Step 1.5: Gigya bootstrap (gmid/ucid) via socialize.getIDs.
-        self.get(f"{GIGYA_SOCIALIZE_URL}/socialize.getIDs" f"?APIKey={API_KEY}&format=json&includeTicket=true").respond(
+        gigya_ids_url = f"{GIGYA_SOCIALIZE_URL}/socialize.getIDs?APIKey={API_KEY}&format=json&includeTicket=true"
+        self.get(gigya_ids_url).respond(
             200,
             json={
                 "errorCode": 0,

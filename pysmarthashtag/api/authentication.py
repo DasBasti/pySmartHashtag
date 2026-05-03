@@ -5,12 +5,13 @@ import datetime
 import json
 import logging
 import math
+import re
 import secrets
 import ssl
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Generator
 from typing import Optional
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import httpx
 from httpx._models import Request, Response
@@ -118,8 +119,7 @@ class SmartAuthentication(httpx.Auth):
 
     def sync_auth_flow(self, request: httpx.Request) -> Generator[httpx.Request, httpx.Response, None]:
         """Handle synchronous authentication flow for requests."""
-        raise RuntimeError(
-            "Cannot use an async authentication class with httpx.Client")
+        raise RuntimeError("Cannot use an async authentication class with httpx.Client")
 
     async def async_auth_flow(self, request: Request) -> AsyncGenerator[Request, Response]:
         """Asynchronous authentication flow for handling requests and retrying on rate limit errors."""
@@ -139,8 +139,7 @@ class SmartAuthentication(httpx.Auth):
 
         retry_count = 0
         while (
-            response.status_code == 429 or (
-                response.status_code == 403 and "quota" in response.text.lower())
+            response.status_code == 429 or (response.status_code == 403 and "quota" in response.text.lower())
         ) and retry_count < 3:
             wait_time = get_retry_wait_time(response)
             _LOGGER.debug("Rate limit exceeded. Waiting %s seconds", wait_time)
@@ -180,8 +179,7 @@ class SmartAuthentication(httpx.Auth):
         if not token_data:
             token_data = await self._login()
         try:
-            token_data["expires_at"] = token_data["expires_at"] - \
-                EXPIRES_AT_OFFSET
+            token_data["expires_at"] = token_data["expires_at"] - EXPIRES_AT_OFFSET
 
             self.access_token = token_data["access_token"]
             self.refresh_token = token_data["refresh_token"]
@@ -199,8 +197,7 @@ class SmartAuthentication(httpx.Auth):
         try:
             ssl_ctx = await self.get_ssl_context()
             async with SmartLoginClient(ssl_context=ssl_ctx) as _:
-                _LOGGER.debug(
-                    "Refreshing access token via relogin because refresh token is not implemented")
+                _LOGGER.debug("Refreshing access token via relogin because refresh token is not implemented")
                 await self._login()
         except SmartAPIError:
             _LOGGER.debug("Refreshing access token failed. Logging in again")
@@ -237,8 +234,7 @@ class SmartAuthentication(httpx.Auth):
         """Update backoff state after a failed login attempt."""
         now = datetime.datetime.now(datetime.timezone.utc)
         if self._is_rate_limit_error(exc):
-            new_backoff = min(self._state.backoff *
-                              self._BACKOFF_GROW, self._BACKOFF_CAP)
+            new_backoff = min(self._state.backoff * self._BACKOFF_GROW, self._BACKOFF_CAP)
             self._state.backoff = new_backoff
             self._state.quiet_until = now + new_backoff
             _LOGGER.warning(
@@ -258,13 +254,11 @@ class SmartAuthentication(httpx.Auth):
     def _on_login_success(self) -> None:
         """Update backoff state after a successful login."""
         prev = self._state.backoff
-        new_backoff = max(self._state.backoff -
-                          self._BACKOFF_SHRINK, self._BACKOFF_FLOOR)
+        new_backoff = max(self._state.backoff - self._BACKOFF_SHRINK, self._BACKOFF_FLOOR)
         self._state.backoff = new_backoff
         self._state.quiet_until = None
         if prev > self._BACKOFF_FLOOR:
-            _LOGGER.info(
-                "Smart API login succeeded; backoff %s -> %s", prev, new_backoff)
+            _LOGGER.info("Smart API login succeeded; backoff %s -> %s", prev, new_backoff)
 
     @staticmethod
     def _is_rate_limit_error(exc: Exception) -> bool:
@@ -337,8 +331,12 @@ class SmartAuthentication(httpx.Auth):
                 if last_status not in (301, 302, 303, 307, 308):
                     if hop == 0 and last_status == 403:
                         _LOGGER.error(
-                            "EU auth gateway rejected request (HTTP 403): " "possible UA filtering or API change",
+                            "EU auth gateway rejected request (HTTP 403): possible UA filtering or API change",
                         )
+                    break
+
+                if not last_location:
+                    _LOGGER.error("Redirect at hop %d missing Location header", hop + 1)
                     break
 
                 parsed_location = urlparse(last_location)
@@ -351,7 +349,7 @@ class SmartAuthentication(httpx.Auth):
                         parsed_location.hostname or "?",
                     )
                     break
-                current_url = last_location
+                current_url = urljoin(current_url, last_location)
 
             if not context:
                 _LOGGER.error(
@@ -375,8 +373,7 @@ class SmartAuthentication(httpx.Auth):
             try:
                 ids_data = r_ids.json()
             except ValueError as err:
-                raise SmartAPIError(
-                    "Gigya socialize.getIDs returned non-JSON") from err
+                raise SmartAPIError("Gigya socialize.getIDs returned non-JSON") from err
 
             if ids_data.get("errorCode") != 0:
                 _LOGGER.error(
@@ -384,15 +381,14 @@ class SmartAuthentication(httpx.Auth):
                     ids_data.get("errorCode"),
                     ids_data.get("errorMessage"),
                 )
-                raise SmartAPIError(
-                    "Gigya socialize.getIDs failed: cannot bootstrap session")
+                raise SmartAPIError("Gigya socialize.getIDs failed: cannot bootstrap session")
 
             gmid = ids_data.get("gmid", "")
             ucid = ids_data.get("ucid", "")
             if not gmid:
                 raise SmartAPIError("Gigya gmid missing — cannot proceed")
 
-            gigya_cookie = f"gmid={gmid}; ucid={ucid}; hasGmid=ver4; " f"gig_bootstrap_{api_key}=auth_ver4"
+            gigya_cookie = f"gmid={gmid}; ucid={ucid}; hasGmid=ver4; gig_bootstrap_{api_key}=auth_ver4"
             _LOGGER.debug("Step 1.5: Gigya bootstrap cookies built")
 
             # ---- Step 2: POST Gigya login --------------------------------
@@ -438,8 +434,7 @@ class SmartAuthentication(httpx.Auth):
                     gigya_code,
                     gigya_message,
                 )
-                raise SmartAPIError(
-                    f"Gigya login error (code={gigya_code}): {gigya_message}")
+                raise SmartAPIError(f"Gigya login error (code={gigya_code}): {gigya_message}")
 
             try:
                 session_info = login_result["sessionInfo"]
@@ -462,8 +457,10 @@ class SmartAuthentication(httpx.Auth):
             # Handle both for forward compatibility. The /authorize/continue
             # handler authenticates via cookies, not query params: the Gigya
             # bootstrap cookie PLUS glt_<APIKey>=<login_token>.
-            auth_url = self.endpoint_urls.get_auth_url() + "?context=" + context + \
-                "&login_token=" + login_token
+            auth_url = "{}?{}".format(
+                self.endpoint_urls.get_auth_url(),
+                urlencode({"context": context, "login_token": login_token}),
+            )
             authorize_cookie = f"{gigya_cookie}; glt_{api_key}={login_token}"
             authorize_headers = {
                 "accept": "*/*",
@@ -486,7 +483,11 @@ class SmartAuthentication(httpx.Auth):
                 if last_status not in (301, 302, 303, 307, 308):
                     break
 
-                parsed_redirect = urlparse(last_location)
+                if not last_location:
+                    _LOGGER.error("Authorize redirect at hop %d missing Location header", hop + 1)
+                    break
+
+                parsed_redirect = urlparse(urljoin(current_url, last_location))
                 fragment_params = parse_qs(parsed_redirect.fragment)
                 query_params = parse_qs(parsed_redirect.query)
 
@@ -495,48 +496,42 @@ class SmartAuthentication(httpx.Auth):
                     err_code = query_params.get("errorCode", [""])[0]
                     err_msg = query_params.get("errorMessage", [""])[0]
                     _LOGGER.error(
-                        "authorize/continue redirected to error page: " "code=%s message=%s",
+                        "authorize/continue redirected to error page: code=%s message=%s",
                         err_code,
                         err_msg,
                     )
-                    raise SmartAPIError(
-                        f"authorize/continue error (code={err_code}): {err_msg}")
+                    raise SmartAPIError(f"authorize/continue error (code={err_code}): {err_msg}")
 
                 access_token = (
-                    query_params.get("access_token", [None])[
-                        0] or fragment_params.get("access_token", [None])[0]
+                    query_params.get("access_token", [None])[0] or fragment_params.get("access_token", [None])[0]
                 )
                 refresh_token = (
-                    query_params.get("refresh_token", [None])[
-                        0] or fragment_params.get("refresh_token", [None])[0]
+                    query_params.get("refresh_token", [None])[0] or fragment_params.get("refresh_token", [None])[0]
                 )
                 if access_token:
                     _LOGGER.debug(
                         "Step 3: access_token extracted from redirect hop %d (host=%s, source=%s)",
                         hop + 1,
                         parsed_redirect.hostname or "?",
-                        "query" if query_params.get(
-                            "access_token") else "fragment",
+                        "query" if query_params.get("access_token") else "fragment",
                     )
                     break
 
-                current_url = last_location
+                current_url = urljoin(current_url, last_location)
 
             if not access_token:
                 _LOGGER.error(
-                    "Access token extraction failed after %d hops; " "last_status=%s last_host=%s",
+                    "Access token extraction failed after %d hops; last_status=%s last_host=%s",
                     MAX_REDIRECT_HOPS,
                     last_status,
                     urlparse(last_location).hostname or "?",
                 )
-                raise SmartAPIError(
-                    "Could not get access token from auth page")
+                raise SmartAPIError("Could not get access token from auth page")
 
             data = json.dumps({"accessToken": access_token}).replace(" ", "")
             r_api_access = await client.post(
                 # we do not know what type of car we have in our list so we fall back to the old API URL
-                self.endpoint_urls.get_api_base_url() + API_SESION_URL +
-                "?identity_type=smart",
+                self.endpoint_urls.get_api_base_url() + API_SESION_URL + "?identity_type=smart",
                 headers={
                     **utils.generate_default_header(
                         self.device_id,
@@ -552,8 +547,7 @@ class SmartAuthentication(httpx.Auth):
                 content=data.encode("utf-8"),
             )
             api_result = r_api_access.json()
-            _LOGGER.debug("API access result: %s",
-                          sanitize_log_data(api_result))
+            _LOGGER.debug("API access result: %s", sanitize_log_data(api_result))
             try:
                 api_access_token = api_result["data"]["accessToken"]
                 api_refresh_token = api_result["data"]["refreshToken"]
@@ -594,8 +588,7 @@ class SmartLoginClient(httpx.AsyncClient):
             kwargs["verify"] = ssl_context
 
         # Register event hooks
-        kwargs["event_hooks"] = defaultdict(
-            list, **kwargs.get("event_hooks", {}))
+        kwargs["event_hooks"] = defaultdict(list, **kwargs.get("event_hooks", {}))
 
         # Event hook for raise_for_status on all requests
         async def raise_for_status_handler(response: httpx.Response):
@@ -622,8 +615,7 @@ class SmartLoginClient(httpx.AsyncClient):
         async def log_response(response):
             await response.aread()
             request = response.request
-            _LOGGER.debug("Response: %s %s - Status %d",
-                          request.method, request.url, response.status_code)
+            _LOGGER.debug("Response: %s %s - Status %d", request.method, request.url, response.status_code)
 
         kwargs["event_hooks"]["response"].append(log_response)
         kwargs["event_hooks"]["request"].append(log_request)
@@ -636,8 +628,7 @@ class SmartLoginRetry(httpx.Auth):
 
     def sync_auth_flow(self, request: Request) -> Generator[Request, Response, None]:
         """Handle synchronous authentication flow for requests."""
-        raise RuntimeError(
-            "Cannot use a async authentication class with httpx.Client")
+        raise RuntimeError("Cannot use an async authentication class with httpx.Client")
 
     async def async_auth_flow(self, request: Request) -> AsyncGenerator[Request, Response]:
         """Asynchronous authentication flow for handling requests and retrying on rate limit errors."""
@@ -647,8 +638,7 @@ class SmartLoginRetry(httpx.Auth):
             if response.status_code == 429:
                 await response.aread()
                 wait_time = get_retry_wait_time(response)
-                _LOGGER.debug(
-                    "Rate limit exceeded. Waiting %s seconds", wait_time)
+                _LOGGER.debug("Rate limit exceeded. Waiting %s seconds", wait_time)
                 await asyncio.sleep(wait_time)
                 response = yield request
 
@@ -667,9 +657,15 @@ class SmartLoginRetry(httpx.Auth):
 
 def get_retry_wait_time(response: httpx.Response) -> int:
     """Get the wait time to wait twice as long before retrying."""
+    retry_after = 2
     try:
-        retry_after = next(
-            iter([int(i) for i in response.json().get("message", "") if i.isdigit()]))
+        retry_after_header = response.headers.get("Retry-After")
+        if retry_after_header and retry_after_header.isdigit():
+            retry_after = int(retry_after_header)
+        else:
+            match = re.search(r"\d+", response.json().get("message", ""))
+            if match:
+                retry_after = int(match.group())
     except Exception:
-        retry_after = 2
+        pass
     return math.ceil(retry_after * 2)
