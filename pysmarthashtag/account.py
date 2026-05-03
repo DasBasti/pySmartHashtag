@@ -151,8 +151,10 @@ class SmartAccount:
             journal_response = None
             try:
                 journal_response = await self.get_trip_journal(vin)
-            except Exception:
-                _LOGGER.debug("Trip journal fetch failed for %s", vin, exc_info=True)
+            except Exception:  # noqa: BLE001  # Best-effort: any failure (8153, transport, parse) must not break refresh.
+                _LOGGER.debug(
+                    "Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                )
             vehicle.combine_data(
                 vehicle_info,
                 charging_settings=vehicle_soc,
@@ -314,11 +316,11 @@ class SmartAccount:
         if not force and token and self._journal_grant_cache.get(vin) == token:
             _LOGGER.debug(
                 "Journal authorization cached for %s under current token; skipping POST",
-                vin,
+                sanitize_log_data(vin),
             )
             return True
 
-        _LOGGER.debug("Granting journal authorization for %s", vin)
+        _LOGGER.debug("Granting journal authorization for %s", sanitize_log_data(vin))
         path = "/remote-control/user/authorization/insert"
         body = json.dumps({"serviceCode": "travelLogBusiCode", "authStatus": 1, "vin": vin})
         async with SmartClient(self.config) as client:

@@ -1,5 +1,7 @@
 """Fixtures for Smart tests."""
 
+import re
+
 import respx
 
 from pysmarthashtag.const import (
@@ -109,7 +111,6 @@ class SmartMockRouter(respx.MockRouter):
             # query params; respx matches by URL prefix without query when
             # we use route() with `host=` + `path__startswith=`. Keep
             # URL-prefix matching simple by registering with a regex.
-            import re
             self.get(re.compile(re.escape(
                 base_url + "/geelyTCAccess/tcservices/vehicle/status/journalLogV4/TestVIN0000000001"
             ) + r".*")).respond(

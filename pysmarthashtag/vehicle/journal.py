@@ -49,22 +49,22 @@ class TripJournal:
     trip_id: str = ""
     """Cloud-assigned trip identifier."""
 
-    distance: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    distance: Optional[ValueWithUnit] = None
     """Trip distance."""
 
     duration: Optional[int] = None
     """Trip duration in seconds (as the cloud reports it)."""
 
-    energy_consumption: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    energy_consumption: Optional[ValueWithUnit] = None
     """Total energy consumed during the trip."""
 
-    avg_energy_consumption: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    avg_energy_consumption: Optional[ValueWithUnit] = None
     """Average energy consumption (kWh / 100 km)."""
 
-    avg_speed: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    avg_speed: Optional[ValueWithUnit] = None
     """Average trip speed."""
 
-    max_speed: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    max_speed: Optional[ValueWithUnit] = None
     """Maximum trip speed."""
 
     start_time: Optional[datetime] = None
@@ -73,7 +73,7 @@ class TripJournal:
     end_time: Optional[datetime] = None
     """Trip end time."""
 
-    regenerated_energy: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    regenerated_energy: Optional[ValueWithUnit] = None
     """Energy recovered via regenerative braking."""
 
     start_address: str = ""

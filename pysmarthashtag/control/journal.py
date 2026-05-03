@@ -47,7 +47,7 @@ class JournalRecordingControl:
                 "duration": 60,
             },
         }
-        return json.dumps(payload).replace(" ", "")
+        return json.dumps(payload, separators=(",", ":"))
 
     async def enable_recording(self) -> bool:
         """Turn on-vehicle trip recording ON."""
@@ -90,5 +90,6 @@ class JournalRecordingControl:
                     continue
                 except SmartHumanCarConnectionError:
                     _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                    await self.account.select_active_vehicle(self.vin)
                     continue
         return False
