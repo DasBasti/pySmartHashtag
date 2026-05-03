@@ -28,8 +28,33 @@ EXPIRES_AT_OFFSET = datetime.timedelta(seconds=HTTPX_TIMEOUT * 2)
 _LOGGER = logging.getLogger(__name__)
 
 
+# PATCH: shared breaker state so HA's config_entries retry storm (which
+# creates fresh SmartAuthentication instances) cannot bypass the quiet
+# window. Keyed by username — state persists for the lifetime of the
+# Python process.
+class _BackoffState:
+    __slots__ = ("backoff", "quiet_until")
+
+    def __init__(self, backoff: datetime.timedelta) -> None:
+        self.backoff: datetime.timedelta = backoff
+        self.quiet_until: Optional[datetime.datetime] = None
+
+
+_BACKOFF_REGISTRY: dict[str, _BackoffState] = {}
+
+
 class SmartAuthentication(httpx.Auth):
     """Authentication and Retry Handler for the Smart API."""
+
+    # PATCH: Adaptive rate-limit backoff (AIMD).
+    # On rate-limit failure (HTTP 403/429), multiply current backoff by GROW (capped at CAP).
+    # On success, subtract SHRINK (floored at FLOOR). On non-rate-limit failure,
+    # use a fixed short backoff so transient blips don't grow the window.
+    _BACKOFF_FLOOR = datetime.timedelta(minutes=2)
+    _BACKOFF_CAP = datetime.timedelta(minutes=90)
+    _BACKOFF_GROW = 1.5
+    _BACKOFF_SHRINK = datetime.timedelta(minutes=1)
+    _OTHER_FAILURE_BACKOFF = datetime.timedelta(seconds=60)
 
     def __init__(
         self,
@@ -53,6 +78,13 @@ class SmartAuthentication(httpx.Auth):
         self.api_user_id: Optional[str] = None
         self.ssl_context: Optional[ssl.SSLContext] = ssl_context
         self.endpoint_urls: EndpointUrls = endpoint_urls if endpoint_urls is not None else EndpointUrls()
+        # PATCH: shared adaptive-backoff state (per username, module-scoped).
+        # Sharing across instances is essential because HA's config_entries
+        # retry mechanism creates fresh SmartAuthentication instances on
+        # every retry — per-instance state would never accumulate.
+        if username not in _BACKOFF_REGISTRY:
+            _BACKOFF_REGISTRY[username] = _BackoffState(self._BACKOFF_FLOOR)
+        self._state: _BackoffState = _BACKOFF_REGISTRY[username]
         _LOGGER.debug("Device ID initialized")
 
     async def get_ssl_context(self) -> ssl.SSLContext:
@@ -167,8 +199,87 @@ class SmartAuthentication(httpx.Auth):
             _LOGGER.debug("Refreshing access token failed. Logging in again")
             return {}
 
-    async def _login(self):
-        """Login to Smart web services."""
+    async def _login(self) -> dict:
+        """Login to Smart web services with adaptive rate-limit backoff (PATCH).
+
+        Wraps the original login flow (now ``_do_login``) with:
+          * an in-memory circuit breaker (shared per-username) that suppresses
+            calls while inside an adaptive quiet window, and
+          * AIMD backoff: rate-limit failures grow the window geometrically,
+            successes shrink it additively.
+        """
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if self._state.quiet_until is not None and now < self._state.quiet_until:
+            wait_s = int((self._state.quiet_until - now).total_seconds())
+            raise SmartAPIError(
+                "Smart API in adaptive quiet window for another "
+                f"{wait_s}s (until "
+                f"{self._state.quiet_until.isoformat(timespec='seconds')}, "
+                f"backoff={self._state.backoff})"
+            )
+        try:
+            result = await self._do_login()
+        except (SmartAPIError, httpx.HTTPStatusError) as exc:
+            self._on_login_failure(exc)
+            raise
+        else:
+            self._on_login_success()
+            return result
+
+    def _on_login_failure(self, exc: Exception) -> None:
+        """Update backoff state after a failed login attempt (PATCH)."""
+        now = datetime.datetime.now(datetime.timezone.utc)
+        if self._is_rate_limit_error(exc):
+            new_backoff = min(
+                self._state.backoff * self._BACKOFF_GROW, self._BACKOFF_CAP
+            )
+            self._state.backoff = new_backoff
+            self._state.quiet_until = now + new_backoff
+            _LOGGER.warning(
+                "Smart API rate-limit detected (%s). Adaptive quiet window: "
+                "%s, until %s",
+                exc, new_backoff,
+                self._state.quiet_until.isoformat(timespec='seconds'),
+            )
+        else:
+            self._state.quiet_until = now + self._OTHER_FAILURE_BACKOFF
+            _LOGGER.info(
+                "Smart API login failed (%s). Short retry-suppress until %s",
+                exc, self._state.quiet_until.isoformat(timespec='seconds'),
+            )
+
+    def _on_login_success(self) -> None:
+        """Update backoff state after a successful login (PATCH)."""
+        prev = self._state.backoff
+        new_backoff = max(
+            self._state.backoff - self._BACKOFF_SHRINK, self._BACKOFF_FLOOR
+        )
+        self._state.backoff = new_backoff
+        self._state.quiet_until = None
+        if prev > self._BACKOFF_FLOOR:
+            _LOGGER.info(
+                "Smart API login succeeded; backoff %s -> %s", prev, new_backoff
+            )
+
+    @staticmethod
+    def _is_rate_limit_error(exc: Exception) -> bool:
+        """Heuristic: was *exc* caused by Smart's WAF / rate-limiter."""
+        if isinstance(exc, httpx.HTTPStatusError):
+            return exc.response.status_code in (403, 429)
+        text = str(exc).lower()
+        # Match the embellished error messages from _do_login below, plus
+        # explicit Smart strings ("Api Rate limit exceeded").
+        return (
+            "rate limit" in text
+            or "rate-limit" in text
+            or "quota" in text
+            or "http 403" in text
+            or "http 429" in text
+            or "forbidden" in text
+        )
+
+    async def _do_login(self):
+        """Original login flow (extracted by PATCH)."""
         ssl_ctx = await self.get_ssl_context()
         async with SmartLoginClient(ssl_context=ssl_ctx) as client:
             _LOGGER.info("Acquiring access token.")
@@ -189,8 +300,14 @@ class SmartAuthentication(httpx.Auth):
             try:
                 context = r_context.url.params["context"]
                 _LOGGER.debug("Context: %s", context)
-            except KeyError:
-                raise SmartAPIError("Could not get context from login page")
+            except KeyError as err:
+                # PATCH: include status + body so the breaker can classify (rate-limit vs other).
+                # Body is run through sanitize_log_data() so any tokens/PII are masked.
+                raise SmartAPIError(
+                    "Could not get context from login page "
+                    f"(HTTP {r_context.status_code}, "
+                    f"body={sanitize_log_data(r_context.text[:200])!r})"
+                ) from err
 
             # Get login token from Smart API
             r_login = await client.post(
@@ -228,8 +345,14 @@ class SmartAuthentication(httpx.Auth):
                 expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
                     seconds=int(login_result["sessionInfo"]["expires_in"])
                 )
-            except (KeyError, ValueError):
-                raise SmartAPIError("Could not get login token from login page")
+            except (KeyError, ValueError) as err:
+                # PATCH: include status + body so the breaker can classify.
+                # Body is run through sanitize_log_data() so any tokens/PII are masked.
+                raise SmartAPIError(
+                    "Could not get login token from login page "
+                    f"(HTTP {r_login.status_code}, "
+                    f"body={sanitize_log_data(r_login.text[:200])!r})"
+                ) from err
 
             auth_url = self.endpoint_urls.get_auth_url() + "?context=" + context + "&login_token=" + login_token
             cookie = f"gmid=gmid.ver4.AcbHPqUK5Q.xOaWPhRTb7gy-6-GUW6cxQVf_t7LhbmeabBNXqqqsT6dpLJLOWCGWZM07EkmfM4j.u2AMsCQ9ZsKc6ugOIoVwCgryB2KJNCnbBrlY6pq0W2Ww7sxSkUa9_WTPBIwAufhCQYkb7gA2eUbb6EIZjrl5mQ.sc3; ucid=hPzasmkDyTeHN0DinLRGvw; hasGmid=ver4; gig_bootstrap_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a=auth_ver4; glt_3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a={login_token}"  # noqa: E501
