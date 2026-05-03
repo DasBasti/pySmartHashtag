@@ -10,10 +10,12 @@ def create_vehicle_data_with_dc_charging(charge_level: int, dc_charge_current: f
     """Create test vehicle data with DC charging parameters.
 
     Args:
+    ----
         charge_level: Battery charge level percentage (0-100)
         dc_charge_current: DC charging current in Amps (negative for charging)
 
     Returns:
+    -------
         dict: Vehicle data structure for testing
 
     """

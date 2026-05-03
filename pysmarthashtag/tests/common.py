@@ -6,9 +6,11 @@ from pysmarthashtag.const import (
     API_BASE_URL,
     API_BASE_URL_V2,
     API_CARS_URL,
+    API_KEY,
     API_SELECT_CAR_URL,
     API_SESION_URL,
     AUTH_URL,
+    GIGYA_SOCIALIZE_URL,
     LOGIN_URL,
     OTA_SERVER_URL,
     SERVER_URL,
@@ -34,14 +36,30 @@ class SmartMockRouter(respx.MockRouter):
     def add_login_routes(self) -> None:
         """Add routes for login."""
 
-        # Login context
+        # Step 1: context redirect chain — first hop already carries
+        # ?context=, which the new walker extracts directly from the
+        # Location header without needing to fetch the redirect target.
         self.get(SERVER_URL).respond(302, headers={"location": load_response(RESPONSE_DIR / "auth_context.url")})
         self.get(load_response(RESPONSE_DIR / "auth_context.url")).respond(
             200,
         )
+        # Step 1.5: Gigya bootstrap (gmid/ucid) via socialize.getIDs.
+        gigya_ids_url = f"{GIGYA_SOCIALIZE_URL}/socialize.getIDs?APIKey={API_KEY}&format=json&includeTicket=true"
+        self.get(gigya_ids_url).respond(
+            200,
+            json={
+                "errorCode": 0,
+                "gmid": "test-gmid",
+                "ucid": "test-ucid",
+            },
+        )
+        # Step 2: Gigya accounts.login
         self.post(LOGIN_URL).respond(
             200,
-            json={"sessionInfo": {"login_token": "TestToken", "expires_in": 3600}},
+            json={
+                "errorCode": 0,
+                "sessionInfo": {"login_token": "TestToken", "expires_in": 3600},
+            },
             headers={"location": load_response(RESPONSE_DIR / "auth_intermediate.url")},
         )
         self.get(

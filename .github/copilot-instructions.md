@@ -61,6 +61,7 @@ pre-commit run --all-files
 ### Ruff Configuration
 
 The project uses ruff with the following rule sets:
+
 - C (complexity)
 - D (docstrings)
 - E (pycodestyle)
@@ -116,6 +117,7 @@ async def example_method(self) -> dict:
 ## Error Handling
 
 Use the custom exception classes defined in `models.py`:
+
 - `SmartAuthError` - Authentication failures
 - `SmartTokenRefreshNecessary` - Token refresh required
 - `SmartHumanCarConnectionError` - Human-car connection issues
@@ -136,11 +138,13 @@ Use `sanitize_log_data()` from `api.log_sanitizer` when logging sensitive data.
 ## Dependencies
 
 Main dependencies:
+
 - `httpx` - Async HTTP client
 - `pycryptodome` - Cryptographic functions
 - `pyjwt` - JWT token handling
 
 Test dependencies:
+
 - `pytest`, `pytest-asyncio`, `pytest-cov`
 - `respx` - HTTP mocking
 - `ruff` - Linting and formatting

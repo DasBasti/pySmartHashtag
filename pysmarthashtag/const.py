@@ -16,6 +16,25 @@ API_TELEMATICS_URL = "/remote-control/vehicle/telematics/"
 
 OTA_SERVER_URL = "https://ota.srv.smart.com/"
 
+# Gigya socialize endpoint used to bootstrap a Gigya session (gmid + ucid)
+# before posting accounts.login. Smart's tenant rejects accounts.login from
+# a "fresh" client without these identifiers + the gig_bootstrap cookie.
+GIGYA_SOCIALIZE_URL = "https://socialize.eu1.gigya.com"
+
+# Browser-shaped User-Agent used by the Hello Smart Android webview.
+# Smart's API Gateway (awsapi.future.smart.com) returns 403 for the iOS-app
+# UA used elsewhere; the OIDC redirect chain only accepts a webview UA.
+WEBVIEW_USER_AGENT = (
+    "Mozilla/5.0 (Linux; Android 14; SM-S911B) "
+    "AppleWebKit/537.36 (KHTML, like Gecko) "
+    "Chrome/120.0.0.0 Mobile Safari/537.36"
+)
+
+# Maximum redirect hops to follow when walking the OIDC chain manually.
+# Smart's chain is currently 2-3 hops; the upper bound provides slack for
+# future shifts without unbounded looping.
+MAX_REDIRECT_HOPS = 5
+
 HTTPX_TIMEOUT = 30.0
 
 
@@ -34,6 +53,7 @@ class EndpointUrls:
     api_base_url: Optional[str] = None
     api_base_url_v2: Optional[str] = None
     ota_server_url: Optional[str] = None
+    gigya_socialize_url: Optional[str] = None
 
     def get_api_key(self) -> str:
         """Get the API key, using the default if not set."""
@@ -70,3 +90,7 @@ class EndpointUrls:
     def get_ota_server_url(self) -> str:
         """Get the OTA server URL, using the default if not set."""
         return self.ota_server_url if self.ota_server_url is not None else OTA_SERVER_URL
+
+    def get_gigya_socialize_url(self) -> str:
+        """Get the Gigya socialize URL, using the default if not set."""
+        return self.gigya_socialize_url if self.gigya_socialize_url is not None else GIGYA_SOCIALIZE_URL
