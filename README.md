@@ -5,7 +5,7 @@
 [![CodeQL Validation][codeql-shield]][codeql]
 [![Dependency Validation][tests-shield]][tests]
 
-API wrapper for Smart #1 and #3 Cloud Service
+API wrapper for Smart #1, #3 and #5 Cloud Service
 
 Regard this to be kind of stable. This library is used in custom [Homeassistant](https://homeassistant.io) component [Smart Hashtag](https://github.com/DasBasti/SmartHashtag)
 
