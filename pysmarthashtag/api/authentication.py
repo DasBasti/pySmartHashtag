@@ -279,8 +279,8 @@ class SmartAuthentication(httpx.Auth):
 
             gmid = ids_data.get("gmid", "")
             ucid = ids_data.get("ucid", "")
-            if not gmid:
-                raise SmartAPIError("Gigya gmid missing — cannot proceed")
+            if not gmid or not ucid:
+                raise SmartAPIError("Gigya bootstrap identifiers missing: gmid and/or ucid")
 
             gigya_cookie = f"gmid={gmid}; ucid={ucid}; hasGmid=ver4; " f"gig_bootstrap_{api_key}=auth_ver4"
             _LOGGER.debug("Step 1.5: Gigya bootstrap cookies built")
