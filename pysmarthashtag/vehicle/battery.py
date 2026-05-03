@@ -273,5 +273,4 @@ class Battery(VehicleDataBase):
             _LOGGER.info(f"Battery info not available: {e}")
         except Exception as e:
             _LOGGER.error(f"Error parsing battery data: {e}")
-        finally:
-            return retval
+        return retval
