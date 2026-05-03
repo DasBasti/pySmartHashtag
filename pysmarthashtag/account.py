@@ -308,6 +308,7 @@ class SmartAccount:
         Returns:
             True if the grant succeeded (or was already cached);
             False if the POST failed.
+
         """
         token = self.config.authentication.api_access_token
         if not force and token and self._journal_grant_cache.get(vin) == token:

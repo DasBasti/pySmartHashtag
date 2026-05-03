@@ -126,8 +126,7 @@ async def test_get_vehicles_populates_last_trip(smart_fixture: respx.Router):
 
 @pytest.mark.asyncio
 async def test_grant_authorization_caches_per_vin_token(smart_fixture: respx.Router):
-    """Repeated grant_journal_authorization calls under the same access_token
-    short-circuit on the cache; only the first call POSTs to the cloud.
+    """Repeat-grant calls under the same access_token short-circuit via cache.
 
     The grant POST rotates the access_token server-side (observed empirically
     against the live cloud). Without caching, every poll would burn 2x calls
