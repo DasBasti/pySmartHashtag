@@ -4,7 +4,6 @@ from datetime import datetime
 
 from pysmarthashtag.vehicle.vehicle_state import VehicleState
 
-
 CANONICAL_RESPONSE = {
     "code": "1000",
     "data": {
@@ -77,11 +76,13 @@ def test_next_wakeup_time_handles_garbage():
 
 
 def test_from_response_handles_none():
+    """None / non-dict input must not blow up."""
     assert VehicleState.from_response(None) is None
     assert VehicleState.from_response("not a dict") is None  # type: ignore[arg-type]
 
 
 def test_from_response_handles_empty():
+    """Empty body / null data envelope returns None, not an empty VehicleState."""
     assert VehicleState.from_response({}) is None
     # Envelope with no data still returns None (rather than empty VehicleState)
     assert VehicleState.from_response({"code": "8153", "data": None}) is None
@@ -97,7 +98,7 @@ def test_from_response_handles_partial_data():
 
 
 def test_journal_log_state_flip_detection():
-    """Practical use: did the toggle flip between two snapshots?"""
+    """Detect a toggle flip between two snapshots."""
     before = VehicleState.from_response({"data": {"journalLogState": 0}, "code": "1000"})
     after = VehicleState.from_response({"data": {"journalLogState": 1}, "code": "1000"})
     assert before.journal_log_state != after.journal_log_state
