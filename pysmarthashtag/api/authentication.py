@@ -239,7 +239,7 @@ class SmartAuthentication(httpx.Auth):
             self._state.quiet_until = now + new_backoff
             _LOGGER.warning(
                 "Smart API rate-limit detected (%s). Adaptive quiet window: %s, until %s",
-                exc,
+                sanitize_log_data(exc),
                 new_backoff,
                 self._state.quiet_until.isoformat(timespec="seconds"),
             )
@@ -379,7 +379,7 @@ class SmartAuthentication(httpx.Auth):
                 _LOGGER.error(
                     "socialize.getIDs failed: code=%s message=%s",
                     ids_data.get("errorCode"),
-                    ids_data.get("errorMessage"),
+                    sanitize_log_data(ids_data.get("errorMessage")),
                 )
                 raise SmartAPIError("Gigya socialize.getIDs failed: cannot bootstrap session")
 
@@ -432,7 +432,7 @@ class SmartAuthentication(httpx.Auth):
                 _LOGGER.error(
                     "Gigya login error: code=%s message=%s",
                     gigya_code,
-                    gigya_message,
+                    sanitize_log_data(gigya_message),
                 )
                 raise SmartAPIError(f"Gigya login error (code={gigya_code}): {gigya_message}")
 
@@ -666,6 +666,10 @@ def get_retry_wait_time(response: httpx.Response) -> int:
             match = re.search(r"\d+", response.json().get("message", ""))
             if match:
                 retry_after = int(match.group())
-    except Exception:
-        pass
+    except (ValueError, KeyError, json.JSONDecodeError) as exc:
+        _LOGGER.debug(
+            "Failed to parse retry_after from response: retry_after_header=%s, error=%s",
+            retry_after_header if 'retry_after_header' in locals() else 'undefined',
+            exc,
+        )
     return math.ceil(retry_after * 2)
