@@ -119,7 +119,11 @@ class TripJournal:
         if not isinstance(response_data, dict):
             return None
         journal = response_data.get("data") or {}
-        logs = journal.get("list") or []
+        # Defensive: cloud-side schema drift could return a non-list type, in
+        # which case a bare `or []` keeps the truthy non-list and indexing
+        # below would raise. isinstance check coerces to [] for any non-list.
+        logs_raw = journal.get("list")
+        logs = logs_raw if isinstance(logs_raw, list) else []
         pagination = journal.get("pagination") or {}
 
         total_trips = get_field_as_type(pagination, "totleSize", int)
@@ -160,7 +164,9 @@ class TripJournal:
             energy_total = round(avg_energy * distance / 100, 3)
 
         # Extract first/last trackpoint positions (raw int milliarcseconds).
-        trackpoints = first.get("trackpoints") or []
+        # Same isinstance guard as above — defensive against schema drift.
+        trackpoints_raw = first.get("trackpoints")
+        trackpoints = trackpoints_raw if isinstance(trackpoints_raw, list) else []
         start_pos: Optional[tuple[int, int]] = None
         end_pos: Optional[tuple[int, int]] = None
         if trackpoints:

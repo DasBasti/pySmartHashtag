@@ -112,6 +112,38 @@ def test_from_response_handles_bogus_timestamp():
     assert parsed.end_time is None
 
 
+def test_from_response_handles_non_list_payload_fields():
+    """Coerce non-list payload fields to empty list, never raise on indexing.
+
+    ``data.list`` and per-trip ``trackpoints`` could in principle drift to
+    non-list types in a future cloud schema; this guards against that.
+    """
+    # ``data.list`` is a dict (cloud schema drift) — parser returns None
+    # because there are no usable trip records, NOT a TypeError.
+    assert TripJournal.from_response({"data": {"list": {"unexpected": "shape"}}}) is None
+    # ``trackpoints`` is a string instead of a list — parser still returns
+    # the trip but with start/end positions = None.
+    parsed = TripJournal.from_response(
+        {
+            "data": {
+                "pagination": {"totleSize": 1},
+                "list": [
+                    {
+                        "tripId": "drift-trackpoints",
+                        "startTime": 1734246000000,
+                        "endTime": 1734247230000,
+                        "trackpoints": "not-a-list",
+                    }
+                ],
+            }
+        }
+    )
+    assert parsed is not None
+    assert parsed.trip_id == "drift-trackpoints"
+    assert parsed.start_position is None
+    assert parsed.end_position is None
+
+
 @pytest.mark.asyncio
 async def test_get_vehicles_populates_last_trip(smart_fixture: respx.Router):
     """End-to-end: get_vehicles() → vehicle.last_trip is set from journalLogV4."""
