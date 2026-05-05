@@ -107,6 +107,22 @@ class SmartMockRouter(respx.MockRouter):
                 200,
                 json=load_response(RESPONSE_DIR / "soc_90.json"),
             )
+            # Per-trip GPS-trackpoints endpoint takes
+            # endTime/startTime/pageIndex/pageSize/source query params.
+            # Match by regex prefix so the route fires regardless of
+            # param values.
+            self.get(re.compile(re.escape(
+                base_url + "/vehicle-history-service/journal-service/vehicle/status/history/TestVIN0000000001"
+            ) + r".*")).respond(
+                200,
+                json=load_response(RESPONSE_DIR / "trackpoints_response.json"),
+            )
+            self.get(re.compile(re.escape(
+                base_url + "/vehicle-history-service/journal-service/vehicle/status/history/TestVIN0000000002"
+            ) + r".*")).respond(
+                200,
+                json=load_response(RESPONSE_DIR / "trackpoints_response.json"),
+            )
             # journalLogV4 takes endTime/startTime/pageIndex/pageSize/userId
             # query params; respx matches by URL prefix without query when
             # we use route() with `host=` + `path__startswith=`. Keep

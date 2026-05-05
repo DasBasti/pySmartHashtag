@@ -6,17 +6,57 @@ import logging
 from dataclasses import InitVar, dataclass, field
 from typing import Optional
 
+import httpx
+
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls
 from pysmarthashtag.models import SmartAuthError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
+from pysmarthashtag.vehicle.trackpoints import TripTrackpoints, parse_trackpoints_response
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
+
+# Path prefix for the per-trip GPS trackpoints endpoint. Cloud-side
+# service is ``vehicle-history-service / journal-service`` (same
+# ``apiv2.ecloudeu.com`` host as journalLogV4); the trailing ``history``
+# segment is the cloud's own naming.
+TRIP_TRACKPOINTS_PATH_PREFIX = "/vehicle-history-service/journal-service/vehicle/status/history/"
+
+# Default page size for the trackpoints endpoint, matching the cap the
+# cloud advertises in its own ``pagination`` block. In observed responses
+# ``totleSize`` never exceeded this cap; the wrapper logs a WARNING if it
+# ever does so a future maintainer knows to add pagination here.
+TRIP_TRACKPOINTS_PAGE_SIZE = 500
+
+# Cloud status code returned by both journalLogV4 and the trackpoints
+# endpoint when there's no data to report. The SDK raises
+# :class:`httpx.HTTPStatusError` for any non-1000 code with a
+# ``message`` key; 8153 surfaces here so callers can normalise it to an
+# empty result without propagating to the caller.
+_BENIGN_EMPTY_CODE = "8153"
 
 VALID_UNTIL_OFFSET = datetime.timedelta(seconds=10)
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _is_benign_empty(exc: httpx.HTTPStatusError) -> bool:
+    """Return True iff ``exc`` carries the cloud's 8153 "data unavailable" code.
+
+    The SDK's :func:`raise_for_status_event_handler` raises for any
+    non-1000 ``code`` with a ``message`` key. ``8153`` is the cloud's
+    end-of-data signal for journal endpoints — callers normalise it to
+    an empty result rather than propagating it as an error.
+    """
+    response = exc.response
+    if response is None:
+        return False
+    try:
+        body = response.json()
+    except ValueError:
+        return False
+    return str(body.get("code")) == _BENIGN_EMPTY_CODE
 
 
 @dataclass
@@ -419,6 +459,103 @@ class SmartAccount:
                     continue
                 break
         return data
+
+    async def get_trip_trackpoints(
+        self,
+        vin: str,
+        start_time_ms: int,
+        end_time_ms: int,
+        page_size: int = TRIP_TRACKPOINTS_PAGE_SIZE,
+    ) -> TripTrackpoints:
+        """Fetch the per-trip GPS trackpoints for one finished trip.
+
+        Hits ``/vehicle-history-service/journal-service/vehicle/status/history/{vin}``
+        on the same host as journalLogV4, with the ``(startTime, endTime)``
+        window identifying the trip (the cloud has no separate trip-id
+        for this endpoint — the time window IS the identifier).
+
+        Unlike :meth:`get_trip_journal`, this endpoint does NOT require
+        :meth:`grant_journal_authorization` — calling that defensively
+        before each fetch would burn an extra cloud round-trip per trip.
+        The minimum required flow is auth (already done by
+        :meth:`get_vehicles` at session startup) plus the single signed
+        ``GET`` to ``/.../history/{VIN}``.
+
+        Cloud direction is ``desc`` (newest-first); the returned
+        :attr:`TripTrackpoints.points` are reversed to chronological
+        order so callers don't need to know the wire format.
+
+        Three benign-empty cloud responses all map to
+        ``TripTrackpoints(points=[], total_size=0)``:
+
+        * ``code: "1000"`` with ``data.list = []``
+        * ``code: "1000"`` with ``data: null``
+        * ``code: "8153"`` ("data unavailable" — surfaces as
+          :class:`httpx.HTTPStatusError` from the SDK)
+
+        Other ``HTTPStatusError`` exceptions (cloud 5xx, network,
+        non-1402 auth failure) propagate up so the caller can decide
+        whether to retry or surface the error.
+
+        Pagination is intentionally NOT implemented: the cloud's own
+        ``pagination`` block reports ``pageSize=500`` as the cap, and in
+        observed responses ``totleSize`` never exceeded it. If a future
+        trip ever does, this method logs a WARNING so we know to revisit.
+        """
+        _LOGGER.debug("Getting trip trackpoints for vehicle")
+        params = {
+            "endTime": str(end_time_ms),
+            "pageIndex": "0",
+            "pageSize": str(page_size),
+            "source": "tc",
+            "startTime": str(start_time_ms),
+        }
+        path = TRIP_TRACKPOINTS_PATH_PREFIX + vin
+        url = path + "?" + utils.join_url_params(params)
+        async with SmartClient(self.config) as client:
+            for retry in range(3):
+                try:
+                    response = await client.get(
+                        self.vehicles[vin].base_url + url,
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params=params,
+                                method="GET",
+                                url=path,
+                            )
+                        },
+                    )
+                    _LOGGER.debug("Got response %d", response.status_code)
+                    body = response.json()
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                    await self.select_active_vehicle(vin)
+                    continue
+                except httpx.HTTPStatusError as exc:
+                    if _is_benign_empty(exc):
+                        _LOGGER.debug(
+                            "trackpoints endpoint returned 8153 (data unavailable) for %s; treating as empty",
+                            sanitize_log_data(vin),
+                        )
+                        return TripTrackpoints(points=[], total_size=0)
+                    raise
+                break
+        trackpoints = parse_trackpoints_response(body)
+        if trackpoints.total_size > page_size:
+            _LOGGER.warning(
+                "Trackpoints page-size cap exceeded for %s: totleSize=%d > pageSize=%d. "
+                "Wrapper does not loop pageIndex; returned points are the head only. "
+                "Add pagination if this fires for real trips.",
+                sanitize_log_data(vin),
+                trackpoints.total_size,
+                page_size,
+            )
+        return trackpoints
 
     async def get_vehicle_ota_info(self, vin) -> dict:
         """Get information about a vehicle from OTA server."""

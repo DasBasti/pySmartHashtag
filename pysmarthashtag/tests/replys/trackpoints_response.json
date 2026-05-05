@@ -1,0 +1,20 @@
+{
+  "code": "1000",
+  "message": null,
+  "data": {
+    "pagination": {
+      "pageIndex": 1,
+      "sortField": "startTime",
+      "start": 1,
+      "pageSize": 500,
+      "totleSize": 4,
+      "direction": "desc"
+    },
+    "list": [
+      {"basicVehicleStatus": {"position": {"latitude": 217471769, "longitude": 80503026}}},
+      {"basicVehicleStatus": {"position": {"latitude": 217470945, "longitude": 80502024}}},
+      {"basicVehicleStatus": {"position": {"latitude": 217469078, "longitude": 80504125}}},
+      {"basicVehicleStatus": {"position": {"latitude": 217468000, "longitude": 80505500}}}
+    ]
+  }
+}
