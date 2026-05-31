@@ -2,6 +2,7 @@
 
 import re
 from typing import Any, Union
+from urllib.parse import parse_qs, urlencode, urlparse, urlunparse
 
 # Fields that should be masked in log output
 SENSITIVE_FIELDS = frozenset(
@@ -39,9 +40,29 @@ SENSITIVE_FIELDS = frozenset(
     }
 )
 
+# URL query/fragment parameter names that carry secrets
+SENSITIVE_URL_PARAMS = frozenset(
+    {
+        "access_token",
+        "refresh_token",
+        "login_token",
+        "token",
+        "code",
+        "context",
+    }
+)
+
 # Regex patterns for VIN and tokens in text
 VIN_PATTERN = re.compile(r"\b[A-HJ-NPR-Z0-9]{17}\b")
 TOKEN_PATTERN = re.compile(r"(Bearer\s+)[A-Za-z0-9_\-]+\.?[A-Za-z0-9_\-]*\.?[A-Za-z0-9_\-]*")
+# Matches sensitive key=value pairs in query strings embedded in text (e.g. login_token=abc123&)
+_URL_PARAM_PATTERN = re.compile(
+    r"(?<=[?&])((?:access_token|refresh_token|login_token|token|code|context)"
+    r")=([^&#\s]+)",
+    re.IGNORECASE,
+)
+# Matches glt_<apikey>=<login_token> cookie/query values
+_GLT_PATTERN = re.compile(r"(glt_[A-Za-z0-9_]+)=([^;&\s]+)")
 
 # Pre-computed normalized sensitive field names for efficient lookup
 _NORMALIZED_SENSITIVE_FIELDS = frozenset(f.replace("_", "") for f in SENSITIVE_FIELDS)
@@ -126,8 +147,47 @@ def _sanitize_list(data: list, depth: int = 0, max_depth: int = 10) -> list:
     return result
 
 
+def sanitize_url(url: Any) -> str:
+    """Redact sensitive query and fragment parameters from a URL.
+
+    Handles httpx.URL objects and plain strings.
+    """
+    url_str = str(url)
+    try:
+        parsed = urlparse(url_str)
+    except Exception:
+        return "***"
+
+    redacted_query = _redact_params(parsed.query)
+    redacted_fragment = _redact_params(parsed.fragment)
+
+    return urlunparse((
+        parsed.scheme,
+        parsed.netloc,
+        parsed.path,
+        parsed.params,
+        redacted_query,
+        redacted_fragment,
+    ))
+
+
+def _redact_params(raw: str) -> str:
+    """Redact sensitive key=value pairs in a query/fragment string."""
+    if not raw:
+        return raw
+    params = parse_qs(raw, keep_blank_values=True)
+    changed = False
+    for key in list(params):
+        if key.lower() in SENSITIVE_URL_PARAMS or key.lower().startswith("glt_"):
+            params[key] = ["***"]
+            changed = True
+    if not changed:
+        return raw
+    return urlencode(params, doseq=True)
+
+
 def _sanitize_string(data: str) -> str:
-    """Sanitize a string by masking VINs and tokens.
+    """Sanitize a string by masking VINs, tokens, and sensitive URL params.
 
     Args:
     ----
@@ -142,6 +202,10 @@ def _sanitize_string(data: str) -> str:
     result = VIN_PATTERN.sub(lambda m: _mask_value(m.group()), data)
     # Mask Bearer tokens
     result = TOKEN_PATTERN.sub(r"\1***", result)
+    # Mask sensitive query parameters embedded in text
+    result = _URL_PARAM_PATTERN.sub(r"\1=***", result)
+    # Mask glt_<apikey>=<token> patterns
+    result = _GLT_PATTERN.sub(r"\1=***", result)
     return result
 
 

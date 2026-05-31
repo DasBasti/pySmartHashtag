@@ -17,7 +17,7 @@ import httpx
 from httpx._models import Request, Response
 
 from pysmarthashtag.api import utils
-from pysmarthashtag.api.log_sanitizer import sanitize_log_data
+from pysmarthashtag.api.log_sanitizer import sanitize_log_data, sanitize_url
 from pysmarthashtag.const import (
     API_SESION_URL,
     HTTPX_TIMEOUT,
@@ -123,7 +123,7 @@ class SmartAuthentication(httpx.Auth):
 
     async def async_auth_flow(self, request: Request) -> AsyncGenerator[Request, Response]:
         """Asynchronous authentication flow for handling requests and retrying on rate limit errors."""
-        _LOGGER.debug("Handling request %s", request.url)
+        _LOGGER.debug("Handling request %s", sanitize_url(request.url))
         # Get an initial login on first call
         async with self.login_lock:
             if not self.access_token:
@@ -165,8 +165,8 @@ class SmartAuthentication(httpx.Auth):
         except httpx.HTTPStatusError as exc:
             _LOGGER.error(
                 "Error handling request %s: %s",
-                request.url,
-                exc,
+                sanitize_url(request.url),
+                sanitize_log_data(str(exc)),
             )
             raise
 
@@ -602,20 +602,20 @@ class SmartLoginClient(httpx.AsyncClient):
                 except httpx.HTTPStatusError as exc:
                     _LOGGER.error(
                         "Error handling request %s: %s",
-                        response.url,
-                        exc,
+                        sanitize_url(response.url),
+                        sanitize_log_data(str(exc)),
                     )
                     raise
 
         kwargs["event_hooks"]["response"].append(raise_for_status_handler)
 
         async def log_request(request):
-            _LOGGER.debug("Request: %s %s", request.method, request.url)
+            _LOGGER.debug("Request: %s %s", request.method, sanitize_url(request.url))
 
         async def log_response(response):
             await response.aread()
             request = response.request
-            _LOGGER.debug("Response: %s %s - Status %d", request.method, request.url, response.status_code)
+            _LOGGER.debug("Response: %s %s - Status %d", request.method, sanitize_url(request.url), response.status_code)
 
         kwargs["event_hooks"]["response"].append(log_response)
         kwargs["event_hooks"]["request"].append(log_request)
@@ -649,8 +649,8 @@ class SmartLoginRetry(httpx.Auth):
                     except httpx.HTTPStatusError as exc:
                         _LOGGER.error(
                             "Error handling request %s: %s",
-                            request.url,
-                            exc,
+                            sanitize_url(request.url),
+                            sanitize_log_data(str(exc)),
                         )
                         raise
 

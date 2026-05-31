@@ -7,6 +7,7 @@ from typing import Optional
 import httpx
 
 from pysmarthashtag.api.authentication import SmartAuthentication
+from pysmarthashtag.api.log_sanitizer import sanitize_url
 from pysmarthashtag.api.ssl_context import get_ssl_context_async
 from pysmarthashtag.const import (
     HTTPX_TIMEOUT,
@@ -83,12 +84,12 @@ class SmartClient(httpx.AsyncClient):
         kwargs["event_hooks"] = defaultdict(list, **kwargs.get("event_hooks", {}))
 
         async def log_request(request):
-            _LOGGER.debug("Request: %s %s", request.method, request.url)
+            _LOGGER.debug("Request: %s %s", request.method, sanitize_url(request.url))
 
         async def log_response(response):
             await response.aread()
             request = response.request
-            _LOGGER.debug("Response: %s %s - Status %d", request.method, request.url, response.status_code)
+            _LOGGER.debug("Response: %s %s - Status %d", request.method, sanitize_url(request.url), response.status_code)
 
         kwargs["event_hooks"]["response"].append(log_response)
         kwargs["event_hooks"]["request"].append(log_request)
