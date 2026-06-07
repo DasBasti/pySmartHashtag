@@ -1,5 +1,7 @@
 """Fixtures for Smart tests."""
 
+import re
+
 import respx
 
 from pysmarthashtag.const import (
@@ -104,6 +106,40 @@ class SmartMockRouter(respx.MockRouter):
             self.get(base_url + "/remote-control/vehicle/status/soc/TestVIN0000000002?setting=charging").respond(
                 200,
                 json=load_response(RESPONSE_DIR / "soc_90.json"),
+            )
+            # journalLogV4 takes endTime/startTime/pageIndex/pageSize/userId
+            # query params; respx matches by URL prefix without query when
+            # we use route() with `host=` + `path__startswith=`. Keep
+            # URL-prefix matching simple by registering with a regex.
+            self.get(re.compile(re.escape(
+                base_url + "/geelyTCAccess/tcservices/vehicle/status/journalLogV4/TestVIN0000000001"
+            ) + r".*")).respond(
+                200,
+                json=load_response(RESPONSE_DIR / "journal_response.json"),
+            )
+            self.get(re.compile(re.escape(
+                base_url + "/geelyTCAccess/tcservices/vehicle/status/journalLogV4/TestVIN0000000002"
+            ) + r".*")).respond(
+                200,
+                json=load_response(RESPONSE_DIR / "journal_response.json"),
+            )
+            # Auth-grant handshake (called before each get_trip_journal)
+            self.post(base_url + "/remote-control/user/authorization/insert").respond(
+                200,
+                json={
+                    "code": "1000",
+                    "data": {"serviceCode": "travelLogBusiCode", "authStatus": 1},
+                    "success": True,
+                    "message": "operation succeed",
+                },
+            )
+            self.put(base_url + "/remote-control/vehicle/status/journalLog/TestVIN0000000001").respond(
+                200,
+                json=load_response(RESPONSE_DIR / "journal_toggle_success.json"),
+            )
+            self.put(base_url + "/remote-control/vehicle/status/journalLog/TestVIN0000000002").respond(
+                200,
+                json=load_response(RESPONSE_DIR / "journal_toggle_success.json"),
             )
 
         self.get(OTA_SERVER_URL + "app/info/TestVIN0000000001").respond(

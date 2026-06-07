@@ -1,0 +1,52 @@
+{
+  "code": "1000",
+  "message": "operation succeed",
+  "success": true,
+  "data": {
+    "pagination": {
+      "pageIndex": 1,
+      "sortField": "startTime",
+      "start": 1,
+      "pageSize": 20,
+      "totleSize": 42,
+      "direction": "desc"
+    },
+    "list": [
+      {
+        "tripId": 1734246000,
+        "startTime": 1734246000000,
+        "endTime": 1734247230000,
+        "startOdometer": 2950.0,
+        "endOdometer": 2965.4,
+        "traveledDistance": 15.4,
+        "avgSpeed": 45.0,
+        "electricConsumption": 20.8,
+        "tripStartAddr": "123 Test Street, Test City",
+        "tripEndAddr": "15 Other Road, Test City",
+        "tripRemark": null,
+        "tripLabel": null,
+        "trackpoints": [
+          {"position": {"altitude": 27, "latitude": 217414695, "longitude": 80626712, "posCanBeTrusted": true, "marsCoordinates": false}},
+          {"position": {"altitude": 28, "latitude": 217384510, "longitude": 80573036, "posCanBeTrusted": true, "marsCoordinates": false}}
+        ],
+        "regeneratedEnergy": 0.8
+      },
+      {
+        "tripId": 1734200000,
+        "startTime": 1734200000000,
+        "endTime": 1734200600000,
+        "startOdometer": 2942.9,
+        "endOdometer": 2950.0,
+        "traveledDistance": 7.1,
+        "avgSpeed": 40.0,
+        "electricConsumption": 21.1,
+        "tripStartAddr": "9 Elsewhere Ave, Test City",
+        "tripEndAddr": "123 Test Street, Test City",
+        "tripRemark": null,
+        "tripLabel": null,
+        "trackpoints": [],
+        "regeneratedEnergy": 0.3
+      }
+    ]
+  }
+}
