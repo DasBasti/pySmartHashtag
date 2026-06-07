@@ -105,5 +105,4 @@ class Tires(VehicleDataBase):
 
         except KeyError as e:
             _LOGGER.info(f"Tire info not available: {e}")
-        finally:
-            return retval
+        return retval

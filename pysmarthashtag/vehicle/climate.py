@@ -209,5 +209,4 @@ class Climate(VehicleDataBase):
             retval["timestamp"] = datetime.fromtimestamp(int(vehicle_data["vehicleStatus"]["updateTime"]) / 1000)
         except KeyError as e:
             _LOGGER.info(f"Climate info not available: {e}")
-        finally:
-            return retval
+        return retval
