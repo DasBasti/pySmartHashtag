@@ -53,5 +53,4 @@ class Position(VehicleDataBase):
 
         except KeyError as e:
             _LOGGER.info(f"Position info not available: {e}")
-        finally:
-            return retval
+        return retval
