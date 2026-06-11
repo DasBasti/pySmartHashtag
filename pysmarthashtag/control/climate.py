@@ -133,3 +133,4 @@ class ClimateControll:
                 except SmartHumanCarConnectionError:
                     _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
                     continue
+        return False
