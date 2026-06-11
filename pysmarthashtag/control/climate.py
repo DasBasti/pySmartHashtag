@@ -8,7 +8,7 @@ from typing import TypedDict
 from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
-from pysmarthashtag.const import API_BASE_URL, API_TELEMATICS_URL
+from pysmarthashtag.const import API_TELEMATICS_URL
 from pysmarthashtag.models import SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 
 _LOGGER = logging.getLogger(__name__)
@@ -112,7 +112,7 @@ class ClimateControll:
             for retry in range(3):
                 try:
                     vehicles_response = await client.put(
-                        API_BASE_URL + API_TELEMATICS_URL + self.vin,
+                        self.account.vehicles[self.vin].base_url + API_TELEMATICS_URL + self.vin,
                         headers={
                             **utils.generate_default_header(
                                 client.config.authentication.device_id,
