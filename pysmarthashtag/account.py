@@ -155,11 +155,21 @@ class SmartAccount:
                 _LOGGER.debug(
                     "Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True
                 )
+            # Per-VIN TBox state flags (engine/journal/valet/etc.) — best-effort,
+            # same reasoning as the journal call above.
+            state_response = None
+            try:
+                state_response = await self.get_vehicle_state(vin)
+            except Exception:  # noqa: BLE001  # Best-effort: state fetch must not break refresh.
+                _LOGGER.debug(
+                    "Vehicle-state fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                )
             vehicle.combine_data(
                 vehicle_info,
                 charging_settings=vehicle_soc,
                 ota_info=vehicle_ota_info,
                 journal_response=journal_response,
+                state_response=state_response,
             )
 
     async def select_active_vehicle(self, vin) -> None:
@@ -240,6 +250,47 @@ class SmartAccount:
                 break
             if retry > 1:
                 raise SmartAuthError("Could not get vehicle information")
+        return data
+
+    async def get_vehicle_state(self, vin) -> dict:
+        """Fetch the small flat-dict state-flag response for a vehicle.
+
+        Hits ``/remote-control/vehicle/status/state/{vin}`` (no params) —
+        the same endpoint Hello # uses to confirm command dispatch (e.g.
+        polls ``journalLogState`` after toggling 'Record trips on vehicle').
+
+        Returns the raw response dict; caller wraps via
+        ``VehicleState.from_response()``. Errors are logged but not raised
+        so a single flaky vehicle doesn't break the wider refresh.
+        """
+        _LOGGER.debug("Getting vehicle state for %s", sanitize_log_data(vin))
+        path = "/remote-control/vehicle/status/state/" + vin
+        data: dict = {}
+        async with SmartClient(self.config) as client:
+            for retry in range(3):
+                try:
+                    r_state = await client.get(
+                        self.vehicles[vin].base_url + path,
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params={},
+                                method="GET",
+                                url=path,
+                            )
+                        },
+                    )
+                    _LOGGER.debug("Got response %d", r_state.status_code)
+                    data = r_state.json()
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    continue
+                except SmartHumanCarConnectionError:
+                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                    await self.select_active_vehicle(vin)
+                    continue
+                break
         return data
 
     async def get_vehicle_soc(self, vin) -> str:
