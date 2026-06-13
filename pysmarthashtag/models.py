@@ -96,6 +96,19 @@ class SmartRemoteServiceError(SmartAPIError):
     """Error when executing web services."""
 
 
+class JournalTruncationError(SmartAPIError):
+    """Page-loop accumulated count disagreed with the cloud-reported total.
+
+    Raised by :meth:`pysmarthashtag.account.SmartAccount.get_trip_journal`
+    when ``raise_on_truncation=True`` and the merged page-loop ended with
+    ``len(data.list) != totleSize``. The default of ``raise_on_truncation
+    =False`` instead logs a WARNING — routine polls keep going so the
+    next iteration can pick up the missing trips. Backfill / archive
+    callers can opt into the hard failure: a backfill that silently lost
+    data is worse than one that aborts and forces investigation.
+    """
+
+
 def get_element_from_dict_maybe(
     data: dict, *path: str, default: "Any|None" = None
 ) -> Optional[Union[dict, str, int, float]]:

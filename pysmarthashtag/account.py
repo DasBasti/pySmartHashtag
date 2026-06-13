@@ -1,5 +1,6 @@
 """Access to Smart account for your vehicles therin."""
 
+import asyncio
 import datetime
 import json
 import logging
@@ -13,7 +14,12 @@ from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls
-from pysmarthashtag.models import SmartAuthError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
+from pysmarthashtag.models import (
+    JournalTruncationError,
+    SmartAuthError,
+    SmartHumanCarConnectionError,
+    SmartTokenRefreshNecessary,
+)
 from pysmarthashtag.vehicle.trackpoints import TripTrackpoints, parse_trackpoints_response
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
 
@@ -38,6 +44,12 @@ _BENIGN_EMPTY_CODE = "8153"
 
 VALID_UNTIL_OFFSET = datetime.timedelta(seconds=10)
 
+# Cloud's "data unavailable" code on the journal endpoints. The SDK's
+# raise_for_status hook surfaces it as :class:`httpx.HTTPStatusError`;
+# the page-loop normalises it to "end of data" so a transient cloud
+# blip mid-loop doesn't fail the whole poll.
+_BENIGN_EMPTY_CODE = "8153"
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -57,6 +69,38 @@ def _is_benign_empty(exc: httpx.HTTPStatusError) -> bool:
     except ValueError:
         return False
     return str(body.get("code")) == _BENIGN_EMPTY_CODE
+
+
+def _unwrap_journal_page(body: dict) -> tuple[list, Optional[int]]:
+    """Pull ``data.list`` and ``data.pagination.totleSize`` out of a journal body.
+
+    Returns ``([], None)`` for missing/None ``data`` (the cloud
+    occasionally returns a top-level ``code: 1000`` with ``data: null``
+    on empty windows, which we treat as a benign empty page).
+
+    The cloud's response envelope uses the typo "totleSize" (sic) for
+    the total-records field — preserve the misspelling so the existing
+    parser keeps working.
+    """
+    if not isinstance(body, dict):
+        return [], None
+    data = body.get("data")
+    if not isinstance(data, dict):
+        return [], None
+    items_raw = data.get("list")
+    items = items_raw if isinstance(items_raw, list) else []
+    pagination = data.get("pagination")
+    total_raw = pagination.get("totleSize") if isinstance(pagination, dict) else None
+    if isinstance(total_raw, bool):
+        # bool is an int subclass — guard so True/False never become 1/0.
+        total = None
+    elif isinstance(total_raw, (int, float)):
+        total = int(total_raw)
+    elif isinstance(total_raw, str) and total_raw.strip().isdigit():
+        total = int(total_raw.strip())
+    else:
+        total = None
+    return list(items), total
 
 
 @dataclass
@@ -451,8 +495,15 @@ class SmartAccount:
                 break
         return False
 
-    async def get_trip_journal(self, vin, page_size: int = 20, window_days: int = 14) -> dict:
-        """Fetch the most recent trip-journal entries for a vehicle.
+    async def get_trip_journal(
+        self,
+        vin,
+        page_size: int = 20,
+        window_days: int = 14,
+        raise_on_truncation: bool = False,
+        page_gap_seconds: float = 0.0,
+    ) -> dict:
+        """Fetch trip-journal entries for a vehicle, page-looping ``pageIndex=1..N``.
 
         Hits ``/geelyTCAccess/tcservices/vehicle/status/journalLogV4/{vin}``
         — the endpoint that carries server-side reverse-geocoded start/end
@@ -466,17 +517,142 @@ class SmartAccount:
         is cached per-VIN per-access-token, so subsequent calls under the
         same token skip the grant POST.
 
-        Returns the raw response dict (with ``code``/``message``/``data``)
-        or an empty dict when the request fails server-side; raising is
-        avoided so a single flaky vehicle doesn't break the whole refresh.
+        Page-loops ``pageIndex=2, 3, ...`` until **either** the
+        cloud-reported ``totleSize`` is reached **or** the previous page
+        came back short (the cloud's "no more pages" signal — fewer rows
+        than the requested ``page_size``). Accounts with more trips in
+        the window than ``page_size`` no longer silently lose the tail.
+
+        A ``code=8153`` mid-loop is treated as end-of-data and breaks
+        the loop with whatever's accumulated; the first page's 8153
+        still propagates as :class:`httpx.HTTPStatusError` so callers
+        with their own benign-empty handling (e.g. :meth:`get_vehicles`)
+        keep working unchanged.
+
+        After the loop, if the accumulated count disagrees with the
+        cloud's ``totleSize``:
+
+        * with ``raise_on_truncation=False`` (default), logs a WARNING
+          with both numbers and returns the partial accumulated dict —
+          routine polls keep going so the next iteration can pick up
+          the missing trips.
+        * with ``raise_on_truncation=True``, raises
+          :class:`pysmarthashtag.models.JournalTruncationError` instead.
+          Used by backfill/archive callers where silent data loss is
+          worse than a hard failure that forces an operator to look.
+
+        ``page_gap_seconds`` lets callers insert a polite-API sleep
+        between successive page fetches (default 0.0 — the SDK has no
+        opinion; consumers that want one set their own).
+
+        Returns a dict with the same shape as the cloud's first-page
+        response (``code`` / ``message`` / ``data``) but with
+        ``data.list`` containing the merged entries from every page.
+        ``data.pagination.totleSize`` carries the cloud's most recent
+        report. Returns an empty dict only when the page-1 request
+        itself fails server-side (preserved from the prior single-page
+        behaviour so a single flaky vehicle doesn't break the refresh).
         """
         await self.grant_journal_authorization(vin)
         _LOGGER.debug("Getting trip journal for vehicle")
         end_ms = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
         start_ms = end_ms - window_days * 86400 * 1000
+
+        first = await self._fetch_journal_page(vin, 1, page_size, start_ms, end_ms)
+        if not first:
+            return {}
+
+        accumulated, total = _unwrap_journal_page(first)
+        if not accumulated:
+            return first
+        last_page_count = len(accumulated)
+
+        page_index = 2
+        while True:
+            # Stop conditions before issuing another request:
+            # - cloud-reported total has been reached/exceeded, OR
+            # - the previous page came back short (cloud's "no more
+            #   pages" signal — fewer rows than requested).
+            if total is not None and len(accumulated) >= total:
+                break
+            if last_page_count < page_size:
+                break
+
+            if page_gap_seconds > 0:
+                await asyncio.sleep(page_gap_seconds)
+
+            try:
+                page = await self._fetch_journal_page(
+                    vin, page_index, page_size, start_ms, end_ms
+                )
+            except httpx.HTTPStatusError as exc:
+                if _is_benign_empty(exc):
+                    _LOGGER.debug(
+                        "journalLogV4 returned 8153 mid-loop for %s at page %d; treating as end-of-data",
+                        sanitize_log_data(vin),
+                        page_index,
+                    )
+                    break
+                raise
+
+            page_items, page_total = _unwrap_journal_page(page)
+            if page_total is not None:
+                total = page_total
+            if not page_items:
+                break
+            accumulated.extend(page_items)
+            last_page_count = len(page_items)
+            page_index += 1
+
+        if total is not None and total != len(accumulated):
+            if raise_on_truncation:
+                raise JournalTruncationError(
+                    f"page-loop for {sanitize_log_data(vin)} accumulated "
+                    f"{len(accumulated)} items but cloud reported "
+                    f"totleSize={total}; aborting rather than silently "
+                    "returning an incomplete history"
+                )
+            _LOGGER.warning(
+                "Journal page-loop truncation for %s: accumulated %d items "
+                "but cloud reported totleSize=%d. Possible silent data loss — "
+                "investigate page-loop termination.",
+                sanitize_log_data(vin),
+                len(accumulated),
+                total,
+            )
+
+        # Rebuild the response shape with the merged list and the
+        # final totleSize so consumers parsing ``data.list`` see all
+        # pages without needing to know there was a loop.
+        merged = dict(first)
+        merged_data = dict(merged.get("data") or {})
+        merged_data["list"] = accumulated
+        if total is not None:
+            merged_pagination = dict(merged_data.get("pagination") or {})
+            merged_pagination["totleSize"] = total
+            merged_data["pagination"] = merged_pagination
+        merged["data"] = merged_data
+        return merged
+
+    async def _fetch_journal_page(
+        self,
+        vin: str,
+        page_index: int,
+        page_size: int,
+        start_ms: int,
+        end_ms: int,
+    ) -> dict:
+        """Fetch a single page of journalLogV4 for ``vin``.
+
+        Mirrors the request construction the previous single-page
+        :meth:`get_trip_journal` did, parameterised by ``page_index``.
+        The auth-grant POST is NOT issued here — the caller does it
+        once before the loop, since the cache short-circuits subsequent
+        fetches under the same token anyway.
+        """
         params = {
             "endTime": str(end_ms),
-            "pageIndex": "1",
+            "pageIndex": str(page_index),
             "pageSize": str(page_size),
             "startTime": str(start_ms),
             "userId": str(self.config.authentication.api_user_id),
@@ -487,7 +663,7 @@ class SmartAccount:
         async with SmartClient(self.config) as client:
             for retry in range(3):
                 try:
-                    r_journal = await client.get(
+                    response = await client.get(
                         self.vehicles[vin].base_url + url,
                         headers={
                             **utils.generate_default_header(
@@ -499,8 +675,8 @@ class SmartAccount:
                             )
                         },
                     )
-                    _LOGGER.debug("Got response %d", r_journal.status_code)
-                    data = r_journal.json()
+                    _LOGGER.debug("Got response %d", response.status_code)
+                    data = response.json()
                 except SmartTokenRefreshNecessary:
                     _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue
