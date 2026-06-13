@@ -14,6 +14,7 @@ from pysmarthashtag.vehicle.position import Position
 from pysmarthashtag.vehicle.running import Running
 from pysmarthashtag.vehicle.safety import Safety
 from pysmarthashtag.vehicle.tires import Tires
+from pysmarthashtag.vehicle.vehicle_state import VehicleState
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,6 +60,10 @@ class SmartVehicle:
 
     last_trip: Optional[TripJournal] = None
     """The most recent trip from the journal log (server-side reverse-geocoded)."""
+
+    state: Optional[VehicleState] = None
+    """Per-VIN TBox-side state flags from the GetCarState endpoint
+    (journal recording, valet mode, privacy, next wakeup, etc.)."""
 
     climate_control: Optional["ClimateControll"] = None  # noqa: F821
 
@@ -110,6 +115,7 @@ class SmartVehicle:
         ota_info: Optional[dict] = None,
         fetched_at: Optional[datetime.datetime] = None,
         journal_response: Optional[dict] = None,
+        state_response: Optional[dict] = None,
     ) -> dict:
         """Combine all data into one dictionary."""
         self.data.update(vehicle_base)
@@ -134,6 +140,10 @@ class SmartVehicle:
             # Other endpoints (e.g. status, SOC, OTA) call combine_data without
             # this kwarg and must not blow away an already-populated trip.
             self.last_trip = TripJournal.from_response(journal_response)
+        if state_response is not None:
+            # Same best-effort overwrite semantics as last_trip — only refresh
+            # when the GetCarState fetch actually succeeded for this poll.
+            self.state = VehicleState.from_response(state_response)
 
         from pysmarthashtag.control.climate import ClimateControll
 
