@@ -191,3 +191,97 @@ class TestAdaptiveBackoff:
                 await a2._login()
 
         assert calls["n"] == 0, "shared quiet window did not suppress second instance"
+
+
+class TestSessionRecovery:
+    """Regression tests for login-failure recovery (fix/login-session-recovery).
+
+    Covers the four defects that let a failed API-session exchange wedge the
+    account until a full integration reload:
+
+    * the session-exchange error is surfaced (code/message + HTTP status),
+    * a failed login invalidates cached identity so the next poll re-logins,
+    * ``_refresh_access_token`` returns its result (no double full login),
+    * throttle wording is classified as a rate-limit failure.
+    """
+
+    @pytest.mark.asyncio
+    async def test_login_failure_invalidates_session(self):
+        """A failed login must clear api_user_id so get_vehicles re-logins."""
+        auth = _make_auth()
+        # Simulate a previously-good session left over from an earlier login.
+        auth.api_user_id = "stale-user"
+        auth.api_access_token = "stale-token"
+        auth.access_token = "stale-oauth"
+
+        async def boom():
+            raise SmartAPIError("Could not get API access token from API (HTTP 200, code=1402): token expired")
+
+        with patch.object(auth, "_do_login", boom):
+            auth._state.quiet_until = None
+            with pytest.raises(SmartAPIError):
+                await auth.login()
+
+        # Stale identity must be gone so SmartAccount.get_vehicles() (which
+        # only re-logins when api_user_id is None) restarts the journey.
+        assert auth.api_user_id is None
+        assert auth.api_access_token is None
+        assert auth.access_token is None
+
+    @pytest.mark.asyncio
+    async def test_successful_login_sets_session(self):
+        """A clean login still populates identity (invalidation is failure-only)."""
+        auth = _make_auth()
+
+        async def ok():
+            return _login_stub()
+
+        with patch.object(auth, "_do_login", ok):
+            auth._state.quiet_until = None
+            await auth.login()
+        assert auth.api_user_id == "z"
+        assert auth.api_access_token == "x"
+
+    @pytest.mark.asyncio
+    async def test_refresh_returns_result_no_double_login(self):
+        """With a refresh_token set, login() must not run _login() twice."""
+        auth = _make_auth()
+        auth.refresh_token = "prior-refresh"
+        calls = {"n": 0}
+
+        async def counting_login():
+            calls["n"] += 1
+            return _login_stub()
+
+        with patch.object(auth, "_login", counting_login):
+            await auth.login()
+
+        assert calls["n"] == 1, "login ran the full flow twice on refresh"
+        assert auth.api_user_id == "z"
+
+    def test_throttle_wording_is_rate_limit(self):
+        """HTTP-200 throttle bodies surfaced into the message classify as rate-limit."""
+        assert SmartAuthentication._is_rate_limit_error(
+            SmartAPIError("Could not get API access token from API (HTTP 429, code=...): x")
+        )
+        assert SmartAuthentication._is_rate_limit_error(
+            SmartAPIError("request throttled, try again later")
+        )
+        assert SmartAuthentication._is_rate_limit_error(SmartAPIError("Too Many Requests"))
+        # A genuine one-off failure must NOT be misread as a rate-limit.
+        assert not SmartAuthentication._is_rate_limit_error(
+            SmartAPIError("Could not get access token from auth page")
+        )
+
+
+def _login_stub() -> dict:
+    """Minimal successful token payload for login() (mirrors _login_ok)."""
+    return {
+        "access_token": "a",
+        "refresh_token": "r",
+        "api_access_token": "x",
+        "api_refresh_token": "y",
+        "api_user_id": "z",
+        "expires_at": datetime.datetime.now(datetime.timezone.utc)
+        + datetime.timedelta(hours=1),
+    }

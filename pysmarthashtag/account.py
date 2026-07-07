@@ -165,6 +165,22 @@ class SmartAccount:
             self.config.authentication = None
         await self.config.authentication.login()
 
+    def invalidate_session(self) -> None:
+        """Force the next data poll to perform a full re-login.
+
+        Clears the cached API identity on the authentication handler so
+        :meth:`get_vehicles` (which only re-logins when ``api_user_id is
+        None``) re-enters the complete login journey instead of replaying a
+        stale token. Provided for callers (e.g. the Home Assistant
+        coordinator) that observe repeated data-endpoint failures — such as
+        ``4038``/``8040`` — which never trip the token-refresh path and so
+        would otherwise wedge the session until a full reload. Safe to call
+        when no session exists.
+        """
+        auth = getattr(self.config, "authentication", None)
+        if auth is not None:
+            auth._invalidate_session()
+
     async def _init_vehicles(self) -> None:
         """Initialize vehicles from Smart servers."""
         _LOGGER.debug("Getting initial vehicle list")

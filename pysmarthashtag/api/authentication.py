@@ -170,14 +170,40 @@ class SmartAuthentication(httpx.Auth):
             )
             raise
 
+    def _invalidate_session(self) -> None:
+        """Drop all cached session identity so the next login starts fresh.
+
+        A half-completed login must not leave a stale ``api_user_id`` /
+        ``api_access_token`` behind: ``SmartAccount.get_vehicles()`` only
+        forces a fresh ``login()`` when ``api_user_id is None``, so a
+        lingering value makes it replay a dead token every poll (the cloud
+        answers 1402/4038/8040) and the session never self-heals — only a
+        full integration reload recovers it. Clearing the identity here lets
+        the next poll re-enter the complete login journey.
+        """
+        self.access_token = None
+        self.refresh_token = None
+        self.api_access_token = None
+        self.api_refresh_token = None
+        self.api_user_id = None
+        self.expires_at = None
+
     async def login(self) -> None:
         """Login to the Smart API."""
         _LOGGER.debug("Logging in to Smart API")
         token_data = {}
-        if self.refresh_token:
-            token_data = await self._refresh_access_token()
-        if not token_data:
-            token_data = await self._login()
+        try:
+            if self.refresh_token:
+                token_data = await self._refresh_access_token()
+            if not token_data:
+                token_data = await self._login()
+        except Exception:
+            # Any failure in the login journey (rate-limit, WAF, failed
+            # session exchange, ...) must invalidate whatever partial state
+            # we hold so the next attempt starts clean rather than replaying
+            # a stale token. The exception still propagates to the caller.
+            self._invalidate_session()
+            raise
         try:
             token_data["expires_at"] = token_data["expires_at"] - EXPIRES_AT_OFFSET
 
@@ -189,16 +215,25 @@ class SmartAuthentication(httpx.Auth):
             self.expires_at = token_data["expires_at"]
             _LOGGER.debug("Login successful")
             return True
-        except KeyError:
-            raise SmartAPIError("Could not login to Smart API")
+        except (KeyError, TypeError) as err:
+            self._invalidate_session()
+            raise SmartAPIError("Could not login to Smart API") from err
 
     async def _refresh_access_token(self):
-        """Refresh the access token."""
+        """Refresh the access token.
+
+        The refresh-token grant is not implemented server-side, so this
+        performs a full re-login and RETURNS its token data. Returning the
+        result (rather than discarding it) is essential: ``login()`` falls
+        back to a second ``_login()`` whenever this returns falsy, so
+        discarding the data caused two full login flows per refresh —
+        doubling auth pressure against the rate-limited Smart gateway.
+        """
         try:
             ssl_ctx = await self.get_ssl_context()
             async with SmartLoginClient(ssl_context=ssl_ctx) as _:
                 _LOGGER.debug("Refreshing access token via relogin because refresh token is not implemented")
-                await self._login()
+                return await self._login()
         except SmartAPIError:
             _LOGGER.debug("Refreshing access token failed. Logging in again")
             return {}
@@ -273,6 +308,13 @@ class SmartAuthentication(httpx.Auth):
             or "http 403" in text
             or "http 429" in text
             or "forbidden" in text
+            # Throttle wording the cloud may return as an HTTP-200 error body
+            # (surfaced into the exception text by _do_login's session-exchange
+            # handler). Kept deliberately narrow so genuine one-off failures
+            # (e.g. "Could not get access token from auth page") are unaffected.
+            or "too many" in text
+            or "throttl" in text
+            or "try again later" in text
         )
 
     async def _do_login(self) -> dict:
@@ -552,8 +594,29 @@ class SmartAuthentication(httpx.Auth):
                 api_access_token = api_result["data"]["accessToken"]
                 api_refresh_token = api_result["data"]["refreshToken"]
                 api_user_id = api_result["data"]["userId"]
-            except KeyError:
-                raise SmartAPIError("Could not get API access token from API")
+            except (KeyError, TypeError) as err:
+                # The OAuth flow succeeded but the final API-session exchange
+                # did not return a session. Surface the cloud's own code +
+                # message (mirrors the Gigya-login step above) instead of a
+                # fixed generic string. Two reasons this matters:
+                #   * diagnosability — the log now says *why* it failed;
+                #   * classification — _is_rate_limit_error() can only see the
+                #     exception text, so a throttle/WAF block hidden here would
+                #     otherwise be mistaken for a transient blip and get the
+                #     short 60s suppress instead of the geometric backoff.
+                api_code = api_result.get("code") if isinstance(api_result, dict) else None
+                api_message = api_result.get("message", "") if isinstance(api_result, dict) else ""
+                http_status = r_api_access.status_code
+                _LOGGER.error(
+                    "API session exchange failed (HTTP %s, code=%s): %s",
+                    http_status,
+                    api_code,
+                    sanitize_log_data(api_message),
+                )
+                raise SmartAPIError(
+                    "Could not get API access token from API "
+                    f"(HTTP {http_status}, code={api_code}): {api_message}"
+                ) from err
 
         return {
             "access_token": access_token,
