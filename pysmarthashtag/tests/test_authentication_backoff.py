@@ -234,7 +234,7 @@ class TestSessionRecovery:
         auth = _make_auth()
 
         async def ok():
-            return _login_stub()
+            return _login_ok()
 
         with patch.object(auth, "_do_login", ok):
             auth._state.quiet_until = None
@@ -251,7 +251,7 @@ class TestSessionRecovery:
 
         async def counting_login():
             calls["n"] += 1
-            return _login_stub()
+            return _login_ok()
 
         with patch.object(auth, "_login", counting_login):
             await auth.login()
@@ -272,16 +272,3 @@ class TestSessionRecovery:
         assert not SmartAuthentication._is_rate_limit_error(
             SmartAPIError("Could not get access token from auth page")
         )
-
-
-def _login_stub() -> dict:
-    """Minimal successful token payload for login() (mirrors _login_ok)."""
-    return {
-        "access_token": "a",
-        "refresh_token": "r",
-        "api_access_token": "x",
-        "api_refresh_token": "y",
-        "api_user_id": "z",
-        "expires_at": datetime.datetime.now(datetime.timezone.utc)
-        + datetime.timedelta(hours=1),
-    }
