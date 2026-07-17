@@ -19,6 +19,7 @@ from pysmarthashtag.models import (
     SmartAuthError,
     SmartHumanCarConnectionError,
     SmartTokenRefreshNecessary,
+    SmartVehicleNotInUseError,
 )
 from pysmarthashtag.vehicle.trackpoints import TripTrackpoints, parse_trackpoints_response
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
@@ -194,7 +195,8 @@ class SmartAccount:
                     )
                     _LOGGER.debug("Got response %d", vehicles_response.status_code)
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
                 except SmartHumanCarConnectionError:
                     _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
@@ -209,6 +211,17 @@ class SmartAccount:
     def add_vehicle(self, vehicle, fetched_at):
         """Add a vehicle to the account."""
         self.vehicles[vehicle.get("vin")] = SmartVehicle(self, vehicle, fetched_at=fetched_at)
+
+    def _vin_model_code(self, vin) -> Optional[str]:
+        """Return the VIN's ``matCode`` for the ``X-VEHICLE-*`` headers.
+
+        ``None`` if the vehicle (or its model code) isn't known yet — the
+        header generator then simply omits the per-request VIN headers.
+        """
+        vehicle = self.vehicles.get(vin)
+        if vehicle is None:
+            return None
+        return vehicle.data.get("matCode")
 
     async def get_vehicles(self, force_init: bool = False) -> None:
         """Get the vehicles associated with the account."""
@@ -285,11 +298,15 @@ class SmartAccount:
                     )
                     _LOGGER.debug("Got response %d", r_car_info.status_code)
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
-                    self.select_active_vehicle(vin)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    # This method IS the re-bind — just retry the select request
+                    # (the loop re-attempts it). Calling select_active_vehicle()
+                    # here would recurse and could hit RecursionError on
+                    # persistent 8006/4038.
+                    _LOGGER.debug("VIN binding lost (8006/4038) while selecting; retrying (retry %d)", retry)
                     continue
                 break
 
@@ -318,6 +335,8 @@ class SmartAccount:
                                 params=params,
                                 method="GET",
                                 url="/remote-control/vehicle/status/" + vin,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
@@ -325,10 +344,11 @@ class SmartAccount:
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 break
@@ -362,16 +382,19 @@ class SmartAccount:
                                 params={},
                                 method="GET",
                                 url=path,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
                     _LOGGER.debug("Got response %d", r_state.status_code)
                     data = r_state.json()
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 break
@@ -400,6 +423,8 @@ class SmartAccount:
                                 params=params,
                                 method="GET",
                                 url="/remote-control/vehicle/status/soc/" + vin,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
@@ -407,11 +432,12 @@ class SmartAccount:
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
-                    self.select_active_vehicle(vin)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
+                    await self.select_active_vehicle(vin)
                     continue
                 break
             if retry > 1:
@@ -672,16 +698,19 @@ class SmartAccount:
                                 params=params,
                                 method="GET",
                                 url=path,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
                     _LOGGER.debug("Got response %d", response.status_code)
                     data = response.json()
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 break
@@ -751,16 +780,19 @@ class SmartAccount:
                                 params=params,
                                 method="GET",
                                 url=path,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
                     _LOGGER.debug("Got response %d", response.status_code)
                     body = response.json()
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 except httpx.HTTPStatusError as exc:
@@ -813,11 +845,12 @@ class SmartAccount:
                         "current_version": json_data.get("currentVersion"),
                     }
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
-                    self.select_active_vehicle(vin)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
+                    await self.select_active_vehicle(vin)
                     continue
                 break
             if retry > 1:

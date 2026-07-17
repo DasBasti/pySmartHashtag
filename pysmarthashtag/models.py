@@ -88,6 +88,46 @@ class SmartHumanCarConnectionError(SmartAPIError):
     """Human and vehicle connection does not exist (Response Code 8006)."""
 
 
+class SmartVehicleNotInUseError(SmartAPIError):
+    """Current vehicle is not in use (Response Code 4038).
+
+    Transient: the cloud lost the per-session VIN binding (often because
+    another client/VIN-switch rebound to a different vehicle). Remedy is to
+    re-bind the VIN (``select_active_vehicle``) and retry the request — NOT
+    to refresh or re-login (that wastes a round-trip and does not help).
+    """
+
+
+class SmartVehicleUnboundError(SmartAPIError):
+    """VIN no longer bound to this account/UID (Response Code 8040).
+
+    Terminal for the affected VIN: the vehicle is genuinely unbound (e.g. a
+    shared key was given up, or the car was removed from the account). Not
+    recoverable by token refresh or re-login — the user must re-add the
+    vehicle in the Smart app. Callers should surface this rather than retry.
+    """
+
+
+class SmartMainTokenExpiredError(SmartAPIError):
+    """The main (OAuth) access token has expired (Response Code 1501).
+
+    The cheap API-session refresh cannot recover this; a refresh-token
+    exchange (or, failing that, a full credential re-login) is required.
+    """
+
+
+class SmartNonceError(SmartAPIError):
+    """Request signature nonce was repeated (Response Code 1443).
+
+    Remedy is to retry with a freshly generated nonce/timestamp (the header
+    generator produces new ones per request) — never a token op.
+    """
+
+
+class SmartNoPermissionError(SmartAPIError):
+    """Caller lacks permission for the requested resource (Response Code 8160)."""
+
+
 class SmartQuotaError(SmartAPIError):
     """Quota exceeded on Smart web API."""
 
