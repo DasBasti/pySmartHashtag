@@ -123,6 +123,12 @@ class SmartAccount:
     endpoint_urls: Optional[EndpointUrls] = None
     """Optional. Custom endpoint URLs for international API support."""
 
+    tracked_vins: Optional[list[str]] = None
+    """Optional. If set, only these VIN(s) are fetched and tracked; any other
+    vehicle on the account (e.g. a shared car that appears after switching
+    cars in the phone app) is ignored — no polling, no entities. ``None``
+    tracks every vehicle on the account (previous behaviour)."""
+
     vehicles: dict[str, SmartVehicle] = field(default_factory=dict, init=False)
     """Vehicles associated with the account."""
 
@@ -205,6 +211,10 @@ class SmartAccount:
                 break
 
             for vehicle in vehicles_response.json()["data"]["list"]:
+                vin = vehicle.get("vin")
+                if self.tracked_vins is not None and vin not in self.tracked_vins:
+                    _LOGGER.debug("Ignoring untracked vehicle %s", sanitize_log_data(vin))
+                    continue
                 _LOGGER.debug("Found vehicle %s", sanitize_log_data(vehicle))
                 self.add_vehicle(vehicle, fetched_at)
 
