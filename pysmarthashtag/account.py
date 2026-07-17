@@ -234,40 +234,67 @@ class SmartAccount:
         if len(self.vehicles) == 0 or force_init:
             await self._init_vehicles()
 
+        errors: list[Exception] = []
+        succeeded = 0
         for vin, vehicle in self.vehicles.items():
             _LOGGER.debug("Getting vehicle data")
-            await self.select_active_vehicle(vin)
-            vehicle_info = await self.get_vehicle_information(vin)
-            vehicle_soc = await self.get_vehicle_soc(vin)
-            vehicle_ota_info = await self.get_vehicle_ota_info(vin)
-            # Trip journal is best-effort: the endpoint can return 8153
-            # ("data unavailable") on vehicles where on-vehicle trip
-            # recording is OFF, or transiently when the per-session auth
-            # grant hasn't been accepted yet. Never let an empty journal
-            # fail the whole refresh.
-            journal_response = None
             try:
-                journal_response = await self.get_trip_journal(vin)
-            except Exception:  # noqa: BLE001  # Best-effort: any failure (8153, transport, parse) must not break refresh.
-                _LOGGER.debug(
-                    "Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                await self.select_active_vehicle(vin)
+                vehicle_info = await self.get_vehicle_information(vin)
+                vehicle_soc = await self.get_vehicle_soc(vin)
+                # OTA info is best-effort: the OTA service (ota.srv.smart.com) can
+                # return HTTP 500 for some VINs (e.g. shared cars, or transiently).
+                # It is not core telemetry, so it must never fail the whole refresh
+                # and drop every sensor to `unavailable`.
+                vehicle_ota_info = None
+                try:
+                    vehicle_ota_info = await self.get_vehicle_ota_info(vin)
+                except Exception:  # noqa: BLE001  # Best-effort: OTA failure must not break refresh.
+                    _LOGGER.debug(
+                        "OTA info fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                    )
+                # Trip journal is best-effort: the endpoint can return 8153
+                # ("data unavailable") on vehicles where on-vehicle trip
+                # recording is OFF, or transiently when the per-session auth
+                # grant hasn't been accepted yet. Never let an empty journal
+                # fail the whole refresh.
+                journal_response = None
+                try:
+                    journal_response = await self.get_trip_journal(vin)
+                except Exception:  # noqa: BLE001  # Best-effort: any failure (8153, transport, parse) must not break refresh.
+                    _LOGGER.debug(
+                        "Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                    )
+                # Per-VIN TBox state flags (engine/journal/valet/etc.) — best-effort,
+                # same reasoning as the journal call above.
+                state_response = None
+                try:
+                    state_response = await self.get_vehicle_state(vin)
+                except Exception:  # noqa: BLE001  # Best-effort: state fetch must not break refresh.
+                    _LOGGER.debug(
+                        "Vehicle-state fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                    )
+                vehicle.combine_data(
+                    vehicle_info,
+                    charging_settings=vehicle_soc,
+                    ota_info=vehicle_ota_info,
+                    journal_response=journal_response,
+                    state_response=state_response,
                 )
-            # Per-VIN TBox state flags (engine/journal/valet/etc.) — best-effort,
-            # same reasoning as the journal call above.
-            state_response = None
-            try:
-                state_response = await self.get_vehicle_state(vin)
-            except Exception:  # noqa: BLE001  # Best-effort: state fetch must not break refresh.
-                _LOGGER.debug(
-                    "Vehicle-state fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                succeeded += 1
+            except Exception as exc:  # noqa: BLE001
+                # Per-car isolation: one flaky vehicle (often a shared car with a
+                # failing endpoint) must not drop every sensor of the others.
+                errors.append(exc)
+                _LOGGER.warning(
+                    "Vehicle %s update failed this cycle: %s",
+                    sanitize_log_data(vin),
+                    exc,
                 )
-            vehicle.combine_data(
-                vehicle_info,
-                charging_settings=vehicle_soc,
-                ota_info=vehicle_ota_info,
-                journal_response=journal_response,
-                state_response=state_response,
-            )
+        # Surface a real error only if NO vehicle updated — otherwise the
+        # coordinator would mark a total failure when just one car is flaky.
+        if succeeded == 0 and errors:
+            raise errors[0]
 
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
