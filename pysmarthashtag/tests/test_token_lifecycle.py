@@ -2,13 +2,13 @@
 
 Covers the pieces added on ``feat/token-lifecycle``:
 
-* ``_post_api_session`` — success parsing (incl. ``clientId``) and typed
+* ``_post_api_session``: success parsing (incl. ``clientId``) and typed
   classification of failures (1501 vs generic).
-* ``refresh_api_session`` — layer-1 refresh updates session fields from the
+* ``refresh_api_session``: layer-1 refresh updates session fields from the
   stored OAuth token.
-* ``refresh`` — orchestrates layer 1 → full-login fallback.
-* ``login`` — captures ``api_client_id``.
-* ``SmartClient`` response routing — cloud codes map to typed exceptions and
+* ``refresh``: orchestrates layer 1 to full-login fallback.
+* ``login``: captures ``api_client_id``.
+* ``SmartClient`` response routing: cloud codes map to typed exceptions and
   no longer log in inline.
 """
 

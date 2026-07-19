@@ -542,16 +542,10 @@ class SmartAuthentication(httpx.Auth):
     async def _post_api_session(self, client: "SmartLoginClient", access_token: str) -> dict:
         """Exchange an OAuth access token for a Smart API session (POST).
 
-        This is the final step of the full login flow AND the whole of the
-        cheap "layer 1" session refresh: POST the OAuth ``access_token`` to
-        ``/auth/account/session/secure`` and read the fresh API session tokens
-        (plus ``clientId``, needed for the refresh-token exchange) out of the
-        response ``data``.
-
-        Raises :class:`SmartMainTokenExpiredError` when the cloud reports the
-        OAuth token itself is dead (code 1501) so callers can escalate, and a
-        generic :class:`SmartAPIError` (carrying the cloud ``code``/``message``)
-        for any other missing-session response.
+        Used by the full login flow and by the layer-1 refresh. Raises
+        :class:`SmartMainTokenExpiredError` on code 1501 (the OAuth token itself
+        is dead) so callers can escalate, else :class:`SmartAPIError` carrying
+        the cloud ``code``/``message``.
         """
         data = json.dumps({"accessToken": access_token}).replace(" ", "")
         r_api_access = await client.post(
@@ -584,9 +578,9 @@ class SmartAuthentication(httpx.Auth):
         http_status = r_api_access.status_code
         if code == "1501":
             # Expected, handled condition: the OAuth token expired. refresh()
-            # recovers it (refresh-token exchange / full login) — not an error.
+            # recovers it (refresh-token exchange / full login), not an error.
             _LOGGER.info(
-                "API session: OAuth token expired (code=1501) — recovering via refresh()",
+                "API session: OAuth token expired (code=1501), recovering via refresh()",
             )
             raise SmartMainTokenExpiredError(
                 f"Main (OAuth) token expired (HTTP {http_status}, code=1501): {message}"
@@ -602,16 +596,11 @@ class SmartAuthentication(httpx.Auth):
         )
 
     async def refresh_api_session(self) -> None:
-        """Layer 1: refresh the API session token without a full re-login.
+        """Layer 1: refresh the API session without a full re-login.
 
-        Re-POSTs the stored OAuth ``access_token`` to the session endpoint to
-        obtain a fresh ``api_access_token``/``api_refresh_token``/``clientId``.
-        Far cheaper than the full Gigya flow, and — crucially — does not touch
-        the login gateway that rate-limits, so it can run every time a data
-        request reports the session token expired (1402/8006).
-
-        Raises :class:`SmartMainTokenExpiredError` if the OAuth token itself is
-        dead (caller should escalate to a refresh-token exchange / full login).
+        Re-POSTs the stored OAuth token to the session endpoint. Does not touch
+        the rate-limited login gateway. Raises
+        :class:`SmartMainTokenExpiredError` if that OAuth token is itself dead.
         """
         if not self.access_token:
             raise SmartMainTokenExpiredError("No OAuth access token available to refresh the session")
@@ -630,13 +619,10 @@ class SmartAuthentication(httpx.Auth):
     async def refresh_token_exchange(self) -> None:
         """Layer 2: exchange the API-session refresh token for a fresh OAuth token.
 
-        ``PUT /auth/account/session/secure`` (bare path, no query) with an
-        ``X-CLIENT-ID`` header and a body of
-        ``{"refreshToken": <api_refresh_token>, "proprietaryPlatform": "0"}``.
-        No Authorization header. The response's ``accessToken`` is the new
-        **OAuth** access token — the caller then re-runs layer 1 to mint a
-        fresh API session token from it. Avoids a full Gigya re-login when only
-        the OAuth token (not the session refresh token) has expired.
+        ``PUT`` the session endpoint (no query) with an ``X-CLIENT-ID`` header
+        and a ``{"refreshToken", "proprietaryPlatform"}`` body, no Authorization
+        header. The returned ``accessToken`` is the new OAuth token; the caller
+        then re-runs layer 1 with it.
         """
         if not self.api_refresh_token or not self.api_client_id:
             raise SmartAPIError(
@@ -688,7 +674,7 @@ class SmartAuthentication(httpx.Auth):
     async def refresh(self) -> None:
         """Refresh the session using the cheapest viable path.
 
-        Ladder (cheapest → most expensive):
+        Ladder, cheapest first:
           1. Refresh the API session with the stored OAuth token
              (:meth:`refresh_api_session`).
           2. On code 1501 (OAuth token expired): refresh-token exchange

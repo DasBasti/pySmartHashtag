@@ -93,7 +93,7 @@ class SmartVehicleNotInUseError(SmartAPIError):
 
     Transient: the cloud lost the per-session VIN binding (often because
     another client/VIN-switch rebound to a different vehicle). Remedy is to
-    re-bind the VIN (``select_active_vehicle``) and retry the request — NOT
+    re-bind the VIN (``select_active_vehicle``) and retry the request, NOT
     to refresh or re-login (that wastes a round-trip and does not help).
     """
 
@@ -103,7 +103,7 @@ class SmartVehicleUnboundError(SmartAPIError):
 
     Terminal for the affected VIN: the vehicle is genuinely unbound (e.g. a
     shared key was given up, or the car was removed from the account). Not
-    recoverable by token refresh or re-login — the user must re-add the
+    recoverable by token refresh or re-login: the user must re-add the
     vehicle in the Smart app. Callers should surface this rather than retry.
     """
 
@@ -120,7 +120,7 @@ class SmartNonceError(SmartAPIError):
     """Request signature nonce was repeated (Response Code 1443).
 
     Remedy is to retry with a freshly generated nonce/timestamp (the header
-    generator produces new ones per request) — never a token op.
+    generator produces new ones per request), never a token op.
     """
 
 

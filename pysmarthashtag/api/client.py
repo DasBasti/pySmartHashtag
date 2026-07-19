@@ -113,7 +113,7 @@ class SmartClient(httpx.AsyncClient):
                 return
             # Map cloud error codes to typed exceptions and let the CALLER decide
             # the remedy (refresh / re-bind VIN / surface). We intentionally do
-            # NOT log in or re-bind here — collapsing every code into a full
+            # NOT log in or re-bind here. Collapsing every code into a full
             # re-login is what wedged the integration into `unavailable`.
             if code == "1402":
                 raise SmartTokenRefreshNecessary("Session token expired (code=1402)")

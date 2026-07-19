@@ -125,9 +125,7 @@ class SmartAccount:
 
     tracked_vins: Optional[list[str]] = None
     """Optional. If set, only these VIN(s) are fetched and tracked; any other
-    vehicle on the account (e.g. a shared car that appears after switching
-    cars in the phone app) is ignored — no polling, no entities. ``None``
-    tracks every vehicle on the account (previous behaviour)."""
+    vehicle on the account is ignored. ``None`` tracks all (previous behaviour)."""
 
     vehicles: dict[str, SmartVehicle] = field(default_factory=dict, init=False)
     """Vehicles associated with the account."""
@@ -225,7 +223,7 @@ class SmartAccount:
     def _vin_model_code(self, vin) -> Optional[str]:
         """Return the VIN's ``matCode`` for the ``X-VEHICLE-*`` headers.
 
-        ``None`` if the vehicle (or its model code) isn't known yet — the
+        ``None`` if the vehicle (or its model code) isn't known yet, so the
         header generator then simply omits the per-request VIN headers.
         """
         vehicle = self.vehicles.get(vin)
@@ -252,10 +250,7 @@ class SmartAccount:
                 await self.select_active_vehicle(vin)
                 vehicle_info = await self.get_vehicle_information(vin)
                 vehicle_soc = await self.get_vehicle_soc(vin)
-                # OTA info is best-effort: the OTA service (ota.srv.smart.com) can
-                # return HTTP 500 for some VINs (e.g. shared cars, or transiently).
-                # It is not core telemetry, so it must never fail the whole refresh
-                # and drop every sensor to `unavailable`.
+                # Best-effort: the OTA service can return HTTP 500.
                 vehicle_ota_info = None
                 try:
                     vehicle_ota_info = await self.get_vehicle_ota_info(vin)
@@ -275,7 +270,7 @@ class SmartAccount:
                     _LOGGER.debug(
                         "Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True
                     )
-                # Per-VIN TBox state flags (engine/journal/valet/etc.) — best-effort,
+                # Per-VIN TBox state flags (engine/journal/valet/etc.), best-effort,
                 # same reasoning as the journal call above.
                 state_response = None
                 try:
@@ -301,7 +296,7 @@ class SmartAccount:
                     sanitize_log_data(vin),
                     exc,
                 )
-        # Surface a real error only if NO vehicle updated — otherwise the
+        # Surface a real error only if NO vehicle updated, otherwise the
         # coordinator would mark a total failure when just one car is flaky.
         if succeeded == 0 and errors:
             raise errors[0]
@@ -339,7 +334,7 @@ class SmartAccount:
                     await self.config.authentication.refresh()
                     continue
                 except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
-                    # This method IS the re-bind — just retry the select request
+                    # This method IS the re-bind, so just retry the select request
                     # (the loop re-attempts it). Calling select_active_vehicle()
                     # here would recurse and could hit RecursionError on
                     # persistent 8006/4038.
@@ -389,7 +384,8 @@ class SmartAccount:
                     await self.select_active_vehicle(vin)
                     continue
                 break
-            if retry > 1:
+            else:
+                # Only when every attempt failed; the loop breaks on success.
                 raise SmartAuthError("Could not get vehicle information")
         return data
 
@@ -477,7 +473,8 @@ class SmartAccount:
                     await self.select_active_vehicle(vin)
                     continue
                 break
-            if retry > 1:
+            else:
+                # Only when every attempt failed; the loop breaks on success.
                 raise SmartAuthError("Could not get vehicle information")
         return data
 
@@ -890,6 +887,7 @@ class SmartAccount:
                     await self.select_active_vehicle(vin)
                     continue
                 break
-            if retry > 1:
+            else:
+                # Only when every attempt failed; the loop breaks on success.
                 raise SmartAuthError("Could not get vehicle information")
         return data

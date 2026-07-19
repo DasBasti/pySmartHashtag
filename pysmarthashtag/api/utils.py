@@ -51,12 +51,9 @@ def generate_default_header(
 ) -> dict[str, str]:
     """Generate a header for HTTP requests to the server.
 
-    When ``vin`` (and ideally ``model_code``, the vehicle ``matCode``) are
-    provided, per-request VIN-binding headers (``X-Vehicle-IDENTIFIER`` /
-    ``X-VEHICLE-SERIES`` / ``X-VEHICLE-MODEL``) are added. These carry the VIN
-    context per request so the server does not rely on the account-wide
-    "active vehicle" session binding, which another client (the phone app) can
-    steal by switching cars.
+    With ``vin`` and ``model_code`` (the vehicle ``matCode``), adds the
+    per-request VIN headers so the server does not rely on the account-wide
+    "active vehicle" binding, which another client can steal by switching cars.
     """
     timestamp = create_correct_timestamp()
     nonce = secrets.token_hex(8)
