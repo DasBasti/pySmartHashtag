@@ -16,7 +16,6 @@ from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls
 from pysmarthashtag.models import (
     JournalTruncationError,
-    SmartAuthError,
     SmartHumanCarConnectionError,
     SmartTokenRefreshNecessary,
     SmartVehicleNotInUseError,
@@ -352,6 +351,7 @@ class SmartAccount:
         }
         data = {}
         async with SmartClient(self.config) as client:
+            last_error = None
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
@@ -375,18 +375,21 @@ class SmartAccount:
                     _LOGGER.debug("Got response %d", r_car_info.status_code)
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
-                except SmartTokenRefreshNecessary:
+                except SmartTokenRefreshNecessary as exc:
+                    last_error = exc
                     _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
                     await self.config.authentication.refresh()
                     continue
-                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError) as exc:
+                    last_error = exc
                     _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 break
             else:
-                # Only when every attempt failed; the loop breaks on success.
-                raise SmartAuthError("Could not get vehicle information")
+                # Only when every attempt failed. Surface the real cause so a
+                # transient failure stays transient instead of a reauth prompt.
+                raise last_error
         return data
 
     async def get_vehicle_state(self, vin) -> dict:
@@ -441,6 +444,7 @@ class SmartAccount:
         }
         data = {}
         async with SmartClient(self.config) as client:
+            last_error = None
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
@@ -464,18 +468,21 @@ class SmartAccount:
                     _LOGGER.debug("Got response %d", r_car_info.status_code)
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
-                except SmartTokenRefreshNecessary:
+                except SmartTokenRefreshNecessary as exc:
+                    last_error = exc
                     _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
                     await self.config.authentication.refresh()
                     continue
-                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError) as exc:
+                    last_error = exc
                     _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 break
             else:
-                # Only when every attempt failed; the loop breaks on success.
-                raise SmartAuthError("Could not get vehicle information")
+                # Only when every attempt failed. Surface the real cause so a
+                # transient failure stays transient instead of a reauth prompt.
+                raise last_error
         return data
 
     async def grant_journal_authorization(self, vin, force: bool = False) -> bool:
@@ -855,6 +862,7 @@ class SmartAccount:
         _LOGGER.debug("Getting OTA information for vehicle")
         data = {}
         async with SmartClient(self.config) as client:
+            last_error = None
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
@@ -878,16 +886,19 @@ class SmartAccount:
                         "target_version": json_data.get("targetVersion"),
                         "current_version": json_data.get("currentVersion"),
                     }
-                except SmartTokenRefreshNecessary:
+                except SmartTokenRefreshNecessary as exc:
+                    last_error = exc
                     _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
                     await self.config.authentication.refresh()
                     continue
-                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError) as exc:
+                    last_error = exc
                     _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 break
             else:
-                # Only when every attempt failed; the loop breaks on success.
-                raise SmartAuthError("Could not get vehicle information")
+                # Only when every attempt failed. Surface the real cause so a
+                # transient failure stays transient instead of a reauth prompt.
+                raise last_error
         return data

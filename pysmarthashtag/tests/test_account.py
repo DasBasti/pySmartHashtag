@@ -5,7 +5,7 @@ import respx
 from httpx import Request, Response
 
 from pysmarthashtag.const import API_BASE_URL, API_SELECT_CAR_URL
-from pysmarthashtag.models import ValueWithUnit
+from pysmarthashtag.models import SmartTokenRefreshNecessary, ValueWithUnit
 from pysmarthashtag.tests import RESPONSE_DIR, load_response
 from pysmarthashtag.tests.conftest import prepare_account_with_vehicles
 
@@ -105,3 +105,21 @@ async def test_get_vehicle_chargin_dc(smart_fixture: respx.Router):
     assert vehicles["TestVIN0000000002"].battery.charging_current == ValueWithUnit(value=102.6, unit="A")
     assert vehicles["TestVIN0000000002"].battery.charging_voltage == ValueWithUnit(value=429, unit="V")
     assert vehicles["TestVIN0000000002"].battery.charging_power == ValueWithUnit(value=44015, unit="W")
+
+
+@pytest.mark.asyncio
+async def test_exhausted_retries_surface_real_cause(smart_fixture: respx.Router):
+    """When every retry fails, the underlying cause is raised, not a generic auth error.
+
+    A transient cloud failure should stay transient so the caller can retry,
+    instead of being reported as an authentication problem.
+    """
+    account = await prepare_account_with_vehicles()
+
+    # Every attempt now fails with 1402, so the retry loop is exhausted.
+    smart_fixture.get(
+        API_BASE_URL + "/remote-control/vehicle/status/TestVIN0000000001?latest=True&target=basic%2Cmore&userId=112233"
+    ).mock(return_value=Response(200, json=load_response(RESPONSE_DIR / "token_expired.json")))
+
+    with pytest.raises(SmartTokenRefreshNecessary):
+        await account.get_vehicle_information("TestVIN0000000001")
