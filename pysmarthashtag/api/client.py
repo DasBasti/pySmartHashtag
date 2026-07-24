@@ -123,6 +123,14 @@ class SmartClient(httpx.AsyncClient):
                 )
             if code == "1501":
                 raise SmartMainTokenExpiredError(f"Main (OAuth) token expired (code=1501): {message}")
+            if code == "8500":
+                # Seen once, with an empty message, and it behaved exactly like a
+                # main token expiry: requests kept failing until the token was
+                # replaced. Treated as 1501 until a counter-example shows up.
+                # Logged at WARNING so further occurrences are visible without
+                # turning on debug.
+                _LOGGER.warning("Cloud returned 8500 (treated as main token expiry). Message: %r", message)
+                raise SmartMainTokenExpiredError(f"Main (OAuth) token expired (code=8500): {message}")
             if code == "4038":
                 raise SmartVehicleNotInUseError(f"Vehicle not in use (code=4038): {message}")
             if code == "8040":

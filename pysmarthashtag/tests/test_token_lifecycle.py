@@ -363,6 +363,7 @@ class TestClientRouting:
             ("1402", SmartTokenRefreshNecessary),
             ("8006", SmartHumanCarConnectionError),
             ("1501", SmartMainTokenExpiredError),
+            ("8500", SmartMainTokenExpiredError),
             ("4038", SmartVehicleNotInUseError),
             ("8040", SmartVehicleUnboundError),
             ("1443", SmartNonceError),
@@ -374,6 +375,17 @@ class TestClientRouting:
         try:
             with pytest.raises(exc):
                 await _run_response_hooks(client, {"code": code, "message": "m"})
+        finally:
+            await client.aclose()
+
+    @pytest.mark.asyncio
+    async def test_8500_without_message_warns(self, caplog):
+        """8500 was observed with no message at all, and must still be typed and logged."""
+        client = self._client()
+        try:
+            with pytest.raises(SmartMainTokenExpiredError):
+                await _run_response_hooks(client, {"code": "8500"})
+            assert "8500" in caplog.text
         finally:
             await client.aclose()
 
