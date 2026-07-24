@@ -140,6 +140,29 @@ class TestPostApiSession:
         assert "9999" in str(excinfo.value)
         assert not isinstance(excinfo.value, SmartMainTokenExpiredError)
 
+    @pytest.mark.asyncio
+    async def test_non_json_response_raises_api_error(self):
+        """A maintenance/WAF page (HTML, not JSON) surfaces as SmartAPIError.
+
+        Without the guard the raw ValueError escapes the SmartAPIError
+        contract refresh()/_login() rely on, defeating the full-login
+        fallback and rate-limit backoff.
+        """
+
+        class _HtmlResponse:
+            status_code = 503
+            text = "<html><body>Service under maintenance</body></html>"
+
+            def json(self):
+                raise ValueError("no json")
+
+        auth = _make_auth()
+        client = _FakeClient(_HtmlResponse())
+        with pytest.raises(SmartAPIError) as excinfo:
+            await auth._post_api_session(client, "oauth-token")
+        assert "503" in str(excinfo.value)
+        assert not isinstance(excinfo.value, SmartMainTokenExpiredError)
+
 
 # ---- refresh_api_session / refresh ----------------------------------------
 

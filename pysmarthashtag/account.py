@@ -265,7 +265,8 @@ class SmartAccount:
                 journal_response = None
                 try:
                     journal_response = await self.get_trip_journal(vin)
-                except Exception:  # noqa: BLE001  # Best-effort: any failure (8153, transport, parse) must not break refresh.
+                except Exception:  # noqa: BLE001
+                    # Best-effort: any failure (8153, transport, parse) must not break refresh.
                     _LOGGER.debug(
                         "Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True
                     )
@@ -293,7 +294,7 @@ class SmartAccount:
                 _LOGGER.warning(
                     "Vehicle %s update failed this cycle: %s",
                     sanitize_log_data(vin),
-                    exc,
+                    sanitize_log_data(str(exc)),
                 )
         # Surface a real error only if NO vehicle updated, otherwise the
         # coordinator would mark a total failure when just one car is flaky.

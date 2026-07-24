@@ -563,7 +563,13 @@ class SmartAuthentication(httpx.Auth):
             },
             content=data.encode("utf-8"),
         )
-        api_result = r_api_access.json()
+        try:
+            api_result = r_api_access.json()
+        except ValueError as err:
+            raise SmartAPIError(
+                f"API session exchange returned non-JSON (HTTP {r_api_access.status_code}, "
+                f"body={sanitize_log_data(r_api_access.text[:200])!r})"
+            ) from err
         _LOGGER.debug("API session result: %s", sanitize_log_data(api_result))
         data_obj = api_result.get("data") if isinstance(api_result, dict) else None
         if isinstance(data_obj, dict) and data_obj.get("accessToken"):
@@ -653,7 +659,13 @@ class SmartAuthentication(httpx.Auth):
                 headers=headers,
                 content=body.encode("utf-8"),
             )
-        api_result = r.json()
+        try:
+            api_result = r.json()
+        except ValueError as err:
+            raise SmartAPIError(
+                f"Refresh-token exchange returned non-JSON (HTTP {r.status_code}, "
+                f"body={sanitize_log_data(r.text[:200])!r})"
+            ) from err
         _LOGGER.debug("Refresh-token exchange result: %s", sanitize_log_data(api_result))
         data_obj = api_result.get("data") if isinstance(api_result, dict) else None
         if isinstance(data_obj, dict) and data_obj.get("accessToken"):
