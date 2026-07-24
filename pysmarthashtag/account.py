@@ -53,6 +53,23 @@ _BENIGN_EMPTY_CODE = "8153"
 _LOGGER = logging.getLogger(__name__)
 
 
+def _cloud_code(exc: httpx.HTTPStatusError) -> Optional[str]:
+    """Return the cloud response code carried by ``exc``, if it has one.
+
+    ``None`` means the failure came from the transport or the HTTP status
+    rather than a cloud error body, so no token remedy applies to it.
+    """
+    response = exc.response
+    if response is None:
+        return None
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    code = body.get("code")
+    return None if code is None else str(code)
+
+
 def _is_benign_empty(exc: httpx.HTTPStatusError) -> bool:
     """Return True iff ``exc`` carries the cloud's 8153 "data unavailable" code.
 
@@ -61,14 +78,7 @@ def _is_benign_empty(exc: httpx.HTTPStatusError) -> bool:
     end-of-data signal for journal endpoints — callers normalise it to
     an empty result rather than propagating it as an error.
     """
-    response = exc.response
-    if response is None:
-        return False
-    try:
-        body = response.json()
-    except ValueError:
-        return False
-    return str(body.get("code")) == _BENIGN_EMPTY_CODE
+    return _cloud_code(exc) == _BENIGN_EMPTY_CODE
 
 
 def _unwrap_journal_page(body: dict) -> tuple[list, Optional[int]]:
@@ -353,6 +363,7 @@ class SmartAccount:
         data = {}
         async with SmartClient(self.config) as client:
             last_error = None
+            refreshed_unmapped = False
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
@@ -385,6 +396,16 @@ class SmartAccount:
                     last_error = exc
                     _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
+                    continue
+                except httpx.HTTPStatusError as exc:
+                    # Unmapped code: one refresh in case the session is stale, then surface.
+                    code = _cloud_code(exc)
+                    if code is None or refreshed_unmapped:
+                        raise
+                    refreshed_unmapped = True
+                    last_error = exc
+                    _LOGGER.warning("Unmapped cloud code %s; refreshing session once", code)
+                    await self.config.authentication.refresh()
                     continue
                 break
             else:
@@ -446,6 +467,7 @@ class SmartAccount:
         data = {}
         async with SmartClient(self.config) as client:
             last_error = None
+            refreshed_unmapped = False
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
@@ -478,6 +500,16 @@ class SmartAccount:
                     last_error = exc
                     _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
+                    continue
+                except httpx.HTTPStatusError as exc:
+                    # Unmapped code: one refresh in case the session is stale, then surface.
+                    code = _cloud_code(exc)
+                    if code is None or refreshed_unmapped:
+                        raise
+                    refreshed_unmapped = True
+                    last_error = exc
+                    _LOGGER.warning("Unmapped cloud code %s; refreshing session once", code)
+                    await self.config.authentication.refresh()
                     continue
                 break
             else:
@@ -864,6 +896,7 @@ class SmartAccount:
         data = {}
         async with SmartClient(self.config) as client:
             last_error = None
+            refreshed_unmapped = False
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
@@ -896,6 +929,16 @@ class SmartAccount:
                     last_error = exc
                     _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
+                    continue
+                except httpx.HTTPStatusError as exc:
+                    # Unmapped code: one refresh in case the session is stale, then surface.
+                    code = _cloud_code(exc)
+                    if code is None or refreshed_unmapped:
+                        raise
+                    refreshed_unmapped = True
+                    last_error = exc
+                    _LOGGER.warning("Unmapped cloud code %s; refreshing session once", code)
+                    await self.config.authentication.refresh()
                     continue
                 break
             else:

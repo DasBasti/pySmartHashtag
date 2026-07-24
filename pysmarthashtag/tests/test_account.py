@@ -1,5 +1,6 @@
 import logging
 
+import httpx
 import pytest
 import respx
 from httpx import Request, Response
@@ -55,6 +56,40 @@ async def test_get_vehicles_token_expired(smart_fixture: respx.Router):
     await account.get_vehicle_information("TestVIN0000000001")
 
     assert account.vehicles["TestVIN0000000001"].engine_state == "engine_running"
+
+
+@pytest.mark.asyncio
+async def test_unmapped_code_refreshes_once_then_recovers(smart_fixture: respx.Router):
+    """A cloud code with no typed remedy gets one refresh, then the retry succeeds."""
+
+    def switch_response(request: Request, route: respx.Route) -> Response:
+        if route.call_count == 1:
+            return Response(200, json={"code": "9999", "message": "something new"})
+        name = "vehicle_info.json" if route.call_count == 0 else "vehicle_info2.json"
+        return Response(200, json=load_response(RESPONSE_DIR / name))
+
+    smart_fixture.get(
+        API_BASE_URL + "/remote-control/vehicle/status/TestVIN0000000001?latest=True&target=basic%2Cmore&userId=112233"
+    ).mock(side_effect=switch_response)
+
+    account = await prepare_account_with_vehicles()
+    assert account.vehicles["TestVIN0000000001"].engine_state == "engine_off"
+
+    await account.get_vehicle_information("TestVIN0000000001")
+    assert account.vehicles["TestVIN0000000001"].engine_state == "engine_running"
+
+
+@pytest.mark.asyncio
+async def test_unmapped_code_surfaces_if_refresh_does_not_help(smart_fixture: respx.Router):
+    """The refresh is tried once only; a persistent unmapped code still surfaces."""
+    account = await prepare_account_with_vehicles()
+
+    smart_fixture.get(
+        API_BASE_URL + "/remote-control/vehicle/status/TestVIN0000000001?latest=True&target=basic%2Cmore&userId=112233"
+    ).mock(return_value=Response(200, json={"code": "9999", "message": "still broken"}))
+
+    with pytest.raises(httpx.HTTPStatusError):
+        await account.get_vehicle_information("TestVIN0000000001")
 
 
 @pytest.mark.asyncio
