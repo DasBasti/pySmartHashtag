@@ -25,7 +25,7 @@ from pysmarthashtag.const import (
     WEBVIEW_USER_AGENT,
     EndpointUrls,
 )
-from pysmarthashtag.models import SmartAPIError
+from pysmarthashtag.models import SmartAPIError, SmartMainTokenExpiredError
 
 EXPIRES_AT_OFFSET = datetime.timedelta(seconds=HTTPX_TIMEOUT * 2)
 
@@ -80,6 +80,7 @@ class SmartAuthentication(httpx.Auth):
         self.api_access_token: Optional[str] = None
         self.api_refresh_token: Optional[str] = None
         self.api_user_id: Optional[str] = None
+        self.api_client_id: Optional[str] = None
         self.ssl_context: Optional[ssl.SSLContext] = ssl_context
         self.endpoint_urls: EndpointUrls = endpoint_urls if endpoint_urls is not None else EndpointUrls()
         # PATCH: shared adaptive-backoff state (per username, module-scoped).
@@ -171,13 +172,15 @@ class SmartAuthentication(httpx.Auth):
             raise
 
     async def login(self) -> None:
-        """Login to the Smart API."""
+        """Perform a full credential login (the layer-3 fallback).
+
+        Runs the complete Gigya/OIDC flow via ``_login`` (backoff-wrapped) and
+        stores the resulting OAuth + API session tokens. For a lightweight
+        refresh that avoids the rate-limited login gateway, prefer
+        :meth:`refresh`.
+        """
         _LOGGER.debug("Logging in to Smart API")
-        token_data = {}
-        if self.refresh_token:
-            token_data = await self._refresh_access_token()
-        if not token_data:
-            token_data = await self._login()
+        token_data = await self._login()
         try:
             token_data["expires_at"] = token_data["expires_at"] - EXPIRES_AT_OFFSET
 
@@ -186,22 +189,12 @@ class SmartAuthentication(httpx.Auth):
             self.api_access_token = token_data["api_access_token"]
             self.api_refresh_token = token_data["api_refresh_token"]
             self.api_user_id = token_data["api_user_id"]
+            self.api_client_id = token_data.get("api_client_id")
             self.expires_at = token_data["expires_at"]
             _LOGGER.debug("Login successful")
             return True
-        except KeyError:
+        except (KeyError, TypeError):
             raise SmartAPIError("Could not login to Smart API")
-
-    async def _refresh_access_token(self):
-        """Refresh the access token."""
-        try:
-            ssl_ctx = await self.get_ssl_context()
-            async with SmartLoginClient(ssl_context=ssl_ctx) as _:
-                _LOGGER.debug("Refreshing access token via relogin because refresh token is not implemented")
-                await self._login()
-        except SmartAPIError:
-            _LOGGER.debug("Refreshing access token failed. Logging in again")
-            return {}
 
     async def _login(self) -> dict:
         """Login to Smart web services with adaptive rate-limit backoff.
@@ -273,6 +266,12 @@ class SmartAuthentication(httpx.Auth):
             or "http 403" in text
             or "http 429" in text
             or "forbidden" in text
+            # Throttle wording the cloud may return as an HTTP-200 error body
+            # (surfaced into the exception text by the session-exchange handler).
+            # Kept narrow so genuine one-off failures are unaffected.
+            or "too many" in text
+            or "throttl" in text
+            or "try again later" in text
         )
 
     async def _do_login(self) -> dict:
@@ -528,41 +527,191 @@ class SmartAuthentication(httpx.Auth):
                 )
                 raise SmartAPIError("Could not get access token from auth page")
 
-            data = json.dumps({"accessToken": access_token}).replace(" ", "")
-            r_api_access = await client.post(
-                # we do not know what type of car we have in our list so we fall back to the old API URL
-                self.endpoint_urls.get_api_base_url() + API_SESION_URL + "?identity_type=smart",
-                headers={
-                    **utils.generate_default_header(
-                        self.device_id,
-                        None,
-                        params={
-                            "identity_type": "smart",
-                        },
-                        method="POST",
-                        url=API_SESION_URL,
-                        body=data,
-                    )
-                },
-                content=data.encode("utf-8"),
-            )
-            api_result = r_api_access.json()
-            _LOGGER.debug("API access result: %s", sanitize_log_data(api_result))
-            try:
-                api_access_token = api_result["data"]["accessToken"]
-                api_refresh_token = api_result["data"]["refreshToken"]
-                api_user_id = api_result["data"]["userId"]
-            except KeyError:
-                raise SmartAPIError("Could not get API access token from API")
+            api_tokens = await self._post_api_session(client, access_token)
 
         return {
             "access_token": access_token,
             "refresh_token": refresh_token,
-            "api_access_token": api_access_token,
-            "api_refresh_token": api_refresh_token,
-            "api_user_id": api_user_id,
+            "api_access_token": api_tokens["api_access_token"],
+            "api_refresh_token": api_tokens["api_refresh_token"],
+            "api_user_id": api_tokens["api_user_id"],
+            "api_client_id": api_tokens["api_client_id"],
             "expires_at": expires_at,
         }
+
+    async def _post_api_session(self, client: "SmartLoginClient", access_token: str) -> dict:
+        """Exchange an OAuth access token for a Smart API session (POST).
+
+        Used by the full login flow and by the layer-1 refresh. Raises
+        :class:`SmartMainTokenExpiredError` on code 1501 (the OAuth token itself
+        is dead) so callers can escalate, else :class:`SmartAPIError` carrying
+        the cloud ``code``/``message``.
+        """
+        data = json.dumps({"accessToken": access_token}).replace(" ", "")
+        r_api_access = await client.post(
+            # we do not know what type of car we have in our list so we fall back to the old API URL
+            self.endpoint_urls.get_api_base_url() + API_SESION_URL + "?identity_type=smart",
+            headers={
+                **utils.generate_default_header(
+                    self.device_id,
+                    None,
+                    params={"identity_type": "smart"},
+                    method="POST",
+                    url=API_SESION_URL,
+                    body=data,
+                )
+            },
+            content=data.encode("utf-8"),
+        )
+        try:
+            api_result = r_api_access.json()
+        except ValueError as err:
+            raise SmartAPIError(
+                f"API session exchange returned non-JSON (HTTP {r_api_access.status_code}, "
+                f"body={sanitize_log_data(r_api_access.text[:200])!r})"
+            ) from err
+        _LOGGER.debug("API session result: %s", sanitize_log_data(api_result))
+        data_obj = api_result.get("data") if isinstance(api_result, dict) else None
+        if isinstance(data_obj, dict) and data_obj.get("accessToken"):
+            return {
+                "api_access_token": data_obj["accessToken"],
+                "api_refresh_token": data_obj.get("refreshToken"),
+                "api_user_id": data_obj.get("userId"),
+                "api_client_id": data_obj.get("clientId"),
+            }
+        code = str(api_result.get("code")) if isinstance(api_result, dict) else None
+        message = api_result.get("message", "") if isinstance(api_result, dict) else ""
+        http_status = r_api_access.status_code
+        if code == "1501":
+            # Expected, handled condition: the OAuth token expired. refresh()
+            # recovers it (refresh-token exchange / full login), not an error.
+            _LOGGER.info(
+                "API session: OAuth token expired (code=1501), recovering via refresh()",
+            )
+            raise SmartMainTokenExpiredError(
+                f"Main (OAuth) token expired (HTTP {http_status}, code=1501): {message}"
+            )
+        _LOGGER.error(
+            "API session exchange failed (HTTP %s, code=%s): %s",
+            http_status,
+            code,
+            sanitize_log_data(message),
+        )
+        raise SmartAPIError(
+            f"Could not get API access token from API (HTTP {http_status}, code={code}): {message}"
+        )
+
+    async def refresh_api_session(self) -> None:
+        """Layer 1: refresh the API session without a full re-login.
+
+        Re-POSTs the stored OAuth token to the session endpoint. Does not touch
+        the rate-limited login gateway. Raises
+        :class:`SmartMainTokenExpiredError` if that OAuth token is itself dead.
+        """
+        if not self.access_token:
+            raise SmartMainTokenExpiredError("No OAuth access token available to refresh the session")
+        ssl_ctx = await self.get_ssl_context()
+        async with SmartLoginClient(ssl_context=ssl_ctx) as client:
+            api_tokens = await self._post_api_session(client, self.access_token)
+        self.api_access_token = api_tokens["api_access_token"]
+        if api_tokens["api_refresh_token"]:
+            self.api_refresh_token = api_tokens["api_refresh_token"]
+        if api_tokens["api_user_id"]:
+            self.api_user_id = api_tokens["api_user_id"]
+        if api_tokens["api_client_id"]:
+            self.api_client_id = api_tokens["api_client_id"]
+        _LOGGER.info("Smart API session refreshed (layer 1, no re-login)")
+
+    async def refresh_token_exchange(self) -> None:
+        """Layer 2: exchange the API-session refresh token for a fresh OAuth token.
+
+        ``PUT`` the session endpoint (no query) with an ``X-CLIENT-ID`` header
+        and a ``{"refreshToken", "proprietaryPlatform"}`` body, no Authorization
+        header. The returned ``accessToken`` is the new OAuth token; the caller
+        then re-runs layer 1 with it.
+        """
+        if not self.api_refresh_token or not self.api_client_id:
+            raise SmartAPIError(
+                "Cannot perform refresh-token exchange without api_refresh_token and api_client_id"
+            )
+        body = json.dumps({"refreshToken": self.api_refresh_token, "proprietaryPlatform": "0"}).replace(" ", "")
+        headers = utils.generate_default_header(
+            self.device_id,
+            None,
+            params={},
+            method="PUT",
+            url=API_SESION_URL,
+            body=body,
+        )
+        headers["X-CLIENT-ID"] = self.api_client_id
+        # Diagnostic: capture exactly what we send (sanitized) so a rejection
+        # (e.g. code 1400 "Illegal parameter") can be compared to the app.
+        _LOGGER.debug(
+            "Refresh-token exchange request: PUT %s | header_keys=%s | body=%s",
+            API_SESION_URL,
+            sorted(headers.keys()),
+            sanitize_log_data({"refreshToken": self.api_refresh_token, "proprietaryPlatform": "0"}),
+        )
+        ssl_ctx = await self.get_ssl_context()
+        async with SmartLoginClient(ssl_context=ssl_ctx) as client:
+            r = await client.put(
+                self.endpoint_urls.get_api_base_url() + API_SESION_URL,
+                headers=headers,
+                content=body.encode("utf-8"),
+            )
+        try:
+            api_result = r.json()
+        except ValueError as err:
+            raise SmartAPIError(
+                f"Refresh-token exchange returned non-JSON (HTTP {r.status_code}, "
+                f"body={sanitize_log_data(r.text[:200])!r})"
+            ) from err
+        _LOGGER.debug("Refresh-token exchange result: %s", sanitize_log_data(api_result))
+        data_obj = api_result.get("data") if isinstance(api_result, dict) else None
+        if isinstance(data_obj, dict) and data_obj.get("accessToken"):
+            # This accessToken is the new OAuth token (feeds layer 1's body).
+            self.access_token = data_obj["accessToken"]
+            if data_obj.get("refreshToken"):
+                self.api_refresh_token = data_obj["refreshToken"]
+            if data_obj.get("clientId"):
+                self.api_client_id = data_obj["clientId"]
+            _LOGGER.info("Smart API refresh-token exchange succeeded (layer 2)")
+            return
+        code = str(api_result.get("code")) if isinstance(api_result, dict) else None
+        message = api_result.get("message", "") if isinstance(api_result, dict) else ""
+        raise SmartAPIError(
+            f"Refresh-token exchange failed (HTTP {r.status_code}, code={code}): {message}"
+        )
+
+    async def refresh(self) -> None:
+        """Refresh the session using the cheapest viable path.
+
+        Ladder, cheapest first:
+          1. Refresh the API session with the stored OAuth token
+             (:meth:`refresh_api_session`).
+          2. On code 1501 (OAuth token expired): refresh-token exchange
+             (:meth:`refresh_token_exchange`) to recover the OAuth token, then
+             re-run layer 1 to mint a fresh session token from it.
+          3. Full credential re-login (:meth:`login`), backoff-wrapped.
+        """
+        try:
+            await self.refresh_api_session()
+            return
+        except SmartMainTokenExpiredError as exc:
+            _LOGGER.info("Layer-1: OAuth token expired (%s); attempting refresh-token exchange", exc)
+        except SmartAPIError as exc:
+            _LOGGER.info("Layer-1 refresh failed (%s); falling back to full login", exc)
+            await self.login()
+            return
+        # Reached only when layer 1 reported 1501: recover the OAuth token via
+        # the refresh-token exchange, then re-run layer 1 to mint a session token.
+        try:
+            await self.refresh_token_exchange()
+            await self.refresh_api_session()
+            return
+        except SmartAPIError as exc:
+            _LOGGER.info("Refresh-token exchange path failed (%s); falling back to full login", exc)
+        await self.login()
 
 
 class SmartLoginClient(httpx.AsyncClient):

@@ -15,7 +15,12 @@ from pysmarthashtag.const import (
 from pysmarthashtag.models import (
     AnonymizedResponse,
     SmartHumanCarConnectionError,
+    SmartMainTokenExpiredError,
+    SmartNoPermissionError,
+    SmartNonceError,
     SmartTokenRefreshNecessary,
+    SmartVehicleNotInUseError,
+    SmartVehicleUnboundError,
 )
 
 _LOGGER = logging.getLogger(__name__)
@@ -100,21 +105,45 @@ class SmartClient(httpx.AsyncClient):
             Will read out response JSON for code and message
             """
             response_data = response.json()
-            if "message" in response_data:
-                self.last_message = response_data["message"]
-            if "code" in response_data and response_data["code"] == "1402":
-                await self.config.authentication.login()
-                raise SmartTokenRefreshNecessary("Token expired, refresh token, do request again.")
-            if "code" in response_data and response_data["code"] == "8006":
+            code = str(response_data["code"]) if "code" in response_data else None
+            message = response_data.get("message", "")
+            if message:
+                self.last_message = message
+            if code is None or code in ("1000", "200", "0"):
+                return
+            # Map cloud error codes to typed exceptions and let the CALLER decide
+            # the remedy (refresh / re-bind VIN / surface). We intentionally do
+            # NOT log in or re-bind here. Collapsing every code into a full
+            # re-login is what wedged the integration into `unavailable`.
+            if code == "1402":
+                raise SmartTokenRefreshNecessary("Session token expired (code=1402)")
+            if code == "8006":
                 raise SmartHumanCarConnectionError(
-                    "Human and vehicle relationship does not exist, selct car and do request again."
+                    "Human and vehicle relationship does not exist, select car and do request again."
                 )
-            elif "code" in response_data and response_data["code"] != "1000" and "message" in response_data:
-                raise httpx.HTTPStatusError(
-                    response=response,
-                    request=response.request,
-                    message=f"{response_data['code']}: {response_data['message']}",
-                )
+            if code == "1501":
+                raise SmartMainTokenExpiredError(f"Main (OAuth) token expired (code=1501): {message}")
+            if code == "8500":
+                # Seen once, with an empty message, and it behaved exactly like a
+                # main token expiry: requests kept failing until the token was
+                # replaced. Treated as 1501 until a counter-example shows up.
+                # Logged at WARNING so further occurrences are visible without
+                # turning on debug.
+                _LOGGER.warning("Cloud returned 8500 (treated as main token expiry). Message: %r", message)
+                raise SmartMainTokenExpiredError(f"Main (OAuth) token expired (code=8500): {message}")
+            if code == "4038":
+                raise SmartVehicleNotInUseError(f"Vehicle not in use (code=4038): {message}")
+            if code == "8040":
+                raise SmartVehicleUnboundError(f"VIN not bound to account (code=8040): {message}")
+            if code == "1443":
+                raise SmartNonceError(f"Request nonce repeated (code=1443): {message}")
+            if code == "8160":
+                raise SmartNoPermissionError(f"No permission (code=8160): {message}")
+            raise httpx.HTTPStatusError(
+                response=response,
+                request=response.request,
+                message=f"{code}: {message}",
+            )
 
         kwargs["event_hooks"]["response"].append(raise_for_status_event_handler)
 

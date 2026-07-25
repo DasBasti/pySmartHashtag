@@ -4,8 +4,14 @@ import hmac
 import logging
 import secrets
 import time
+from typing import Optional
+from urllib.parse import quote
 
 _LOGGER = logging.getLogger(__name__)
+
+# Endpoints that must NOT carry the per-request X-Vehicle-* headers (the VIN is
+# irrelevant there / already travels in the request body).
+_VIN_HEADER_BLACKLIST = ("/user/session/update", "/geelyTCAccess/tcservices/capability/")
 
 
 def join_url_params(args: dict) -> str:
@@ -35,9 +41,21 @@ x-api-signature-version:1.0
 
 
 def generate_default_header(
-    device_id: str, access_token: str, params: dict, method: str, url: str, body=None
+    device_id: str,
+    access_token: str,
+    params: dict,
+    method: str,
+    url: str,
+    body=None,
+    vin: Optional[str] = None,
+    model_code: Optional[str] = None,
 ) -> dict[str, str]:
-    """Generate a header for HTTP requests to the server."""
+    """Generate a header for HTTP requests to the server.
+
+    With ``vin`` and ``model_code`` (the vehicle ``matCode``), adds the
+    per-request VIN headers so the server does not rely on the account-wide
+    "active vehicle" binding, which another client can steal by switching cars.
+    """
     timestamp = create_correct_timestamp()
     nonce = secrets.token_hex(8)
     sign = _create_sign(nonce, params, timestamp, method, url, body)
@@ -64,6 +82,13 @@ def generate_default_header(
     }
     if access_token:
         header["authorization"] = access_token
+
+    # Per-request VIN-binding headers (see docstring). Skip blacklisted endpoints.
+    if vin and model_code and not any(b in url for b in _VIN_HEADER_BLACKLIST):
+        encoded = quote(model_code, safe="")
+        header["X-Vehicle-IDENTIFIER"] = vin
+        header["X-VEHICLE-SERIES"] = encoded
+        header["X-VEHICLE-MODEL"] = encoded
 
     _LOGGER.debug("Constructed request header for %s %s", method, url)
     return header

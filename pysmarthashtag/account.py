@@ -16,9 +16,9 @@ from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls
 from pysmarthashtag.models import (
     JournalTruncationError,
-    SmartAuthError,
     SmartHumanCarConnectionError,
     SmartTokenRefreshNecessary,
+    SmartVehicleNotInUseError,
 )
 from pysmarthashtag.vehicle.trackpoints import TripTrackpoints, parse_trackpoints_response
 from pysmarthashtag.vehicle.vehicle import SmartVehicle
@@ -53,6 +53,23 @@ _BENIGN_EMPTY_CODE = "8153"
 _LOGGER = logging.getLogger(__name__)
 
 
+def _cloud_code(exc: httpx.HTTPStatusError) -> Optional[str]:
+    """Return the cloud response code carried by ``exc``, if it has one.
+
+    ``None`` means the failure came from the transport or the HTTP status
+    rather than a cloud error body, so no token remedy applies to it.
+    """
+    response = exc.response
+    if response is None:
+        return None
+    try:
+        body = response.json()
+    except ValueError:
+        return None
+    code = body.get("code")
+    return None if code is None else str(code)
+
+
 def _is_benign_empty(exc: httpx.HTTPStatusError) -> bool:
     """Return True iff ``exc`` carries the cloud's 8153 "data unavailable" code.
 
@@ -61,14 +78,7 @@ def _is_benign_empty(exc: httpx.HTTPStatusError) -> bool:
     end-of-data signal for journal endpoints — callers normalise it to
     an empty result rather than propagating it as an error.
     """
-    response = exc.response
-    if response is None:
-        return False
-    try:
-        body = response.json()
-    except ValueError:
-        return False
-    return str(body.get("code")) == _BENIGN_EMPTY_CODE
+    return _cloud_code(exc) == _BENIGN_EMPTY_CODE
 
 
 def _unwrap_journal_page(body: dict) -> tuple[list, Optional[int]]:
@@ -121,6 +131,10 @@ class SmartAccount:
 
     endpoint_urls: Optional[EndpointUrls] = None
     """Optional. Custom endpoint URLs for international API support."""
+
+    tracked_vins: Optional[list[str]] = None
+    """Optional. If set, only these VIN(s) are fetched and tracked; any other
+    vehicle on the account is ignored. ``None`` tracks all (previous behaviour)."""
 
     vehicles: dict[str, SmartVehicle] = field(default_factory=dict, init=False)
     """Vehicles associated with the account."""
@@ -194,7 +208,8 @@ class SmartAccount:
                     )
                     _LOGGER.debug("Got response %d", vehicles_response.status_code)
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
                 except SmartHumanCarConnectionError:
                     _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
@@ -203,12 +218,27 @@ class SmartAccount:
                 break
 
             for vehicle in vehicles_response.json()["data"]["list"]:
+                vin = vehicle.get("vin")
+                if self.tracked_vins is not None and vin not in self.tracked_vins:
+                    _LOGGER.debug("Ignoring untracked vehicle %s", sanitize_log_data(vin))
+                    continue
                 _LOGGER.debug("Found vehicle %s", sanitize_log_data(vehicle))
                 self.add_vehicle(vehicle, fetched_at)
 
     def add_vehicle(self, vehicle, fetched_at):
         """Add a vehicle to the account."""
         self.vehicles[vehicle.get("vin")] = SmartVehicle(self, vehicle, fetched_at=fetched_at)
+
+    def _vin_model_code(self, vin) -> Optional[str]:
+        """Return the VIN's ``matCode`` for the ``X-VEHICLE-*`` headers.
+
+        ``None`` if the vehicle (or its model code) isn't known yet, so the
+        header generator then simply omits the per-request VIN headers.
+        """
+        vehicle = self.vehicles.get(vin)
+        if vehicle is None:
+            return None
+        return vehicle.data.get("matCode")
 
     async def get_vehicles(self, force_init: bool = False) -> None:
         """Get the vehicles associated with the account."""
@@ -221,40 +251,65 @@ class SmartAccount:
         if len(self.vehicles) == 0 or force_init:
             await self._init_vehicles()
 
+        errors: list[Exception] = []
+        succeeded = 0
         for vin, vehicle in self.vehicles.items():
             _LOGGER.debug("Getting vehicle data")
-            await self.select_active_vehicle(vin)
-            vehicle_info = await self.get_vehicle_information(vin)
-            vehicle_soc = await self.get_vehicle_soc(vin)
-            vehicle_ota_info = await self.get_vehicle_ota_info(vin)
-            # Trip journal is best-effort: the endpoint can return 8153
-            # ("data unavailable") on vehicles where on-vehicle trip
-            # recording is OFF, or transiently when the per-session auth
-            # grant hasn't been accepted yet. Never let an empty journal
-            # fail the whole refresh.
-            journal_response = None
             try:
-                journal_response = await self.get_trip_journal(vin)
-            except Exception:  # noqa: BLE001  # Best-effort: any failure (8153, transport, parse) must not break refresh.
-                _LOGGER.debug(
-                    "Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                await self.select_active_vehicle(vin)
+                vehicle_info = await self.get_vehicle_information(vin)
+                vehicle_soc = await self.get_vehicle_soc(vin)
+                # Best-effort: the OTA service can return HTTP 500.
+                vehicle_ota_info = None
+                try:
+                    vehicle_ota_info = await self.get_vehicle_ota_info(vin)
+                except Exception:  # noqa: BLE001  # Best-effort: OTA failure must not break refresh.
+                    _LOGGER.debug(
+                        "OTA info fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                    )
+                # Trip journal is best-effort: the endpoint can return 8153
+                # ("data unavailable") on vehicles where on-vehicle trip
+                # recording is OFF, or transiently when the per-session auth
+                # grant hasn't been accepted yet. Never let an empty journal
+                # fail the whole refresh.
+                journal_response = None
+                try:
+                    journal_response = await self.get_trip_journal(vin)
+                except Exception:  # noqa: BLE001
+                    # Best-effort: any failure (8153, transport, parse) must not break refresh.
+                    _LOGGER.debug(
+                        "Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                    )
+                # Per-VIN TBox state flags (engine/journal/valet/etc.), best-effort,
+                # same reasoning as the journal call above.
+                state_response = None
+                try:
+                    state_response = await self.get_vehicle_state(vin)
+                except Exception:  # noqa: BLE001  # Best-effort: state fetch must not break refresh.
+                    _LOGGER.debug(
+                        "Vehicle-state fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                    )
+                vehicle.combine_data(
+                    vehicle_info,
+                    charging_settings=vehicle_soc,
+                    ota_info=vehicle_ota_info,
+                    journal_response=journal_response,
+                    state_response=state_response,
                 )
-            # Per-VIN TBox state flags (engine/journal/valet/etc.) — best-effort,
-            # same reasoning as the journal call above.
-            state_response = None
-            try:
-                state_response = await self.get_vehicle_state(vin)
-            except Exception:  # noqa: BLE001  # Best-effort: state fetch must not break refresh.
-                _LOGGER.debug(
-                    "Vehicle-state fetch failed for %s", sanitize_log_data(vin), exc_info=True
+                succeeded += 1
+            except Exception as exc:  # noqa: BLE001
+                # Per-car isolation: one flaky vehicle (often a shared car with a
+                # failing endpoint) must not drop every sensor of the others.
+                errors.append(exc)
+                _LOGGER.warning(
+                    "Vehicle %s update failed this cycle: %s",
+                    sanitize_log_data(vin),
+                    sanitize_log_data(str(exc)),
                 )
-            vehicle.combine_data(
-                vehicle_info,
-                charging_settings=vehicle_soc,
-                ota_info=vehicle_ota_info,
-                journal_response=journal_response,
-                state_response=state_response,
-            )
+        # Surface a real error only if NO vehicle updated, otherwise the
+        # coordinator would mark a total failure when just one car is flaky.
+        if succeeded == 0 and errors:
+            raise errors[0]
 
     async def select_active_vehicle(self, vin) -> None:
         """Select the active vehicle."""
@@ -285,11 +340,15 @@ class SmartAccount:
                     )
                     _LOGGER.debug("Got response %d", r_car_info.status_code)
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
-                    self.select_active_vehicle(vin)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    # This method IS the re-bind, so just retry the select request
+                    # (the loop re-attempts it). Calling select_active_vehicle()
+                    # here would recurse and could hit RecursionError on
+                    # persistent 8006/4038.
+                    _LOGGER.debug("VIN binding lost (8006/4038) while selecting; retrying (retry %d)", retry)
                     continue
                 break
 
@@ -303,6 +362,8 @@ class SmartAccount:
         }
         data = {}
         async with SmartClient(self.config) as client:
+            last_error = None
+            refreshed_unmapped = False
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
@@ -318,22 +379,39 @@ class SmartAccount:
                                 params=params,
                                 method="GET",
                                 url="/remote-control/vehicle/status/" + vin,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
                     _LOGGER.debug("Got response %d", r_car_info.status_code)
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
-                except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                except SmartTokenRefreshNecessary as exc:
+                    last_error = exc
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError) as exc:
+                    last_error = exc
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
+                except httpx.HTTPStatusError as exc:
+                    # Unmapped code: one refresh in case the session is stale, then surface.
+                    code = _cloud_code(exc)
+                    if code is None or refreshed_unmapped:
+                        raise
+                    refreshed_unmapped = True
+                    last_error = exc
+                    _LOGGER.warning("Unmapped cloud code %s; refreshing session once", code)
+                    await self.config.authentication.refresh()
+                    continue
                 break
-            if retry > 1:
-                raise SmartAuthError("Could not get vehicle information")
+            else:
+                # Only when every attempt failed. Surface the real cause so a
+                # transient failure stays transient instead of a reauth prompt.
+                raise last_error
         return data
 
     async def get_vehicle_state(self, vin) -> dict:
@@ -362,16 +440,19 @@ class SmartAccount:
                                 params={},
                                 method="GET",
                                 url=path,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
                     _LOGGER.debug("Got response %d", r_state.status_code)
                     data = r_state.json()
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 break
@@ -385,6 +466,8 @@ class SmartAccount:
         }
         data = {}
         async with SmartClient(self.config) as client:
+            last_error = None
+            refreshed_unmapped = False
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
@@ -400,22 +483,39 @@ class SmartAccount:
                                 params=params,
                                 method="GET",
                                 url="/remote-control/vehicle/status/soc/" + vin,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
                     _LOGGER.debug("Got response %d", r_car_info.status_code)
                     self.vehicles.get(vin).combine_data(r_car_info.json()["data"])
                     data = r_car_info.json()["data"]
-                except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                except SmartTokenRefreshNecessary as exc:
+                    last_error = exc
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
-                    self.select_active_vehicle(vin)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError) as exc:
+                    last_error = exc
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
+                    await self.select_active_vehicle(vin)
+                    continue
+                except httpx.HTTPStatusError as exc:
+                    # Unmapped code: one refresh in case the session is stale, then surface.
+                    code = _cloud_code(exc)
+                    if code is None or refreshed_unmapped:
+                        raise
+                    refreshed_unmapped = True
+                    last_error = exc
+                    _LOGGER.warning("Unmapped cloud code %s; refreshing session once", code)
+                    await self.config.authentication.refresh()
                     continue
                 break
-            if retry > 1:
-                raise SmartAuthError("Could not get vehicle information")
+            else:
+                # Only when every attempt failed. Surface the real cause so a
+                # transient failure stays transient instead of a reauth prompt.
+                raise last_error
         return data
 
     async def grant_journal_authorization(self, vin, force: bool = False) -> bool:
@@ -672,16 +772,19 @@ class SmartAccount:
                                 params=params,
                                 method="GET",
                                 url=path,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
                     _LOGGER.debug("Got response %d", response.status_code)
                     data = response.json()
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 break
@@ -751,16 +854,19 @@ class SmartAccount:
                                 params=params,
                                 method="GET",
                                 url=path,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
                             )
                         },
                     )
                     _LOGGER.debug("Got response %d", response.status_code)
                     body = response.json()
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
                     await self.select_active_vehicle(vin)
                     continue
                 except httpx.HTTPStatusError as exc:
@@ -789,6 +895,8 @@ class SmartAccount:
         _LOGGER.debug("Getting OTA information for vehicle")
         data = {}
         async with SmartClient(self.config) as client:
+            last_error = None
+            refreshed_unmapped = False
             for retry in range(3):
                 try:
                     r_car_info = await client.get(
@@ -812,14 +920,29 @@ class SmartAccount:
                         "target_version": json_data.get("targetVersion"),
                         "current_version": json_data.get("currentVersion"),
                     }
-                except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                except SmartTokenRefreshNecessary as exc:
+                    last_error = exc
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
-                    self.select_active_vehicle(vin)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError) as exc:
+                    last_error = exc
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
+                    await self.select_active_vehicle(vin)
+                    continue
+                except httpx.HTTPStatusError as exc:
+                    # Unmapped code: one refresh in case the session is stale, then surface.
+                    code = _cloud_code(exc)
+                    if code is None or refreshed_unmapped:
+                        raise
+                    refreshed_unmapped = True
+                    last_error = exc
+                    _LOGGER.warning("Unmapped cloud code %s; refreshing session once", code)
+                    await self.config.authentication.refresh()
                     continue
                 break
-            if retry > 1:
-                raise SmartAuthError("Could not get vehicle information")
+            else:
+                # Only when every attempt failed. Surface the real cause so a
+                # transient failure stays transient instead of a reauth prompt.
+                raise last_error
         return data
