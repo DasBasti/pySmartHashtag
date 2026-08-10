@@ -6,9 +6,14 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import Any, Optional
 
+from pysmarthashtag.const import SERIES_CODE_PREFIX_SMART_5
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
 _LOGGER = logging.getLogger(__name__)
+
+"""The V2 API used by the Smart #5 reports "dcChargeIAct" in deci-ampere, while the V1
+API of the #1/#3 reports it in ampere. See SmartHashtag issue #459."""
+DC_CHARGE_CURRENT_DIVIDER_SMART_5 = 10
 
 """Charging state of electric vehicle."""
 ChargingState = [
@@ -236,10 +241,13 @@ class Battery(VehicleDataBase):
                     # Clamp to valid index range: 0 to len(DcChargingVoltLevels) - 1
                     max_index = len(DcChargingVoltLevels) - 1
                     battery_value = max(0, min(battery_value, max_index))
+                    dc_charge_current = abs(dc_charge_i)
+                    if str(vehicle_data.get("seriesCodeVs", "")).startswith(SERIES_CODE_PREFIX_SMART_5):
+                        dc_charge_current /= DC_CHARGE_CURRENT_DIVIDER_SMART_5
                     retval["charging_voltage"] = ValueWithUnit(DcChargingVoltLevels[battery_value], "V")
-                    retval["charging_current"] = ValueWithUnit(abs(dc_charge_i), "A")
+                    retval["charging_current"] = ValueWithUnit(dc_charge_current, "A")
                     retval["charging_power"] = ValueWithUnit(
-                        math.floor(abs(dc_charge_i) * DcChargingVoltLevels[battery_value]),
+                        math.floor(dc_charge_current * DcChargingVoltLevels[battery_value]),
                         "W",
                     )
                 else:

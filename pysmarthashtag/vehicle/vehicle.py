@@ -4,7 +4,13 @@ import datetime
 import logging
 from typing import Optional
 
-from pysmarthashtag.const import API_BASE_URL, API_BASE_URL_V2
+from pysmarthashtag.const import (
+    API_BASE_URL,
+    API_BASE_URL_V2,
+    SERIES_CODE_PREFIX_SMART_1,
+    SERIES_CODE_PREFIX_SMART_3,
+    SERIES_CODE_PREFIX_SMART_5,
+)
 from pysmarthashtag.models import ValueWithUnit, get_element_from_dict_maybe
 from pysmarthashtag.vehicle.battery import Battery
 from pysmarthashtag.vehicle.climate import Climate
@@ -90,13 +96,13 @@ class SmartVehicle:
         self.account = account
         self.data = {}
         self.combine_data(vehicle_base, vehicle_state, charging_settings, None, fetched_at)
-        if self.data["seriesCodeVs"].startswith("HX"):
+        if self.data["seriesCodeVs"].startswith(SERIES_CODE_PREFIX_SMART_1):
             _LOGGER.debug("Selected Vehicle is Smart #1 use V1 API")
             self.base_url = API_BASE_URL
-        elif self.data["seriesCodeVs"].startswith("HC"):
+        elif self.data["seriesCodeVs"].startswith(SERIES_CODE_PREFIX_SMART_3):
             _LOGGER.debug("Selected Vehicle is Smart #3 use V1 API")
             self.base_url = API_BASE_URL
-        elif self.data["seriesCodeVs"].startswith("HY"):
+        elif self.data["seriesCodeVs"].startswith(SERIES_CODE_PREFIX_SMART_5):
             _LOGGER.debug("Selected Vehicle is Smart #5 use V2 API")
             self.base_url = API_BASE_URL_V2
         else:

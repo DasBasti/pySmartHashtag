@@ -17,6 +17,12 @@ API_JOURNAL_TOGGLE_URL = "/remote-control/vehicle/status/journalLog/"
 
 OTA_SERVER_URL = "https://ota.srv.smart.com/"
 
+# Prefixes of the "seriesCodeVs" field identifying the vehicle model. They select
+# the API version to talk to and, for the #5, the scaling of some telemetry fields.
+SERIES_CODE_PREFIX_SMART_1 = "HX"
+SERIES_CODE_PREFIX_SMART_3 = "HC"
+SERIES_CODE_PREFIX_SMART_5 = "HY"
+
 # Gigya socialize endpoint used to bootstrap a Gigya session (gmid + ucid)
 # before posting accounts.login. Smart's tenant rejects accounts.login from
 # a "fresh" client without these identifiers + the gig_bootstrap cookie.

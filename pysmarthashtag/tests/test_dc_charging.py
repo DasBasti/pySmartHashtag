@@ -6,13 +6,17 @@ from pysmarthashtag.models import ValueWithUnit
 from pysmarthashtag.vehicle.battery import Battery, ChargingState, DcChargingVoltLevels
 
 
-def create_vehicle_data_with_dc_charging(charge_level: int, dc_charge_current: float) -> dict:
+def create_vehicle_data_with_dc_charging(
+    charge_level: int, dc_charge_current: float, series_code: str = "HX11"
+) -> dict:
     """Create test vehicle data with DC charging parameters.
 
     Args:
     ----
         charge_level: Battery charge level percentage (0-100)
-        dc_charge_current: DC charging current in Amps (negative for charging)
+        dc_charge_current: DC charging current as reported by the API
+            (negative for charging, deci-ampere on the Smart #5)
+        series_code: Value of the "seriesCodeVs" field selecting the vehicle model
 
     Returns:
     -------
@@ -20,6 +24,7 @@ def create_vehicle_data_with_dc_charging(charge_level: int, dc_charge_current: f
 
     """
     return {
+        "seriesCodeVs": series_code,
         "vehicleStatus": {
             "updateTime": "1716485767970",
             "additionalVehicleStatus": {
@@ -36,7 +41,7 @@ def create_vehicle_data_with_dc_charging(charge_level: int, dc_charge_current: f
                     "averPowerConsumption": "-102.3",
                 }
             },
-        }
+        },
     }
 
 
@@ -148,6 +153,69 @@ class TestDcChargingDataHandling:
         assert battery is not None
         assert battery.remaining_range == ValueWithUnit(value=285, unit="km")
         assert battery.remaining_range_at_full_charge == ValueWithUnit(value=427, unit="km")
+
+
+class TestDcChargingSmart5Scaling:
+    """Test that the Smart #5 deci-ampere DC current is scaled down (issue #459)."""
+
+    def test_smart_5_dc_current_is_divided_by_ten(self):
+        """Test that a #5 reporting 1650 deci-ampere yields 165 A instead of 1650 A."""
+        vehicle_data = create_vehicle_data_with_dc_charging(
+            charge_level=55, dc_charge_current=-1650.0, series_code="HY11"
+        )
+        battery = Battery.from_vehicle_data(vehicle_data)
+
+        assert battery is not None
+        assert battery.charging_status == "DC_CHARGING"
+        assert battery.charging_current == ValueWithUnit(value=165.0, unit="A")
+        # Voltage is unaffected by the scaling
+        assert battery.charging_voltage == ValueWithUnit(value=DcChargingVoltLevels[55], unit="V")
+        expected_power = math.floor(165.0 * DcChargingVoltLevels[55])
+        assert battery.charging_power == ValueWithUnit(value=expected_power, unit="W")
+
+    def test_smart_1_dc_current_is_not_scaled(self):
+        """Test that the #1 keeps reporting DC current in ampere."""
+        vehicle_data = create_vehicle_data_with_dc_charging(
+            charge_level=55, dc_charge_current=-165.0, series_code="HX11"
+        )
+        battery = Battery.from_vehicle_data(vehicle_data)
+
+        assert battery is not None
+        assert battery.charging_current == ValueWithUnit(value=165.0, unit="A")
+
+    def test_smart_3_dc_current_is_not_scaled(self):
+        """Test that the #3 keeps reporting DC current in ampere."""
+        vehicle_data = create_vehicle_data_with_dc_charging(
+            charge_level=55, dc_charge_current=-165.0, series_code="HC11"
+        )
+        battery = Battery.from_vehicle_data(vehicle_data)
+
+        assert battery is not None
+        assert battery.charging_current == ValueWithUnit(value=165.0, unit="A")
+
+    def test_missing_series_code_is_not_scaled(self):
+        """Test that data without a series code falls back to the unscaled V1 behaviour."""
+        vehicle_data = create_vehicle_data_with_dc_charging(charge_level=55, dc_charge_current=-165.0)
+        del vehicle_data["seriesCodeVs"]
+        battery = Battery.from_vehicle_data(vehicle_data)
+
+        assert battery is not None
+        assert battery.charging_current == ValueWithUnit(value=165.0, unit="A")
+
+    def test_smart_5_ac_current_is_not_scaled(self):
+        """Test that AC charging on a #5 is passed through unscaled."""
+        vehicle_data = create_vehicle_data_with_dc_charging(charge_level=55, dc_charge_current=0.0, series_code="HY11")
+        evStatus = vehicle_data["vehicleStatus"]["additionalVehicleStatus"]["electricVehicleStatus"]
+        evStatus["chargerState"] = "2"  # CHARGING (AC)
+        evStatus["chargeUAct"] = "230.0"
+        evStatus["chargeIAct"] = "16.000"
+        battery = Battery.from_vehicle_data(vehicle_data)
+
+        assert battery is not None
+        assert battery.charging_status == "CHARGING"
+        assert battery.charging_current == ValueWithUnit(value=16.0, unit="A")
+        assert battery.charging_voltage == ValueWithUnit(value=230.0, unit="V")
+        assert battery.charging_power == ValueWithUnit(value=230.0 * 16.0, unit="W")
 
 
 class TestChargingStateEnum:
