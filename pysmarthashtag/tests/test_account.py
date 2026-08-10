@@ -137,9 +137,11 @@ async def test_get_vehicle_chargin_dc(smart_fixture: respx.Router):
     # TODO: missing 3-phase charging
     assert vehicles["TestVIN0000000002"].battery.charging_status == "DC_CHARGING"
     assert vehicles["TestVIN0000000002"].battery.is_charger_connected
-    assert vehicles["TestVIN0000000002"].battery.charging_current == ValueWithUnit(value=102.6, unit="A")
+    # VIN ...002 has a Smart #5 series code, so the raw "dcChargeIAct" of -102.6 is
+    # read as deci-ampere and scaled down to 10.26 A (issue #459).
+    assert vehicles["TestVIN0000000002"].battery.charging_current == ValueWithUnit(value=10.26, unit="A")
     assert vehicles["TestVIN0000000002"].battery.charging_voltage == ValueWithUnit(value=429, unit="V")
-    assert vehicles["TestVIN0000000002"].battery.charging_power == ValueWithUnit(value=44015, unit="W")
+    assert vehicles["TestVIN0000000002"].battery.charging_power == ValueWithUnit(value=4401, unit="W")
 
 
 @pytest.mark.asyncio
