@@ -4,6 +4,7 @@ import logging
 import math
 from dataclasses import dataclass
 from datetime import datetime
+from enum import IntEnum
 from typing import Any, Optional
 
 from pysmarthashtag.const import SERIES_CODE_PREFIX_SMART_5
@@ -34,6 +35,46 @@ ChargingState = [
     "UNKNOWN",
     "DC_CHARGING",
 ]
+
+"""Every distinct value :attr:`Battery.charging_status` can take, in the order the API
+codes are defined.
+
+``ChargingState`` is indexed by the raw ``chargerState`` code and therefore repeats
+``UNKNOWN`` for the codes with no known meaning. Consumers that need to enumerate the
+possible states up front should use this de-duplicated tuple instead of hard coding a
+subset: Home Assistant, for example, only offers a sensor's states to the automation
+editor when the entity declares all of them in advance. See SmartHashtag issue #439."""
+CHARGING_STATES: tuple = tuple(dict.fromkeys(ChargingState))
+
+
+class ChargerConnectionState(IntEnum):
+    """Connection state of the charger, as reported in ``statusOfChargerConnection``."""
+
+    NOT_CONNECTED = 0
+    DC_CONNECTED = 1
+    PLUGGED_NOT_CHARGING = 2
+    CHARGING = 3
+
+
+"""Every value :attr:`Battery.charger_connection_state` can take, including the
+``unknown`` fallback used for codes the API adds later."""
+CHARGER_CONNECTION_STATES: tuple = tuple(state.name.lower() for state in ChargerConnectionState) + ("unknown",)
+
+
+def charger_connection_state_name(status: Optional[int]) -> Optional[str]:
+    """Return the stable, lower case name for a raw ``statusOfChargerConnection`` code.
+
+    Returns ``None`` if the vehicle did not report a code and ``"unknown"`` for codes
+    that are not part of :class:`ChargerConnectionState`.
+    """
+    if status is None:
+        return None
+    try:
+        return ChargerConnectionState(status).name.lower()
+    except ValueError:
+        _LOGGER.debug("Unknown charger connection status %s", status)
+        return "unknown"
+
 
 DcChargingVoltLevels = [
     370,
@@ -160,7 +201,12 @@ class Battery(VehicleDataBase):
     """Charging status of the vehicle."""
 
     charger_connection_status: Optional[int] = None
-    """Charger connection status of the vehicle."""
+    """Charger connection status of the vehicle as raw API code."""
+
+    charger_connection_state: Optional[str] = None
+    """Charger connection status of the vehicle as stable, lower case name.
+
+    Always one of :data:`CHARGER_CONNECTION_STATES` once the vehicle reported a code."""
 
     is_charger_connected: bool = False
     """Is the charger connected to the vehicle."""
@@ -215,7 +261,7 @@ class Battery(VehicleDataBase):
             charger_state = get_field_as_type(evStatus, "chargerState", int, log_missing=False)
             if charger_state is not None:
                 retval["charging_status"] = (
-                    ChargingState[charger_state] if charger_state < len(ChargingState) else "UNKNOWN"
+                    ChargingState[charger_state] if 0 <= charger_state < len(ChargingState) else "UNKNOWN"
                 )
                 retval["charging_status_raw"] = charger_state
                 retval["is_charger_connected"] = (
@@ -228,6 +274,7 @@ class Battery(VehicleDataBase):
             charger_conn = get_field_as_type(evStatus, "statusOfChargerConnection", int, log_missing=False)
             if charger_conn is not None:
                 retval["charger_connection_status"] = charger_conn
+                retval["charger_connection_state"] = charger_connection_state_name(charger_conn)
 
             charging_status = retval.get("charging_status")
             battery_percent = retval.get("remaining_battery_percent")
