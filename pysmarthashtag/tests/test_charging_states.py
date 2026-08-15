@@ -50,7 +50,7 @@ class TestChargingStates:
         assert CHARGING_STATES[-1] == "DC_CHARGING"
 
     @pytest.mark.parametrize("charger_state", range(len(ChargingState)))
-    def test_every_code_reports_an_exported_state(self, charger_state):
+    def test_every_code_reports_an_exported_state(self, charger_state: int):
         """Parsing any known code yields a state that consumers can enumerate."""
         battery = Battery.from_vehicle_data(create_vehicle_data(str(charger_state), "0"))
 
@@ -86,7 +86,7 @@ class TestChargerConnectionState:
         )
 
     @pytest.mark.parametrize("state", ChargerConnectionState)
-    def test_known_codes_map_to_exported_names(self, state):
+    def test_known_codes_map_to_exported_names(self, state: ChargerConnectionState):
         """Every code of the enum maps to an exported name."""
         assert charger_connection_state_name(state.value) in CHARGER_CONNECTION_STATES
 
