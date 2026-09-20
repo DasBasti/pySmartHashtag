@@ -50,6 +50,13 @@ VALID_UNTIL_OFFSET = datetime.timedelta(seconds=10)
 # blip mid-loop doesn't fail the whole poll.
 _BENIGN_EMPTY_CODE = "8153"
 
+# Cloud's code on the OTA endpoint for vehicles it has no update record
+# for (reported on Smart #5). It is a property of the OTA service, not of
+# the session: refreshing the token does not clear it, so a poll loop that
+# treats it as an unmapped code refreshes the session on every cycle for
+# nothing. OTA data is optional, so callers normalise this to "no OTA info".
+_OTA_NO_DATA_CODE = "1003"
+
 _LOGGER = logging.getLogger(__name__)
 
 
@@ -931,8 +938,18 @@ class SmartAccount:
                     await self.select_active_vehicle(vin)
                     continue
                 except httpx.HTTPStatusError as exc:
-                    # Unmapped code: one refresh in case the session is stale, then surface.
                     code = _cloud_code(exc)
+                    if code == _OTA_NO_DATA_CODE:
+                        # The OTA service has nothing to report for this VIN.
+                        # Optional data, and no session remedy applies — return
+                        # empty rather than burning a refresh on every poll.
+                        _LOGGER.debug(
+                            "OTA endpoint returned cloud code %s for %s; no OTA info available",
+                            code,
+                            sanitize_log_data(vin),
+                        )
+                        return {}
+                    # Unmapped code: one refresh in case the session is stale, then surface.
                     if code is None or refreshed_unmapped:
                         raise
                     refreshed_unmapped = True
