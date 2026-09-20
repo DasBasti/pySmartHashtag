@@ -12,17 +12,18 @@ import pytest
 import respx
 from httpx import Response
 
+from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.const import OTA_SERVER_URL
 from pysmarthashtag.tests.conftest import prepare_account_with_vehicles
 
 _OTA_URL = OTA_SERVER_URL + "app/info/TestVIN0000000001"
 
 
-def _count_refreshes(account) -> list:
+def _count_refreshes(account: SmartAccount) -> list[int]:
     """Replace ``authentication.refresh`` with a counting no-op."""
-    calls: list = []
+    calls: list[int] = []
 
-    async def fake_refresh(*args, **kwargs):
+    async def fake_refresh() -> None:
         calls.append(1)
 
     account.config.authentication.refresh = fake_refresh
@@ -30,7 +31,7 @@ def _count_refreshes(account) -> list:
 
 
 @pytest.mark.asyncio
-async def test_ota_1003_returns_empty_without_refresh(smart_fixture: respx.Router):
+async def test_ota_1003_returns_empty_without_refresh(smart_fixture: respx.Router) -> None:
     """Code 1003 is normalised to "no OTA info" — no refresh, no retry."""
     account = await prepare_account_with_vehicles()
     refreshes = _count_refreshes(account)
@@ -48,7 +49,7 @@ async def test_ota_1003_returns_empty_without_refresh(smart_fixture: respx.Route
 
 
 @pytest.mark.asyncio
-async def test_ota_1003_does_not_break_refresh_cycle(smart_fixture: respx.Router):
+async def test_ota_1003_does_not_break_refresh_cycle(smart_fixture: respx.Router) -> None:
     """A permanent 1003 still leaves every other vehicle sensor populated."""
     smart_fixture.get(_OTA_URL).mock(return_value=Response(200, json={"code": "1003", "message": "no ota info"}))
 
@@ -60,7 +61,7 @@ async def test_ota_1003_does_not_break_refresh_cycle(smart_fixture: respx.Router
 
 
 @pytest.mark.asyncio
-async def test_ota_unmapped_code_still_refreshes_once(smart_fixture: respx.Router):
+async def test_ota_unmapped_code_still_refreshes_once(smart_fixture: respx.Router) -> None:
     """Regression guard: other unmapped codes keep the one-refresh remedy."""
     account = await prepare_account_with_vehicles()
     refreshes = _count_refreshes(account)
