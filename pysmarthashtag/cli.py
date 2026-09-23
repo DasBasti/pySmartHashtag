@@ -6,6 +6,7 @@ import asyncio
 import logging.config
 import os
 import time
+from typing import Optional
 
 from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.control.climate import HeatingLocation
@@ -73,6 +74,10 @@ def main_parser() -> argparse.ArgumentParser:
     seatheating_parser.add_argument("--temp", help="Temperature", default=22)
     seatheating_parser.add_argument("--active", help="Active", action="store_true")
 
+    defrost_parser = subparsers.add_parser("defrost", help="Set front windscreen defrost of vehicle.")
+    defrost_parser.add_argument("--vin", help="VIN of vehicle", default=None)
+    defrost_parser.add_argument("--active", help="Active", action="store_true")
+
     _add_default_args(parser)
     parser.set_defaults(func=parse_command)
 
@@ -91,6 +96,8 @@ async def parse_command(args) -> None:
         await set_climate(args)
     elif args.command == "seatheating":
         await set_seatheating(args)
+    elif args.command == "defrost":
+        await set_defrost(args)
     else:
         raise NotImplementedError(f"Command {args.command} not implemented.")
 
@@ -127,12 +134,27 @@ async def watch_car(args) -> None:
         time.sleep(args.i)
 
 
+def _select_vin(account: SmartAccount, vin: Optional[str]) -> str:
+    """Return the VIN to control, defaulting to the first vehicle of the account.
+
+    Raises SystemExit with an actionable message if the account has no vehicles
+    or the requested VIN does not belong to the account.
+    """
+    vehicles = account.vehicles or {}
+    if not vehicles:
+        raise SystemExit("No vehicles found for this account; nothing to control.")
+    if not vin:
+        return next(iter(vehicles))
+    if vin not in vehicles:
+        raise SystemExit(f"VIN {vin} not found in this account. Available VINs: {', '.join(vehicles)}")
+    return vin
+
+
 async def set_climate(args) -> None:
     """Set climate of vehicle."""
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
-    if not args.vin:
-        args.vin = list(account.vehicles.keys())[0]
+    args.vin = _select_vin(account, args.vin)
     await account.get_vehicle_information(args.vin)
 
     climate_ctrl = account.vehicles[args.vin].climate_control
@@ -143,13 +165,23 @@ async def set_seatheating(args) -> None:
     """Set heating of driver's seat in vehicle."""
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
-    if not args.vin:
-        args.vin = list(account.vehicles.keys())[0]
+    args.vin = _select_vin(account, args.vin)
     await account.get_vehicle_information(args.vin)
 
     climate_ctrl = account.vehicles[args.vin].climate_control
     climate_ctrl.set_heating_level(HeatingLocation.DRIVER_SEAT, args.level)
     await climate_ctrl.set_climate_conditioning(args.temp, args.active)
+
+
+async def set_defrost(args) -> None:
+    """Set front windscreen defrost of vehicle."""
+    account = SmartAccount(args.username, args.password)
+    await account.get_vehicles()
+    args.vin = _select_vin(account, args.vin)
+    await account.get_vehicle_information(args.vin)
+
+    climate_ctrl = account.vehicles[args.vin].climate_control
+    await climate_ctrl.set_defrost(args.active)
 
 
 def _add_default_args(parser: argparse.ArgumentParser):
