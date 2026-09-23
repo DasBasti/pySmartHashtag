@@ -6,6 +6,7 @@ import asyncio
 import logging.config
 import os
 import time
+from typing import Optional
 
 from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.control.climate import HeatingLocation
@@ -133,12 +134,27 @@ async def watch_car(args) -> None:
         time.sleep(args.i)
 
 
+def _select_vin(account: SmartAccount, vin: Optional[str]) -> str:
+    """Return the VIN to control, defaulting to the first vehicle of the account.
+
+    Raises SystemExit with an actionable message if the account has no vehicles
+    or the requested VIN does not belong to the account.
+    """
+    vehicles = account.vehicles or {}
+    if not vehicles:
+        raise SystemExit("No vehicles found for this account; nothing to control.")
+    if not vin:
+        return next(iter(vehicles))
+    if vin not in vehicles:
+        raise SystemExit(f"VIN {vin} not found in this account. Available VINs: {', '.join(vehicles)}")
+    return vin
+
+
 async def set_climate(args) -> None:
     """Set climate of vehicle."""
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
-    if not args.vin:
-        args.vin = list(account.vehicles.keys())[0]
+    args.vin = _select_vin(account, args.vin)
     await account.get_vehicle_information(args.vin)
 
     climate_ctrl = account.vehicles[args.vin].climate_control
@@ -149,8 +165,7 @@ async def set_seatheating(args) -> None:
     """Set heating of driver's seat in vehicle."""
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
-    if not args.vin:
-        args.vin = list(account.vehicles.keys())[0]
+    args.vin = _select_vin(account, args.vin)
     await account.get_vehicle_information(args.vin)
 
     climate_ctrl = account.vehicles[args.vin].climate_control
@@ -162,8 +177,7 @@ async def set_defrost(args) -> None:
     """Set front windscreen defrost of vehicle."""
     account = SmartAccount(args.username, args.password)
     await account.get_vehicles()
-    if not args.vin:
-        args.vin = list(account.vehicles.keys())[0]
+    args.vin = _select_vin(account, args.vin)
     await account.get_vehicle_information(args.vin)
 
     climate_ctrl = account.vehicles[args.vin].climate_control
