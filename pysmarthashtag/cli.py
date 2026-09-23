@@ -73,6 +73,10 @@ def main_parser() -> argparse.ArgumentParser:
     seatheating_parser.add_argument("--temp", help="Temperature", default=22)
     seatheating_parser.add_argument("--active", help="Active", action="store_true")
 
+    defrost_parser = subparsers.add_parser("defrost", help="Set front windscreen defrost of vehicle.")
+    defrost_parser.add_argument("--vin", help="VIN of vehicle", default=None)
+    defrost_parser.add_argument("--active", help="Active", action="store_true")
+
     _add_default_args(parser)
     parser.set_defaults(func=parse_command)
 
@@ -91,6 +95,8 @@ async def parse_command(args) -> None:
         await set_climate(args)
     elif args.command == "seatheating":
         await set_seatheating(args)
+    elif args.command == "defrost":
+        await set_defrost(args)
     else:
         raise NotImplementedError(f"Command {args.command} not implemented.")
 
@@ -150,6 +156,18 @@ async def set_seatheating(args) -> None:
     climate_ctrl = account.vehicles[args.vin].climate_control
     climate_ctrl.set_heating_level(HeatingLocation.DRIVER_SEAT, args.level)
     await climate_ctrl.set_climate_conditioning(args.temp, args.active)
+
+
+async def set_defrost(args) -> None:
+    """Set front windscreen defrost of vehicle."""
+    account = SmartAccount(args.username, args.password)
+    await account.get_vehicles()
+    if not args.vin:
+        args.vin = list(account.vehicles.keys())[0]
+    await account.get_vehicle_information(args.vin)
+
+    climate_ctrl = account.vehicles[args.vin].climate_control
+    await climate_ctrl.set_defrost(args.active)
 
 
 def _add_default_args(parser: argparse.ArgumentParser):
