@@ -16,7 +16,7 @@ class DoorLockControl:
     """Provides an accessible control of the vehicle's door locks.
 
     Uses the remote door lock (RDL_2) and remote door unlock (RDU_2)
-    telematics services, either for all doors or for the trunk.
+    telematics services.
     """
 
     LOCK_SERVICE_ID = "RDL_2"
@@ -84,28 +84,6 @@ class DoorLockControl:
         """
         _LOGGER.debug("Unlocking all doors")
         return await self._send_command(self._get_payload(self.UNLOCK_SERVICE_ID, {"key": "door", "value": "all"}))
-
-    async def open_trunk(self) -> bool:
-        """Unlock and open the trunk of the vehicle.
-
-        Returns
-        -------
-            True if the command was accepted, False otherwise
-
-        """
-        _LOGGER.debug("Opening trunk")
-        return await self._send_command(self._get_payload(self.UNLOCK_SERVICE_ID, {"key": "target", "value": "trunk"}))
-
-    async def close_trunk(self) -> bool:
-        """Close and lock the trunk of the vehicle.
-
-        Returns
-        -------
-            True if the command was accepted, False otherwise
-
-        """
-        _LOGGER.debug("Closing trunk")
-        return await self._send_command(self._get_payload(self.LOCK_SERVICE_ID, {"key": "target", "value": "trunk"}))
 
     async def _send_command(self, params: str) -> bool:
         """Send a door lock command to the vehicle."""
