@@ -42,6 +42,7 @@ class ClimateControll:
         },
         "serviceId": "RCE_2",
     }
+    DEFROST_DURATION = 90
 
     def __init__(self, account: SmartAccount, vin: str):
         """Initialize the vehicle."""
@@ -101,14 +102,38 @@ class ClimateControll:
             raise ValueError("Temperature must be between 16 and 30 degrees.")
         self.conditioning_temp = float(temp)
 
+        _LOGGER.debug("Setting climate conditioning: active=%s, temp=%.1f", active, self.conditioning_temp)
+        return await self._send_rce_command(self._get_payload(active))
+
+    def _get_defrost_payload(self, active: bool) -> str:
+        _payload = self.BASE_PAYLOAD_TEMPLATE.copy()
+        _payload["command"] = "start" if active else "stop"
+        _payload["timestamp"] = utils.create_correct_timestamp()
+        _payload["operationScheduling"] = {
+            **self.BASE_PAYLOAD_TEMPLATE["operationScheduling"],
+            "duration": self.DEFROST_DURATION if active else 0,
+        }
+        _payload["serviceParameters"] = [
+            {"key": "rce.conditioner", "value": "2"},
+            {"key": "rce.level", "value": "2"},
+        ]
+        return json.dumps(_payload).replace(" ", "")
+
+    async def set_defrost(self, active: bool) -> bool:
+        """Start or stop the front windscreen defrost."""
+        if not isinstance(active, bool):
+            raise TypeError("Defrost state must be a boolean")
+        _LOGGER.debug("Setting front windscreen defrost: active=%s", active)
+        return await self._send_rce_command(self._get_defrost_payload(active))
+
+    async def _send_rce_command(self, params: str) -> bool:
+        """Send a remote climate command to the vehicle."""
         # Ensure SSL context is created before using the client
         await self.account._ensure_ssl_context()
 
         await self.account.select_active_vehicle(self.vin)
 
         async with SmartClient(self.config) as client:
-            params = self._get_payload(active)
-            _LOGGER.debug("Setting climate conditioning: active=%s, temp=%.1f", active, self.conditioning_temp)
             for retry in range(3):
                 try:
                     vehicles_response = await client.put(
