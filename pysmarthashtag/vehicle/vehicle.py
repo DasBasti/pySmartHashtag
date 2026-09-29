@@ -79,6 +79,9 @@ class SmartVehicle:
     journal_recording_control: Optional["JournalRecordingControl"] = None  # noqa: F821
     """Control for enabling/disabling on-vehicle trip recording."""
 
+    door_lock_control: Optional["DoorLockControl"] = None  # noqa: F821
+    """Control for remotely locking/unlocking the doors."""
+
     engine_state: Optional[str] = None
     """The state of the engine."""
 
@@ -162,6 +165,10 @@ class SmartVehicle:
         from pysmarthashtag.control.journal import JournalRecordingControl
 
         self.journal_recording_control = JournalRecordingControl(self.account, self.vin)
+
+        from pysmarthashtag.control.lock import DoorLockControl
+
+        self.door_lock_control = DoorLockControl(self.account, self.vin)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
