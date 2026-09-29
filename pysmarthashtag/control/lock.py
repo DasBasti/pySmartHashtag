@@ -7,7 +7,11 @@ from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
 from pysmarthashtag.const import API_TELEMATICS_URL
-from pysmarthashtag.models import SmartHumanCarConnectionError, SmartTokenRefreshNecessary
+from pysmarthashtag.models import (
+    SmartHumanCarConnectionError,
+    SmartTokenRefreshNecessary,
+    SmartVehicleNotInUseError,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -105,6 +109,8 @@ class DoorLockControl:
                                 method="PUT",
                                 url=API_TELEMATICS_URL + self.vin,
                                 body=params,
+                                vin=self.vin,
+                                model_code=self.account._vin_model_code(self.vin),
                             )
                         },
                         content=params.encode("utf-8"),
@@ -112,9 +118,11 @@ class DoorLockControl:
                     api_result = response.json()
                     return api_result["success"]
                 except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Got Token Error, retry: %d", retry)
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
                     continue
-                except SmartHumanCarConnectionError:
-                    _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
+                    await self.account.select_active_vehicle(self.vin)
                     continue
         return False
