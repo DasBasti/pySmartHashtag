@@ -5,9 +5,12 @@ import logging
 from enum import Enum
 from typing import TypedDict
 
+import httpx
+
 from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
+from pysmarthashtag.api.log_sanitizer import sanitize_log_data
 from pysmarthashtag.const import API_TELEMATICS_URL
 from pysmarthashtag.models import SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 
@@ -133,6 +136,14 @@ class ClimateControll:
 
         await self.account.select_active_vehicle(self.vin)
 
+        vehicle_data = getattr(self.account.vehicles.get(self.vin), "data", {}) or {}
+        _LOGGER.debug(
+            "Sending RCE command (seriesCodeVs=%s, modelCode=%s): %s",
+            vehicle_data.get("seriesCodeVs"),
+            vehicle_data.get("modelCode"),
+            params,
+        )
+
         async with SmartClient(self.config) as client:
             for retry in range(3):
                 try:
@@ -151,7 +162,11 @@ class ClimateControll:
                         content=params.encode("utf-8"),
                     )
                     api_result = vehicles_response.json()
+                    _LOGGER.debug("RCE command response: %s", sanitize_log_data(api_result))
                     return api_result["success"]
+                except httpx.HTTPStatusError as exc:
+                    _LOGGER.warning("RCE command rejected (%s) for payload: %s", exc, params)
+                    raise
                 except SmartTokenRefreshNecessary:
                     _LOGGER.debug("Got Token Error, retry: %d", retry)
                     continue

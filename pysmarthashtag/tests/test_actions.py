@@ -1,4 +1,5 @@
 import json
+import logging
 
 import pytest
 import respx
@@ -131,3 +132,19 @@ async def test_set_defrost_invalid_state(smart_fixture: respx.Router):
 
     with pytest.raises(TypeError):
         await climate_ctrl.set_defrost("on")
+
+
+@pytest.mark.asyncio
+async def test_rce_command_logs_payload_and_response(smart_fixture: respx.Router, caplog: pytest.LogCaptureFixture):
+    """Test that RCE commands log the sent payload and the API response for debugging."""
+    account = await prepare_account_with_vehicles()
+    await account.get_vehicle_information("TestVIN0000000001")
+    climate_ctrl = account.vehicles["TestVIN0000000001"].climate_control
+    climate_ctrl.set_heating_level(HeatingLocation.DRIVER_SEAT, 2)
+
+    with caplog.at_level(logging.DEBUG, logger="pysmarthashtag.control.climate"):
+        await climate_ctrl.set_climate_conditioning(20, True)
+
+    assert "Sending RCE command (seriesCodeVs=" in caplog.text
+    assert '{"key":"rce.heat","value":"front-left"}' in caplog.text
+    assert "RCE command response:" in caplog.text
