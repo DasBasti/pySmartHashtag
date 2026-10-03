@@ -7,7 +7,7 @@ from datetime import datetime
 from enum import IntEnum
 from typing import Any
 
-from pysmarthashtag.const import SERIES_CODE_PREFIX_SMART_5
+from pysmarthashtag.const import DC_DC_CONNECTED, SERIES_CODE_PREFIX_SMART_5
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
 _LOGGER = logging.getLogger(__name__)
@@ -15,6 +15,35 @@ _LOGGER = logging.getLogger(__name__)
 """The V2 API used by the Smart #5 reports "dcChargeIAct" in deci-ampere, while the V1
 API of the #1/#3 reports it in ampere. See SmartHashtag issue #459."""
 DC_CHARGE_CURRENT_DIVIDER_SMART_5 = 10
+
+"""Raw values of the Smart #5 DC charge info (qrvs endpoint), as decoded by SMore#:
+current [A] = (chargeI - 16380) / 10, voltage [V] = chargeU / 4."""
+DC_CHARGE_INFO_CURRENT_OFFSET = 16380
+DC_CHARGE_INFO_CURRENT_DIVIDER = 10
+DC_CHARGE_INFO_VOLTAGE_DIVIDER = 4
+
+
+def _measured_dc_charge(vehicle_data: dict, ev_status: dict) -> tuple[float, float] | None:
+    """Return (current A, voltage V) from the Smart #5 DC charge info, if usable.
+
+    Only used while a DC charger is connected, so values from an earlier
+    DC session are never shown.
+    """
+    if str(ev_status.get("dcDcConnectStatus")) != DC_DC_CONNECTED:
+        return None
+    if not str(vehicle_data.get("seriesCodeVs", "")).startswith(SERIES_CODE_PREFIX_SMART_5):
+        return None
+    info = vehicle_data.get("dcChargeInfo")
+    if not isinstance(info, dict):
+        return None
+    charge_i = get_field_as_type(info, "chargeI", float, log_missing=False)
+    charge_u = get_field_as_type(info, "chargeU", float, log_missing=False)
+    if charge_i is None or charge_u is None:
+        return None
+    current = abs((charge_i - DC_CHARGE_INFO_CURRENT_OFFSET) / DC_CHARGE_INFO_CURRENT_DIVIDER)
+    voltage = charge_u / DC_CHARGE_INFO_VOLTAGE_DIVIDER
+    return current, voltage
+
 
 """Charging state of electric vehicle."""
 ChargingState = [
@@ -280,7 +309,13 @@ class Battery(VehicleDataBase):
             battery_percent = retval.get("remaining_battery_percent")
 
             dc_charge_i = get_field_as_type(evStatus, "dcChargeIAct", float, log_missing=False)
-            if dc_charge_i is not None and charging_status == "DC_CHARGING" and battery_percent is not None:
+            measured_dc = _measured_dc_charge(vehicle_data, evStatus)
+            if measured_dc is not None:
+                dc_charge_current, dc_charge_voltage = measured_dc
+                retval["charging_voltage"] = ValueWithUnit(dc_charge_voltage, "V")
+                retval["charging_current"] = ValueWithUnit(dc_charge_current, "A")
+                retval["charging_power"] = ValueWithUnit(math.floor(dc_charge_current * dc_charge_voltage), "W")
+            elif dc_charge_i is not None and charging_status == "DC_CHARGING" and battery_percent is not None:
                 battery_value = battery_percent.value
                 # Ensure battery_value is a valid integer index within DcChargingVoltLevels bounds
                 if isinstance(battery_value, (int, float)):

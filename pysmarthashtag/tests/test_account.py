@@ -5,7 +5,7 @@ import pytest
 import respx
 from httpx import Request, Response
 
-from pysmarthashtag.const import API_BASE_URL, API_SELECT_CAR_URL
+from pysmarthashtag.const import API_BASE_URL, API_BASE_URL_V2, API_SELECT_CAR_URL
 from pysmarthashtag.models import SmartTokenRefreshNecessary, ValueWithUnit
 from pysmarthashtag.tests import RESPONSE_DIR, load_response
 from pysmarthashtag.tests.conftest import prepare_account_with_vehicles
@@ -128,6 +128,11 @@ async def test_no_human_car_connection(smart_fixture: respx.Router):
 @pytest.mark.asyncio
 async def test_get_vehicle_chargin_dc(smart_fixture: respx.Router):
     """Test the get_vehicles method."""
+    # Without the #5 DC charge info (qrvs), the current is estimated from dcChargeIAct
+    for base_url in (API_BASE_URL, API_BASE_URL_V2):
+        smart_fixture.get(base_url + "/geelyTCAccess/tcservices/vehicle/status/qrvs/TestVIN0000000002").respond(
+            200, json={"code": "1000", "data": None, "success": True}
+        )
     account = await prepare_account_with_vehicles()
     assert account is not None
     assert account.vehicles is not None

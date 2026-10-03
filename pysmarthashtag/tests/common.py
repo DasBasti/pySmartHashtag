@@ -96,6 +96,11 @@ class SmartMockRouter(respx.MockRouter):
                 200,
                 json=load_response(RESPONSE_DIR / "vehicle_info_dc_charging.json"),
             )
+            # Smart #5 DC charge info, fetched while TestVIN0000000002 is DC charging
+            self.get(base_url + "/geelyTCAccess/tcservices/vehicle/status/qrvs/TestVIN0000000002").respond(
+                200,
+                json=load_response(RESPONSE_DIR / "dc_charge_info.json"),
+            )
             self.put(base_url + "/remote-control/vehicle/telematics/TestVIN0000000001").respond(
                 200, json=load_response(RESPONSE_DIR / "climate_success.json")
             )
@@ -111,15 +116,25 @@ class SmartMockRouter(respx.MockRouter):
             # endTime/startTime/pageIndex/pageSize/source query params.
             # Match by regex prefix so the route fires regardless of
             # param values.
-            self.get(re.compile(re.escape(
-                base_url + "/vehicle-history-service/journal-service/vehicle/status/history/TestVIN0000000001"
-            ) + r".*")).respond(
+            self.get(
+                re.compile(
+                    re.escape(
+                        base_url + "/vehicle-history-service/journal-service/vehicle/status/history/TestVIN0000000001"
+                    )
+                    + r".*"
+                )
+            ).respond(
                 200,
                 json=load_response(RESPONSE_DIR / "trackpoints_response.json"),
             )
-            self.get(re.compile(re.escape(
-                base_url + "/vehicle-history-service/journal-service/vehicle/status/history/TestVIN0000000002"
-            ) + r".*")).respond(
+            self.get(
+                re.compile(
+                    re.escape(
+                        base_url + "/vehicle-history-service/journal-service/vehicle/status/history/TestVIN0000000002"
+                    )
+                    + r".*"
+                )
+            ).respond(
                 200,
                 json=load_response(RESPONSE_DIR / "trackpoints_response.json"),
             )
@@ -127,15 +142,21 @@ class SmartMockRouter(respx.MockRouter):
             # query params; respx matches by URL prefix without query when
             # we use route() with `host=` + `path__startswith=`. Keep
             # URL-prefix matching simple by registering with a regex.
-            self.get(re.compile(re.escape(
-                base_url + "/geelyTCAccess/tcservices/vehicle/status/journalLogV4/TestVIN0000000001"
-            ) + r".*")).respond(
+            self.get(
+                re.compile(
+                    re.escape(base_url + "/geelyTCAccess/tcservices/vehicle/status/journalLogV4/TestVIN0000000001")
+                    + r".*"
+                )
+            ).respond(
                 200,
                 json=load_response(RESPONSE_DIR / "journal_response.json"),
             )
-            self.get(re.compile(re.escape(
-                base_url + "/geelyTCAccess/tcservices/vehicle/status/journalLogV4/TestVIN0000000002"
-            ) + r".*")).respond(
+            self.get(
+                re.compile(
+                    re.escape(base_url + "/geelyTCAccess/tcservices/vehicle/status/journalLogV4/TestVIN0000000002")
+                    + r".*"
+                )
+            ).respond(
                 200,
                 json=load_response(RESPONSE_DIR / "journal_response.json"),
             )

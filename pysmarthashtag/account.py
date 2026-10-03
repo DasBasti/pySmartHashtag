@@ -12,7 +12,15 @@ from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.api.log_sanitizer import sanitize_log_data
-from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, API_SEND_TO_CAR_URL, EndpointUrls
+from pysmarthashtag.const import (
+    API_CARS_URL,
+    API_DC_CHARGE_INFO_URL,
+    API_SELECT_CAR_URL,
+    API_SEND_TO_CAR_URL,
+    DC_DC_CONNECTED,
+    SERIES_CODE_PREFIX_SMART_5,
+    EndpointUrls,
+)
 from pysmarthashtag.models import (
     JournalTruncationError,
     SmartHumanCarConnectionError,
@@ -361,6 +369,8 @@ class SmartAccount:
             "userId": self.config.authentication.api_user_id,
         }
         data = {}
+        # DC charge info from the previous poll must not outlive the DC session
+        self.vehicles[vin].data.pop("dcChargeInfo", None)
         async with SmartClient(self.config) as client:
             last_error = None
             refreshed_unmapped = False
@@ -412,7 +422,67 @@ class SmartAccount:
                 # Only when every attempt failed. Surface the real cause so a
                 # transient failure stays transient instead of a reauth prompt.
                 raise last_error
+        if self._needs_dc_charge_info(vin, data):
+            dc_charge_info = await self.get_vehicle_dc_charge_info(vin)
+            if dc_charge_info:
+                self.vehicles[vin].combine_data({"dcChargeInfo": dc_charge_info})
         return data
+
+    async def get_vehicle_dc_charge_info(self, vin) -> dict:
+        """Fetch the DC charging current and voltage of a Smart #5.
+
+        Hits ``/geelyTCAccess/tcservices/vehicle/status/qrvs/{vin}`` (no
+        params), which SMore# uses for the #5 while it is DC charging. The
+        ``data`` block carries ``chargeI`` / ``chargeU`` in raw units; see
+        ``Battery`` for the scaling.
+
+        Best effort: errors are logged and an empty dict is returned, so a
+        failing call never breaks the regular status update.
+        """
+        _LOGGER.debug("Getting DC charge info for %s", sanitize_log_data(vin))
+        path = API_DC_CHARGE_INFO_URL + vin
+        try:
+            async with SmartClient(self.config) as client:
+                for retry in range(3):
+                    try:
+                        r_info = await client.get(
+                            self.vehicles[vin].base_url + path,
+                            headers={
+                                **utils.generate_default_header(
+                                    client.config.authentication.device_id,
+                                    client.config.authentication.api_access_token,
+                                    params={},
+                                    method="GET",
+                                    url=path,
+                                    vin=vin,
+                                    model_code=self._vin_model_code(vin),
+                                )
+                            },
+                        )
+                        _LOGGER.debug("Got response %d", r_info.status_code)
+                        return r_info.json().get("data") or {}
+                    except SmartTokenRefreshNecessary:
+                        _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                        await self.config.authentication.refresh()
+                        continue
+                    except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                        _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
+                        await self.select_active_vehicle(vin)
+                        continue
+        except Exception:
+            _LOGGER.debug("DC charge info fetch failed for %s", sanitize_log_data(vin), exc_info=True)
+        return {}
+
+    def _needs_dc_charge_info(self, vin, status_data: dict) -> bool:
+        """Return whether the vehicle is a Smart #5 connected to a DC charger."""
+        series = str(self.vehicles[vin].data.get("seriesCodeVs", ""))
+        if not series.startswith(SERIES_CODE_PREFIX_SMART_5):
+            return False
+        try:
+            ev_status = status_data["vehicleStatus"]["additionalVehicleStatus"]["electricVehicleStatus"]
+        except (KeyError, TypeError):
+            return False
+        return str(ev_status.get("dcDcConnectStatus")) == DC_DC_CONNECTED
 
     async def get_vehicle_state(self, vin) -> dict:
         """Fetch the small flat-dict state-flag response for a vehicle.
