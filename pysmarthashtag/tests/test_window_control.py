@@ -38,11 +38,27 @@ async def test_set_ventilation(smart_fixture: respx.Router, active: bool, comman
 
 
 @pytest.mark.asyncio
-async def test_set_ventilation_invalid_state(smart_fixture: respx.Router):
+@pytest.mark.parametrize(("open_", "command"), [(True, "start"), (False, "stop")])
+async def test_set_sunshade(smart_fixture: respx.Router, open_: bool, command: str):
+    """Test that the sunshade sends RWS_2 target=sunshade, start to open and stop to close."""
+    window_ctrl = await _window_control()
+
+    assert await window_ctrl.set_sunshade(open_)
+
+    payload = json.loads(_last_telematics_request(smart_fixture).content)
+    assert payload["serviceId"] == "RWS_2"
+    assert payload["command"] == command
+    assert payload["operationScheduling"]["duration"] == 0
+    assert payload["serviceParameters"] == [{"key": "target", "value": "sunshade"}]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("method", ["set_ventilation", "set_sunshade"])
+async def test_window_commands_invalid_state(smart_fixture: respx.Router, method: str):
     """Test that a non-boolean state is rejected before sending."""
     window_ctrl = await _window_control()
 
     with pytest.raises(TypeError):
-        await window_ctrl.set_ventilation("open")
+        await getattr(window_ctrl, method)("open")
 
     assert not [c for c in smart_fixture.calls if c.request.method == "PUT"]

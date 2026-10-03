@@ -13,7 +13,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class WindowControl:
-    """Provides an accessible control of the vehicle's windows.
+    """Provides an accessible control of the vehicle's windows and sunshade.
 
     Uses the remote window service (RWS_2). "start" opens, "stop" closes.
     """
@@ -40,7 +40,7 @@ class WindowControl:
 
         Args:
         ----
-            target: What to move, e.g. "ventilate"
+            target: What to move: "ventilate" or "sunshade"
             open_: True to open ("start"), False to close ("stop")
 
         Returns:
@@ -71,3 +71,20 @@ class WindowControl:
             raise TypeError("Ventilation state must be a boolean")
         _LOGGER.debug("Setting window ventilation: active=%s", active)
         return await send_telematics_command(self.account, self.vin, self._get_payload("ventilate", active))
+
+    async def set_sunshade(self, open_: bool) -> bool:
+        """Open or close the sunshade (sun curtain).
+
+        Args:
+        ----
+            open_: True to open the sunshade, False to close it
+
+        Returns:
+        -------
+            True if the command was accepted, False otherwise
+
+        """
+        if not isinstance(open_, bool):
+            raise TypeError("Sunshade state must be a boolean")
+        _LOGGER.debug("Setting sunshade: open=%s", open_)
+        return await send_telematics_command(self.account, self.vin, self._get_payload("sunshade", open_))
