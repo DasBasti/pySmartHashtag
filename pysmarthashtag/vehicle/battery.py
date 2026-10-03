@@ -5,7 +5,7 @@ import math
 from dataclasses import dataclass
 from datetime import datetime
 from enum import IntEnum
-from typing import Any, Optional
+from typing import Any
 
 from pysmarthashtag.const import SERIES_CODE_PREFIX_SMART_5
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
@@ -61,7 +61,7 @@ class ChargerConnectionState(IntEnum):
 CHARGER_CONNECTION_STATES: tuple = tuple(state.name.lower() for state in ChargerConnectionState) + ("unknown",)
 
 
-def charger_connection_state_name(status: Optional[int]) -> Optional[str]:
+def charger_connection_state_name(status: int | None) -> str | None:
     """Return the stable, lower case name for a raw ``statusOfChargerConnection`` code.
 
     Returns ``None`` if the vehicle did not report a code and ``"unknown"`` for codes
@@ -185,25 +185,25 @@ DcChargingVoltLevels = [
 class Battery(VehicleDataBase):
     """Provides an accessible version of the vehicle's battery data."""
 
-    remaining_range: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    remaining_range: ValueWithUnit | None = ValueWithUnit(None, None)
     """Remaining range of the vehicle."""
 
-    remaining_range_at_full_charge: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    remaining_range_at_full_charge: ValueWithUnit | None = ValueWithUnit(None, None)
     """Remaining range at full charge of the vehicle."""
 
-    remaining_battery_percent: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    remaining_battery_percent: ValueWithUnit | None = ValueWithUnit(None, None)
     """Remaining battery percent of the vehicle."""
 
-    charging_status: Optional[str] = None
+    charging_status: str | None = None
     """Charging status of the vehicle as string."""
 
-    charging_status_raw: Optional[int] = None
+    charging_status_raw: int | None = None
     """Charging status of the vehicle."""
 
-    charger_connection_status: Optional[int] = None
+    charger_connection_status: int | None = None
     """Charger connection status of the vehicle as raw API code."""
 
-    charger_connection_state: Optional[str] = None
+    charger_connection_state: str | None = None
     """Charger connection status of the vehicle as stable, lower case name.
 
     Always one of :data:`CHARGER_CONNECTION_STATES` once the vehicle reported a code."""
@@ -211,22 +211,22 @@ class Battery(VehicleDataBase):
     is_charger_connected: bool = False
     """Is the charger connected to the vehicle."""
 
-    charging_voltage: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    charging_voltage: ValueWithUnit | None = ValueWithUnit(None, None)
     """Charging voltage of the vehicle."""
 
-    charging_current: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    charging_current: ValueWithUnit | None = ValueWithUnit(None, None)
     """Charging current of the vehicle."""
 
-    charging_power: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    charging_power: ValueWithUnit | None = ValueWithUnit(None, None)
     """Charging power of the vehicle."""
 
-    charging_time_remaining: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    charging_time_remaining: ValueWithUnit | None = ValueWithUnit(None, None)
     """Charging time remaining of the vehicle."""
 
-    charging_target_soc: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    charging_target_soc: ValueWithUnit | None = ValueWithUnit(None, None)
     """Charging target state of charge."""
 
-    average_power_consumption: Optional[ValueWithUnit] = ValueWithUnit(None, "W")
+    average_power_consumption: ValueWithUnit | None = ValueWithUnit(None, "W")
     """Current average consumption"""
 
     @classmethod
@@ -238,7 +238,7 @@ class Battery(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> dict | None:
         """Parse the battery data based on Ids."""
         _LOGGER.debug("Parsing battery data")
         retval: dict[str, Any] = {}

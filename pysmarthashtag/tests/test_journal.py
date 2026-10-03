@@ -1,6 +1,6 @@
 """Tests for the trip journal endpoint and parser."""
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 import pytest
@@ -26,9 +26,7 @@ def test_from_response_handles_empty_body():
 
 def test_from_response_handles_no_logs_with_total():
     """Cloud reported a total but no logs — we still surface total_trips."""
-    parsed = TripJournal.from_response(
-        {"data": {"pagination": {"totleSize": 0}, "list": []}}
-    )
+    parsed = TripJournal.from_response({"data": {"pagination": {"totleSize": 0}, "list": []}})
     assert parsed is not None
     assert parsed.total_trips == 0
     assert parsed.trip_id == ""
@@ -55,8 +53,8 @@ def test_from_response_parses_full_record():
     # The cloud doesn't provide max_speed (would require trackpoint analysis).
     assert parsed.max_speed is None
     # Tz-aware UTC datetime (HA's TIMESTAMP device class needs tzinfo).
-    assert parsed.start_time == datetime.fromtimestamp(1734246000000 / 1000, tz=timezone.utc)
-    assert parsed.end_time == datetime.fromtimestamp(1734247230000 / 1000, tz=timezone.utc)
+    assert parsed.start_time == datetime.fromtimestamp(1734246000000 / 1000, tz=UTC)
+    assert parsed.end_time == datetime.fromtimestamp(1734247230000 / 1000, tz=UTC)
     assert parsed.start_time.tzinfo is not None
     assert parsed.regenerated_energy.value == 0.8
     assert parsed.start_address == "123 Test Street, Test City"
@@ -172,10 +170,11 @@ async def test_grant_authorization_caches_per_vin_token(smart_fixture: respx.Rou
     # The mock router registered POST /authorization/insert during fixture
     # setup; find it and count calls.
     import re
+
     insert_route = next(
-        r for r in smart_fixture.routes
-        if re.search(r"authorization/insert", str(r.pattern))
-        and "POST" in str(r.pattern)
+        r
+        for r in smart_fixture.routes
+        if re.search(r"authorization/insert", str(r.pattern)) and "POST" in str(r.pattern)
     )
     insert_route.calls.reset()
 
@@ -220,14 +219,15 @@ async def test_get_vehicles_survives_journal_error(smart_fixture: respx.Router):
         )
 
     import re
+
     for base in (API_BASE_URL, API_BASE_URL_V2):
         for vin in ("TestVIN0000000001", "TestVIN0000000002"):
             # Override the regex route registered by SmartMockRouter (journalLogV4
             # carries query params now, so the existing route is registered with
             # a regex prefix); match that regex exactly so respx replaces it.
-            smart_fixture.get(re.compile(re.escape(
-                base + f"/geelyTCAccess/tcservices/vehicle/status/journalLogV4/{vin}"
-            ) + r".*")).mock(side_effect=_error_response)
+            smart_fixture.get(
+                re.compile(re.escape(base + f"/geelyTCAccess/tcservices/vehicle/status/journalLogV4/{vin}") + r".*")
+            ).mock(side_effect=_error_response)
 
     account = await prepare_account_with_vehicles()
     # Vehicles still loaded; just no last_trip populated.

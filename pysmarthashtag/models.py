@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from datetime import datetime
 from enum import Enum
-from typing import Any, NamedTuple, Optional, Union
+from typing import Any, NamedTuple
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +30,7 @@ class StrEnum(str, Enum):
 class VehicleDataBase:
     """Base class for vehicle data."""
 
-    timestamp: Optional[datetime] = None
+    timestamp: datetime | None = None
 
     @classmethod
     def from_vehicle_data(cls, vehicle_data: dict):
@@ -48,7 +48,7 @@ class VehicleDataBase:
             self.__dict__.update(parsed)
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> dict | None:
         """Parse the vehicle data."""
         raise NotImplementedError()
 
@@ -60,8 +60,8 @@ class VehicleDataBase:
 class ValueWithUnit(NamedTuple):
     """A value with a corresponding unit."""
 
-    value: Optional[Union[int, float]]
-    unit: Optional[str]
+    value: int | float | None
+    unit: str | None
 
 
 @dataclass
@@ -69,7 +69,7 @@ class AnonymizedResponse:
     """An anonymized response."""
 
     filename: str
-    content: Optional[Union[list, dict, str]] = None
+    content: list | dict | str | None = None
 
 
 class SmartAPIError(Exception):
@@ -149,9 +149,7 @@ class JournalTruncationError(SmartAPIError):
     """
 
 
-def get_element_from_dict_maybe(
-    data: dict, *path: str, default: "Any|None" = None
-) -> Optional[Union[dict, str, int, float]]:
+def get_element_from_dict_maybe(data: dict, *path: str, default: "Any|None" = None) -> dict | str | int | float | None:
     """Get an element from a dict by path."""
     if len(path) == 0:
         return data
@@ -165,7 +163,7 @@ def get_field_as_type(
     field: str,
     target_type: type,
     log_missing: bool = False,
-) -> Optional[Union[int, float, bool, str]]:
+) -> int | float | bool | str | None:
     """Get a field from a dict and convert it to the target type.
 
     This function safely extracts a field from a dictionary and converts it

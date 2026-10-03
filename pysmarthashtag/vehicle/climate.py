@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
@@ -14,127 +14,127 @@ _LOGGER = logging.getLogger(__name__)
 class Climate(VehicleDataBase):
     """Provides an accessible version of the vehicle's climate data."""
 
-    air_blower_active: Optional[bool] = None
+    air_blower_active: bool | None = None
     """The state of the air blower."""
 
-    cds_climate_active: Optional[bool] = None
+    cds_climate_active: bool | None = None
     """The state of the climate control system."""
 
-    climate_over_heat_protection_active: Optional[bool] = None
+    climate_over_heat_protection_active: bool | None = None
     """The state of the climate overheat protection."""
 
-    curtain_open_status: Optional[bool] = None
+    curtain_open_status: bool | None = None
     """The state of the curtail open status."""
 
-    curtain_position: Optional[int] = None
+    curtain_position: int | None = None
     """The position of the curtain."""
 
-    defrosting_active: Optional[bool] = None
+    defrosting_active: bool | None = None
     """The state of the defrosting."""
 
-    driver_heating_detail: Optional[int] = None
+    driver_heating_detail: int | None = None
     """The position of the driver's heating."""
 
-    driver_heating_status: Optional[bool] = None
+    driver_heating_status: bool | None = None
     """The state of the driver's heating."""
 
-    driver_ventilation_detail: Optional[int] = None
+    driver_ventilation_detail: int | None = None
     """The position of the driver's ventilation."""
 
-    driver_ventilation_status: Optional[bool] = None
+    driver_ventilation_status: bool | None = None
     """The state of the driver's ventilation."""
 
-    exterior_temperature: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    exterior_temperature: ValueWithUnit | None = ValueWithUnit(None, None)
     """The exterior temperature."""
 
-    frag_active: Optional[bool] = None
+    frag_active: bool | None = None
     """The state of the frag."""
 
-    interior_temperature: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    interior_temperature: ValueWithUnit | None = ValueWithUnit(None, None)
     """The interior temperature."""
 
-    passenger_heating_detail: Optional[int] = None
+    passenger_heating_detail: int | None = None
     """The position of the passenger's heating."""
 
-    passenger_heating_status: Optional[bool] = None
+    passenger_heating_status: bool | None = None
     """The state of the passenger's heating."""
 
-    passenger_ventilation_detail: Optional[int] = None
+    passenger_ventilation_detail: int | None = None
     """The position of the passenger's ventilation."""
 
-    passenger_ventilation_status: Optional[bool] = None
+    passenger_ventilation_status: bool | None = None
     """The state of the passenger's ventilation."""
 
-    pre_climate_active: Optional[bool] = None
+    pre_climate_active: bool | None = None
     """The state of the pre-climate."""
 
-    rear_left_heating_detail: Optional[int] = None
+    rear_left_heating_detail: int | None = None
     """The position of the left rear heating."""
 
-    rear_left_heating_status: Optional[bool] = None
+    rear_left_heating_status: bool | None = None
     """The state of the left rear heating."""
 
-    rear_left_ventilation_detail: Optional[int] = None
+    rear_left_ventilation_detail: int | None = None
     """The position of the left rear ventilation."""
 
-    rear_left_ventilation_status: Optional[bool] = None
+    rear_left_ventilation_status: bool | None = None
     """The state of the left rear ventilation."""
 
-    rear_right_heating_detail: Optional[int] = None
+    rear_right_heating_detail: int | None = None
     """The position of the right rear heating."""
 
-    rear_right_heating_status: Optional[bool] = None
+    rear_right_heating_status: bool | None = None
     """The state of the right rear heating."""
 
-    rear_right_ventilation_detail: Optional[int] = None
+    rear_right_ventilation_detail: int | None = None
     """The position of the right rear ventilation."""
 
-    rear_right_ventilation_status: Optional[bool] = None
+    rear_right_ventilation_status: bool | None = None
     """The state of the right rear ventilation."""
 
-    steering_wheel_heating_status: Optional[bool] = None
+    steering_wheel_heating_status: bool | None = None
     """The state of the steering wheel heating."""
 
-    sun_curtain_rear_open_status: Optional[bool] = None
+    sun_curtain_rear_open_status: bool | None = None
     """The state of the rear sun curtain."""
 
-    sun_curtain_rear_position: Optional[int] = None
+    sun_curtain_rear_position: int | None = None
     """The position of the rear sun curtain."""
 
-    sunroof_open_status: Optional[bool] = None
+    sunroof_open_status: bool | None = None
     """The state of the sunroof."""
 
-    sunroof_position: Optional[int] = None
+    sunroof_position: int | None = None
     """The position of the sunroof."""
 
-    window_driver_position: Optional[int] = None
+    window_driver_position: int | None = None
     """The position of the driver's window."""
 
-    window_driver_rear_position: Optional[int] = None
+    window_driver_rear_position: int | None = None
     """The position of the rear driver's window."""
 
-    window_passenger_position: Optional[int] = None
+    window_passenger_position: int | None = None
     """The position of the passenger's window."""
 
-    window_passenger_rear_position: Optional[int] = None
+    window_passenger_rear_position: int | None = None
     """The position of the rear passenger's window."""
 
-    window_driver_status: Optional[bool] = None
+    window_driver_status: bool | None = None
     """The state of the driver's window."""
 
-    window_driver_rear_status: Optional[bool] = None
+    window_driver_rear_status: bool | None = None
     """The state of the rear driver's window."""
 
-    window_passenger_status: Optional[bool] = None
+    window_passenger_status: bool | None = None
     """The state of the passenger's window."""
 
-    window_passenger_rear_status: Optional[bool] = None
+    window_passenger_rear_status: bool | None = None
     """The state of the rear passenger's window."""
 
-    interior_PM25: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    interior_PM25: ValueWithUnit | None = ValueWithUnit(None, None)
     """The interior PM2.5 value."""
 
-    relative_humidity: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    relative_humidity: ValueWithUnit | None = ValueWithUnit(None, None)
     """The relative humidity."""
 
     @classmethod
@@ -146,7 +146,7 @@ class Climate(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> dict | None:
         """Parse the climate data based on Ids."""
         _LOGGER.debug("Parsing climate data")
         if "vehicleStatus" not in vehicle_data:

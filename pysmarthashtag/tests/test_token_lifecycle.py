@@ -27,8 +27,8 @@ from pysmarthashtag.models import (
     SmartAPIError,
     SmartHumanCarConnectionError,
     SmartMainTokenExpiredError,
-    SmartNoPermissionError,
     SmartNonceError,
+    SmartNoPermissionError,
     SmartTokenRefreshNecessary,
     SmartVehicleNotInUseError,
     SmartVehicleUnboundError,
@@ -47,7 +47,7 @@ def _token_data() -> dict:
         "api_access_token": "x",
         "api_refresh_token": "y",
         "api_user_id": "z",
-        "expires_at": datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(hours=1),
+        "expires_at": datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1),
     }
 
 

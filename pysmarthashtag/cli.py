@@ -6,7 +6,6 @@ import asyncio
 import logging.config
 import os
 import time
-from typing import Optional
 
 from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.control.climate import HeatingLocation
@@ -134,7 +133,7 @@ async def watch_car(args) -> None:
         time.sleep(args.i)
 
 
-def _select_vin(account: SmartAccount, vin: Optional[str]) -> str:
+def _select_vin(account: SmartAccount, vin: str | None) -> str:
     """Return the VIN to control, defaulting to the first vehicle of the account.
 
     Raises SystemExit with an actionable message if the account has no vehicles

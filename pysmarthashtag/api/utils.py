@@ -4,7 +4,6 @@ import hmac
 import logging
 import secrets
 import time
-from typing import Optional
 from urllib.parse import quote
 
 _LOGGER = logging.getLogger(__name__)
@@ -47,8 +46,8 @@ def generate_default_header(
     method: str,
     url: str,
     body=None,
-    vin: Optional[str] = None,
-    model_code: Optional[str] = None,
+    vin: str | None = None,
+    model_code: str | None = None,
 ) -> dict[str, str]:
     """Generate a header for HTTP requests to the server.
 

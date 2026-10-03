@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
@@ -14,88 +14,88 @@ _LOGGER = logging.getLogger(__name__)
 class Running(VehicleDataBase):
     """Provides an accessible version of the vehicle's running data."""
 
-    ahbc_status: Optional[int] = None
+    ahbc_status: int | None = None
     """Adaptive high beam control status."""
 
-    goodbye: Optional[int] = None
+    goodbye: int | None = None
     """Goodbye Light."""
 
-    home_safe: Optional[int] = None
+    home_safe: int | None = None
     """Home Safe Light."""
 
-    corner_light: Optional[int] = None
+    corner_light: int | None = None
     """Corner light."""
 
-    front_fog_light: Optional[int] = None
+    front_fog_light: int | None = None
     """Front Fog light."""
 
-    stop_light: Optional[int] = None
+    stop_light: int | None = None
     """Stop light."""
 
-    trip_meter1: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    trip_meter1: ValueWithUnit | None = ValueWithUnit(None, None)
     """Trip meter 1."""
 
-    trip_meter2: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    trip_meter2: ValueWithUnit | None = ValueWithUnit(None, None)
     """Trip meter 2."""
 
-    approach: Optional[int] = None
+    approach: int | None = None
     """Approach light."""
 
-    high_beam: Optional[int] = None
+    high_beam: int | None = None
     """High beam light."""
 
-    engine_coolant_level_status: Optional[int] = None
+    engine_coolant_level_status: int | None = None
     """Engine coolant level status."""
 
-    low_beam: Optional[int] = None
+    low_beam: int | None = None
     """Low beam light."""
 
-    position_light_rear: Optional[int] = None
+    position_light_rear: int | None = None
     """Position light rear."""
 
-    light_show: Optional[int] = None
+    light_show: int | None = None
     """Light show."""
 
-    welcome: Optional[int] = None
+    welcome: int | None = None
     """Welcome light."""
 
-    drl: Optional[int] = None
+    drl: int | None = None
     """Daytime running light."""
 
-    ahl: Optional[int] = None
+    ahl: int | None = None
     """Adaptive headlight."""
 
-    trun_indicator_left: Optional[int] = None
+    trun_indicator_left: int | None = None
     """Turn indicator left."""
 
-    trun_indicator_right: Optional[int] = None
+    trun_indicator_right: int | None = None
     """Turn indicator right."""
 
-    adaptive_front_light: Optional[int] = None
+    adaptive_front_light: int | None = None
     """Adaptive front lighting system."""
 
-    dbl: Optional[int] = None
+    dbl: int | None = None
     """Double light."""
 
-    average_speed: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    average_speed: ValueWithUnit | None = ValueWithUnit(None, None)
     """Average speed."""
 
-    position_light_front: Optional[int] = None
+    position_light_front: int | None = None
     """Position light front."""
 
-    reverse_light: Optional[int] = None
+    reverse_light: int | None = None
     """Reverse light."""
 
-    highway_light: Optional[int] = None
+    highway_light: int | None = None
     """Highway light."""
 
-    rear_fog_light: Optional[int] = None
+    rear_fog_light: int | None = None
     """Rear fog light."""
 
-    flash_light: Optional[int] = None
+    flash_light: int | None = None
     """Flash light."""
 
-    all_weather_light: Optional[int] = None
+    all_weather_light: int | None = None
     """All weather light."""
 
     @classmethod
@@ -107,7 +107,7 @@ class Running(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> dict | None:
         """Parse the running data based on Ids."""
         if "vehicleStatus" not in vehicle_data:
             return None

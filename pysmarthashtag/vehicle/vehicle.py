@@ -35,39 +35,39 @@ class SmartVehicle:
     data: dict
     """The raw data of the vehicle."""
 
-    odometer: Optional[ValueWithUnit] = None
+    odometer: ValueWithUnit | None = None
     """The odometer of the vehicle."""
 
-    battery: Optional[Battery] = None
+    battery: Battery | None = None
     """The battery of the vehicle."""
 
-    tires: Optional[Tires] = None
+    tires: Tires | None = None
     """The tires of the vehicle."""
 
-    position: Optional[Position] = None
+    position: Position | None = None
     """The position of the vehicle."""
 
-    last_update: Optional[datetime.datetime] = None
+    last_update: datetime.datetime | None = None
     """The last time the vehicle data was updated."""
 
-    service: Optional[dict] = {}
+    service: dict | None = {}
 
-    maintenance: Optional[Maintenance] = None
+    maintenance: Maintenance | None = None
     """The maintenance status of the vehicle."""
 
-    running: Optional[Running] = None
+    running: Running | None = None
     """The running status of the vehicle."""
 
-    climate: Optional[Climate] = None
+    climate: Climate | None = None
     """The climate status of the vehicle."""
 
-    safety: Optional[Safety] = None
+    safety: Safety | None = None
     """The safety status of the vehicle."""
 
-    last_trip: Optional[TripJournal] = None
+    last_trip: TripJournal | None = None
     """The most recent trip from the journal log (server-side reverse-geocoded)."""
 
-    state: Optional[VehicleState] = None
+    state: VehicleState | None = None
     """Per-VIN TBox-side state flags from the GetCarState endpoint
     (journal recording, valet mode, privacy, next wakeup, etc.)."""
 
@@ -82,7 +82,7 @@ class SmartVehicle:
     door_lock_control: Optional["DoorLockControl"] = None  # noqa: F821
     """Control for remotely locking/unlocking the doors."""
 
-    engine_state: Optional[str] = None
+    engine_state: str | None = None
     """The state of the engine."""
 
     base_url: str = API_BASE_URL
@@ -91,9 +91,9 @@ class SmartVehicle:
         self,
         account: "SmartAccount",  # noqa: F821
         vehicle_base: dict,
-        vehicle_state: Optional[dict] = None,
-        charging_settings: Optional[dict] = None,
-        fetched_at: Optional[datetime.datetime] = None,
+        vehicle_state: dict | None = None,
+        charging_settings: dict | None = None,
+        fetched_at: datetime.datetime | None = None,
     ) -> None:
         """Initialize the vehicle."""
         self.account = account
@@ -119,12 +119,12 @@ class SmartVehicle:
     def combine_data(
         self,
         vehicle_base: dict,
-        vehicle_state: Optional[dict] = None,
-        charging_settings: Optional[dict] = None,
-        ota_info: Optional[dict] = None,
-        fetched_at: Optional[datetime.datetime] = None,
-        journal_response: Optional[dict] = None,
-        state_response: Optional[dict] = None,
+        vehicle_state: dict | None = None,
+        charging_settings: dict | None = None,
+        ota_info: dict | None = None,
+        fetched_at: datetime.datetime | None = None,
+        journal_response: dict | None = None,
+        state_response: dict | None = None,
     ) -> dict:
         """Combine all data into one dictionary."""
         self.data.update(vehicle_base)
@@ -183,7 +183,7 @@ class SmartVehicle:
             )
         last_update = get_element_from_dict_maybe(self.data, "vehicleStatus", "updateTime")
         if last_update:
-            self.last_update = datetime.datetime.fromtimestamp(int(last_update) / 1000, datetime.timezone.utc)
+            self.last_update = datetime.datetime.fromtimestamp(int(last_update) / 1000, datetime.UTC)
         days_to_service = get_element_from_dict_maybe(
             self.data, "vehicleStatus", "additionalVehicleStatus", "maintenanceStatus", "daysToService"
         )

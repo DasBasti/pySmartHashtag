@@ -2,7 +2,6 @@ import logging
 import ssl
 from collections import defaultdict, deque
 from dataclasses import dataclass, field
-from typing import Optional
 
 import httpx
 
@@ -16,8 +15,8 @@ from pysmarthashtag.models import (
     AnonymizedResponse,
     SmartHumanCarConnectionError,
     SmartMainTokenExpiredError,
-    SmartNoPermissionError,
     SmartNonceError,
+    SmartNoPermissionError,
     SmartTokenRefreshNecessary,
     SmartVehicleNotInUseError,
     SmartVehicleUnboundError,
@@ -33,8 +32,8 @@ class SmartClientConfiguration:
     """Stores global settings for SmartClient."""
 
     authentication: SmartAuthentication
-    log_responses: Optional[bool] = False
-    ssl_context: Optional[ssl.SSLContext] = field(default=None)
+    log_responses: bool | None = False
+    ssl_context: ssl.SSLContext | None = field(default=None)
 
     def set_log_responses(self, log_responses: bool) -> None:
         """Set if responses are logged and clear response store."""
@@ -54,7 +53,7 @@ class SmartClient(httpx.AsyncClient):
 
     last_message: str = ""
 
-    def __init__(self, config: SmartClientConfiguration, ssl_context: Optional[ssl.SSLContext] = None, *args, **kwargs):
+    def __init__(self, config: SmartClientConfiguration, ssl_context: ssl.SSLContext | None = None, *args, **kwargs):
         """Initialize the Smart client.
 
         Args:

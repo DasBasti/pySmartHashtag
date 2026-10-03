@@ -10,7 +10,6 @@ import secrets
 import ssl
 from collections import defaultdict
 from collections.abc import AsyncGenerator, Generator
-from typing import Optional
 from urllib.parse import parse_qs, urlencode, urljoin, urlparse
 
 import httpx
@@ -41,7 +40,7 @@ class _BackoffState:
 
     def __init__(self, backoff: datetime.timedelta) -> None:
         self.backoff: datetime.timedelta = backoff
-        self.quiet_until: Optional[datetime.datetime] = None
+        self.quiet_until: datetime.datetime | None = None
 
 
 _BACKOFF_REGISTRY: dict[str, _BackoffState] = {}
@@ -64,24 +63,24 @@ class SmartAuthentication(httpx.Auth):
         self,
         username: str,
         password: str,
-        access_token: Optional[str] = None,
-        expires_at: Optional[datetime.datetime] = None,
-        refresh_token: Optional[str] = None,
-        ssl_context: Optional[ssl.SSLContext] = None,
-        endpoint_urls: Optional[EndpointUrls] = None,
+        access_token: str | None = None,
+        expires_at: datetime.datetime | None = None,
+        refresh_token: str | None = None,
+        ssl_context: ssl.SSLContext | None = None,
+        endpoint_urls: EndpointUrls | None = None,
     ):
         self.username: str = username
         self.password: str = password
-        self.access_token: Optional[str] = access_token
-        self.expires_at: Optional[datetime.datetime] = expires_at
-        self.refresh_token: Optional[str] = refresh_token
+        self.access_token: str | None = access_token
+        self.expires_at: datetime.datetime | None = expires_at
+        self.refresh_token: str | None = refresh_token
         self.device_id: str = secrets.token_hex(8)
-        self._lock: Optional[asyncio.Lock] = None
-        self.api_access_token: Optional[str] = None
-        self.api_refresh_token: Optional[str] = None
-        self.api_user_id: Optional[str] = None
-        self.api_client_id: Optional[str] = None
-        self.ssl_context: Optional[ssl.SSLContext] = ssl_context
+        self._lock: asyncio.Lock | None = None
+        self.api_access_token: str | None = None
+        self.api_refresh_token: str | None = None
+        self.api_user_id: str | None = None
+        self.api_client_id: str | None = None
+        self.ssl_context: ssl.SSLContext | None = ssl_context
         self.endpoint_urls: EndpointUrls = endpoint_urls if endpoint_urls is not None else EndpointUrls()
         # PATCH: shared adaptive-backoff state (per username, module-scoped).
         # Sharing across instances is essential because HA's config_entries
@@ -205,7 +204,7 @@ class SmartAuthentication(httpx.Auth):
           * AIMD backoff: rate-limit failures grow the window geometrically,
             successes shrink it additively.
         """
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         if self._state.quiet_until is not None and now < self._state.quiet_until:
             wait_s = int((self._state.quiet_until - now).total_seconds())
             raise SmartAPIError(
@@ -225,7 +224,7 @@ class SmartAuthentication(httpx.Auth):
 
     def _on_login_failure(self, exc: Exception) -> None:
         """Update backoff state after a failed login attempt."""
-        now = datetime.datetime.now(datetime.timezone.utc)
+        now = datetime.datetime.now(datetime.UTC)
         if self._is_rate_limit_error(exc):
             new_backoff = min(self._state.backoff * self._BACKOFF_GROW, self._BACKOFF_CAP)
             self._state.backoff = new_backoff
@@ -316,8 +315,8 @@ class SmartAuthentication(httpx.Auth):
                 "content-type": "application/json; charset=utf-8",
             }
             current_url = self.endpoint_urls.get_server_url()
-            context: Optional[str] = None
-            last_status: Optional[int] = None
+            context: str | None = None
+            last_status: int | None = None
             last_location = ""
             for hop in range(MAX_REDIRECT_HOPS):
                 r_context = await client.get(
@@ -438,7 +437,7 @@ class SmartAuthentication(httpx.Auth):
             try:
                 session_info = login_result["sessionInfo"]
                 login_token = session_info["login_token"]
-                expires_at = datetime.datetime.now(datetime.timezone.utc) + datetime.timedelta(
+                expires_at = datetime.datetime.now(datetime.UTC) + datetime.timedelta(
                     seconds=int(session_info["expires_in"])
                 )
             except (KeyError, ValueError) as err:
@@ -468,8 +467,8 @@ class SmartAuthentication(httpx.Auth):
                 "x-requested-with": "com.smart.hellosmart",
                 "user-agent": WEBVIEW_USER_AGENT,
             }
-            access_token: Optional[str] = None
-            refresh_token: Optional[str] = None
+            access_token: str | None = None
+            refresh_token: str | None = None
             current_url = auth_url
             for hop in range(MAX_REDIRECT_HOPS):
                 r_auth = await client.get(
@@ -588,18 +587,14 @@ class SmartAuthentication(httpx.Auth):
             _LOGGER.info(
                 "API session: OAuth token expired (code=1501), recovering via refresh()",
             )
-            raise SmartMainTokenExpiredError(
-                f"Main (OAuth) token expired (HTTP {http_status}, code=1501): {message}"
-            )
+            raise SmartMainTokenExpiredError(f"Main (OAuth) token expired (HTTP {http_status}, code=1501): {message}")
         _LOGGER.error(
             "API session exchange failed (HTTP %s, code=%s): %s",
             http_status,
             code,
             sanitize_log_data(message),
         )
-        raise SmartAPIError(
-            f"Could not get API access token from API (HTTP {http_status}, code={code}): {message}"
-        )
+        raise SmartAPIError(f"Could not get API access token from API (HTTP {http_status}, code={code}): {message}")
 
     async def refresh_api_session(self) -> None:
         """Layer 1: refresh the API session without a full re-login.
@@ -631,9 +626,7 @@ class SmartAuthentication(httpx.Auth):
         then re-runs layer 1 with it.
         """
         if not self.api_refresh_token or not self.api_client_id:
-            raise SmartAPIError(
-                "Cannot perform refresh-token exchange without api_refresh_token and api_client_id"
-            )
+            raise SmartAPIError("Cannot perform refresh-token exchange without api_refresh_token and api_client_id")
         body = json.dumps({"refreshToken": self.api_refresh_token, "proprietaryPlatform": "0"}).replace(" ", "")
         headers = utils.generate_default_header(
             self.device_id,
@@ -679,9 +672,7 @@ class SmartAuthentication(httpx.Auth):
             return
         code = str(api_result.get("code")) if isinstance(api_result, dict) else None
         message = api_result.get("message", "") if isinstance(api_result, dict) else ""
-        raise SmartAPIError(
-            f"Refresh-token exchange failed (HTTP {r.status_code}, code={code}): {message}"
-        )
+        raise SmartAPIError(f"Refresh-token exchange failed (HTTP {r.status_code}, code={code}): {message}")
 
     async def refresh(self) -> None:
         """Refresh the session using the cheapest viable path.
@@ -717,7 +708,7 @@ class SmartAuthentication(httpx.Auth):
 class SmartLoginClient(httpx.AsyncClient):
     """Client to login to the Smart API."""
 
-    def __init__(self, ssl_context: Optional[ssl.SSLContext] = None, *args, **kwargs):
+    def __init__(self, ssl_context: ssl.SSLContext | None = None, *args, **kwargs):
         """Initialize the login client.
 
         Args:
@@ -818,7 +809,7 @@ def get_retry_wait_time(response: httpx.Response) -> int:
     except (ValueError, KeyError, json.JSONDecodeError) as exc:
         _LOGGER.debug(
             "Failed to parse retry_after from response: retry_after_header=%s, error=%s",
-            retry_after_header if 'retry_after_header' in locals() else 'undefined',
+            retry_after_header if "retry_after_header" in locals() else "undefined",
             exc,
         )
     return math.ceil(retry_after * 2)

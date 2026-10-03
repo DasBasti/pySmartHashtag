@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
@@ -14,43 +14,43 @@ _LOGGER = logging.getLogger(__name__)
 class Maintenance(VehicleDataBase):
     """Provides an accessible version of the vehicle's maintenance data."""
 
-    days_to_service: Optional[int] = None
+    days_to_service: int | None = None
     """Days to service."""
 
-    engine_hours_to_service: Optional[int] = None
+    engine_hours_to_service: int | None = None
     """Engine hours to service."""
 
-    odometer: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    odometer: ValueWithUnit | None = ValueWithUnit(None, None)
     """Odometer."""
 
-    break_fluid_level_status: Optional[int] = None
+    break_fluid_level_status: int | None = None
     """Break fluid level status."""
 
-    main_battery_state_of_charge: Optional[int] = None
+    main_battery_state_of_charge: int | None = None
     """Main battery state of charge."""
 
-    main_battery_charge_level: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    main_battery_charge_level: ValueWithUnit | None = ValueWithUnit(None, None)
     """Main battery charge level."""
 
-    main_battery_energy_level: Optional[int] = None
+    main_battery_energy_level: int | None = None
     """Main battery energy level."""
 
-    main_battery_state_of_health: Optional[int] = None
+    main_battery_state_of_health: int | None = None
     """Main battery state of health."""
 
-    main_batter_power_level: Optional[int] = None
+    main_batter_power_level: int | None = None
     """Main battery power level."""
 
-    main_battery_voltage: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    main_battery_voltage: ValueWithUnit | None = ValueWithUnit(None, None)
     """Main battery voltage."""
 
-    distance_to_service: Optional[ValueWithUnit] = ValueWithUnit(None, None)
+    distance_to_service: ValueWithUnit | None = ValueWithUnit(None, None)
     """Distance to service."""
 
-    service_warning_status: Optional[int] = None
+    service_warning_status: int | None = None
     """Service warning status."""
 
-    washer_fluid_level_status: Optional[int] = None
+    washer_fluid_level_status: int | None = None
     """Washer fluid level status."""
 
     @classmethod
@@ -62,7 +62,7 @@ class Maintenance(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> dict | None:
         """Parse the maintenance data based on Ids."""
         if "vehicleStatus" not in vehicle_data:
             return None

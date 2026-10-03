@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Any, Optional
+from typing import Any
 
 from pysmarthashtag.models import VehicleDataBase, get_field_as_type
 
@@ -14,85 +14,85 @@ _LOGGER = logging.getLogger(__name__)
 class Safety(VehicleDataBase):
     """Provides an accessible version of the vehicle's safety data."""
 
-    central_locking_status: Optional[int] = None
+    central_locking_status: int | None = None
     """The state of the central locking."""
 
-    door_lock_status_driver: Optional[int] = None
+    door_lock_status_driver: int | None = None
     """The state of the driver's door lock."""
 
-    door_lock_status_driver_rear: Optional[int] = None
+    door_lock_status_driver_rear: int | None = None
     """The state of the driver's rear door lock."""
 
-    door_lock_status_passenger: Optional[int] = None
+    door_lock_status_passenger: int | None = None
     """The state of the passenger's door lock."""
 
-    door_lock_status_passenger_rear: Optional[int] = None
+    door_lock_status_passenger_rear: int | None = None
     """The state of the passenger's rear door lock."""
 
-    door_open_status_driver: Optional[int] = None
+    door_open_status_driver: int | None = None
     """The state of the driver's door."""
 
-    door_open_status_driver_rear: Optional[int] = None
+    door_open_status_driver_rear: int | None = None
     """The state of the driver's rear door."""
 
-    door_open_status_passenger: Optional[int] = None
+    door_open_status_passenger: int | None = None
     """The state of the passenger's door."""
 
-    door_open_status_passenger_rear: Optional[int] = None
+    door_open_status_passenger_rear: int | None = None
     """The state of the passenger's rear door."""
 
-    door_pos_driver: Optional[int] = None
+    door_pos_driver: int | None = None
     """The position of the driver's door."""
 
-    door_pos_driver_rear: Optional[int] = None
+    door_pos_driver_rear: int | None = None
     """The position of the driver's rear door."""
 
-    door_pos_passenger: Optional[int] = None
+    door_pos_passenger: int | None = None
     """The position of the passenger's door."""
 
-    door_pos_passenger_rear: Optional[int] = None
+    door_pos_passenger_rear: int | None = None
     """The position of the passenger's rear door."""
 
-    electric_park_brake_status: Optional[int] = None
+    electric_park_brake_status: int | None = None
     """The state of the electric park brake."""
 
-    engine_hood_open_status: Optional[int] = None
+    engine_hood_open_status: int | None = None
     """The state of the engine hood."""
 
-    seat_belt_status_driver: Optional[bool] = None
+    seat_belt_status_driver: bool | None = None
     """The state of the driver's seat belt."""
 
-    seat_belt_status_driver_rear: Optional[bool] = None
+    seat_belt_status_driver_rear: bool | None = None
     """The state of the driver's rear seat belt."""
 
-    seat_belt_status_mid_rear: Optional[bool] = None
+    seat_belt_status_mid_rear: bool | None = None
     """The state of the middle rear seat belt."""
 
-    seat_belt_status_passenger: Optional[bool] = None
+    seat_belt_status_passenger: bool | None = None
     """The state of the passenger's seat belt."""
 
-    seat_belt_status_passenger_rear: Optional[bool] = None
+    seat_belt_status_passenger_rear: bool | None = None
     """The state of the passenger's rear seat belt."""
 
-    seat_belt_status_th_driver_rear: Optional[bool] = None
+    seat_belt_status_th_driver_rear: bool | None = None
     """The state of the driver's rear seat belt."""
 
-    seat_belt_status_th_passenger_rear: Optional[bool] = None
+    seat_belt_status_th_passenger_rear: bool | None = None
     """The state of the passenger's rear seat belt."""
 
-    srs_crash_status: Optional[int] = None
+    srs_crash_status: int | None = None
     """The state of the SRS crash."""
 
-    tank_flap_status: Optional[int] = None
+    tank_flap_status: int | None = None
     """The state of the tank flap."""
 
-    trunk_lock_status: Optional[int] = None
+    trunk_lock_status: int | None = None
     """The state of the trunk lock."""
 
-    trunk_open_status: Optional[int] = None
+    trunk_open_status: int | None = None
     """The state of the trunk."""
 
-    vehicle_alarm: Optional[dict] = None
+    vehicle_alarm: dict | None = None
     """The state of the vehicle alarm."""
 
     @classmethod
@@ -104,7 +104,7 @@ class Safety(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> dict | None:
         """Parse the safety data based on Ids."""
         _LOGGER.debug("Parsing safety data")
         if "vehicleStatus" not in vehicle_data:

@@ -1,7 +1,6 @@
 """URLs for different services and error code mapping."""
 
 from dataclasses import dataclass
-from typing import Optional
 
 API_KEY = "3_L94eyQ-wvJhWm7Afp1oBhfTGXZArUfSHHW9p9Pncg513hZELXsxCfMWHrF8f5P5a"
 SERVER_URL = "https://awsapi.future.smart.com/login-app/api/v1/authorize?uiLocales=de-DE"
@@ -53,14 +52,14 @@ class EndpointUrls:
     If any value is None, the default constant value will be used.
     """
 
-    api_key: Optional[str] = None
-    server_url: Optional[str] = None
-    auth_url: Optional[str] = None
-    login_url: Optional[str] = None
-    api_base_url: Optional[str] = None
-    api_base_url_v2: Optional[str] = None
-    ota_server_url: Optional[str] = None
-    gigya_socialize_url: Optional[str] = None
+    api_key: str | None = None
+    server_url: str | None = None
+    auth_url: str | None = None
+    login_url: str | None = None
+    api_base_url: str | None = None
+    api_base_url_v2: str | None = None
+    ota_server_url: str | None = None
+    gigya_socialize_url: str | None = None
 
     def get_api_key(self) -> str:
         """Get the API key, using the default if not set."""
