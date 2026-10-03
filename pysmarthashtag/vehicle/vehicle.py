@@ -85,6 +85,9 @@ class SmartVehicle:
     window_control: Optional["WindowControl"] = None  # noqa: F821
     """Control for opening/closing the windows."""
 
+    horn_light_control: Optional["HornLightControl"] = None  # noqa: F821
+    """Control for honking the horn and flashing the lights."""
+
     engine_state: str | None = None
     """The state of the engine."""
 
@@ -176,6 +179,10 @@ class SmartVehicle:
         from pysmarthashtag.control.windows import WindowControl
 
         self.window_control = WindowControl(self.account, self.vin)
+
+        from pysmarthashtag.control.horn_light import HornLightControl
+
+        self.horn_light_control = HornLightControl(self.account, self.vin)
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")
