@@ -1,23 +1,15 @@
 """Provides an accessible control of the vehicle's door locks."""
 
-import json
 import logging
 
 from pysmarthashtag.account import SmartAccount
-from pysmarthashtag.api import utils
-from pysmarthashtag.api.client import SmartClient
-from pysmarthashtag.const import API_TELEMATICS_URL
-from pysmarthashtag.models import (
-    SmartHumanCarConnectionError,
-    SmartTokenRefreshNecessary,
-    SmartVehicleNotInUseError,
-)
+from pysmarthashtag.control.telematics import build_telematics_payload, send_telematics_command
 
 _LOGGER = logging.getLogger(__name__)
 
 
 class DoorLockControl:
-    """Provides an accessible control of the vehicle's door locks.
+    """Provides an accessible control of the vehicle's door and trunk locks.
 
     Uses the remote door lock (RDL_2) and remote door unlock (RDU_2)
     telematics services.
@@ -25,6 +17,7 @@ class DoorLockControl:
 
     LOCK_SERVICE_ID = "RDL_2"
     UNLOCK_SERVICE_ID = "RDU_2"
+    TRUNK_PARAMETER = {"key": "target", "value": "trunk"}
 
     def __init__(self, account: SmartAccount, vin: str):
         """Initialize the door lock control.
@@ -52,20 +45,7 @@ class DoorLockControl:
             JSON string payload for the API request
 
         """
-        _payload = {
-            "creator": "tc",
-            "command": "start",
-            "operationScheduling": {
-                "duration": 6,
-                "interval": 0,
-                "occurs": 1,
-                "recurrentOperation": False,
-            },
-            "serviceId": service_id,
-            "timestamp": utils.create_correct_timestamp(),
-            "serviceParameters": [parameter],
-        }
-        return json.dumps(_payload).replace(" ", "")
+        return build_telematics_payload(service_id, [parameter])
 
     async def lock(self) -> bool:
         """Lock all doors of the vehicle.
@@ -89,40 +69,28 @@ class DoorLockControl:
         _LOGGER.debug("Unlocking all doors")
         return await self._send_command(self._get_payload(self.UNLOCK_SERVICE_ID, {"key": "door", "value": "all"}))
 
+    async def lock_trunk(self) -> bool:
+        """Lock the trunk (tailgate) of the vehicle.
+
+        Returns
+        -------
+            True if the command was accepted, False otherwise
+
+        """
+        _LOGGER.debug("Locking the trunk")
+        return await self._send_command(self._get_payload(self.LOCK_SERVICE_ID, self.TRUNK_PARAMETER))
+
+    async def unlock_trunk(self) -> bool:
+        """Unlock the trunk (tailgate) of the vehicle.
+
+        Returns
+        -------
+            True if the command was accepted, False otherwise
+
+        """
+        _LOGGER.debug("Unlocking the trunk")
+        return await self._send_command(self._get_payload(self.UNLOCK_SERVICE_ID, self.TRUNK_PARAMETER))
+
     async def _send_command(self, params: str) -> bool:
         """Send a door lock command to the vehicle."""
-        # Ensure SSL context is created before using the client
-        await self.account._ensure_ssl_context()
-
-        await self.account.select_active_vehicle(self.vin)
-
-        async with SmartClient(self.config) as client:
-            for retry in range(3):
-                try:
-                    response = await client.put(
-                        self.account.vehicles[self.vin].base_url + API_TELEMATICS_URL + self.vin,
-                        headers={
-                            **utils.generate_default_header(
-                                client.config.authentication.device_id,
-                                client.config.authentication.api_access_token,
-                                params={},
-                                method="PUT",
-                                url=API_TELEMATICS_URL + self.vin,
-                                body=params,
-                                vin=self.vin,
-                                model_code=self.account._vin_model_code(self.vin),
-                            )
-                        },
-                        content=params.encode("utf-8"),
-                    )
-                    api_result = response.json()
-                    return api_result["success"]
-                except SmartTokenRefreshNecessary:
-                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
-                    await self.config.authentication.refresh()
-                    continue
-                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
-                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
-                    await self.account.select_active_vehicle(self.vin)
-                    continue
-        return False
+        return await send_telematics_command(self.account, self.vin, params)

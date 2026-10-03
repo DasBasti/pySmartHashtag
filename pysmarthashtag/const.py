@@ -12,6 +12,10 @@ API_CARS_URL = "/device-platform/user/vehicle/secure"
 API_SESION_URL = "/auth/account/session/secure"
 API_SELECT_CAR_URL = "/device-platform/user/session/update"
 API_TELEMATICS_URL = "/remote-control/vehicle/telematics/"
+API_SEND_TO_CAR_URL = "/geelyTCAccess/tcservices/ihu/send/to/car"
+API_DC_CHARGE_INFO_URL = "/geelyTCAccess/tcservices/vehicle/status/qrvs/"
+# electricVehicleStatus.dcDcConnectStatus while a DC charger is connected
+DC_DC_CONNECTED = "3"
 API_JOURNAL_TOGGLE_URL = "/remote-control/vehicle/status/journalLog/"
 
 OTA_SERVER_URL = "https://ota.srv.smart.com/"
