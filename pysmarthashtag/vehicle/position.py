@@ -2,7 +2,7 @@
 
 import logging
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_element_from_dict_maybe, get_field_as_type
 
@@ -15,16 +15,16 @@ _LOGGER = logging.getLogger(__name__)
 class Position(VehicleDataBase):
     """Provides an accessible version of the vehicle's battery data."""
 
-    altitude: Optional[ValueWithUnit] = None
+    altitude: ValueWithUnit | None = None
     """Altitude of the vehicle."""
 
-    latitude: Optional[int] = None
+    latitude: int | None = None
     """Latitude of the vehicle."""
 
-    longitude: Optional[int] = None
+    longitude: int | None = None
     """Longitude of the vehicle."""
 
-    position_can_be_trusted: Optional[bool] = None
+    position_can_be_trusted: bool | None = None
     """Position can be trusted."""
 
     @classmethod
@@ -36,7 +36,7 @@ class Position(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> dict | None:
         """Parse the position data based on Ids."""
         _LOGGER.debug("Parsing position data")
         retval: dict[str, Any] = {}

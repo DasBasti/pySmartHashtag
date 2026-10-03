@@ -19,7 +19,7 @@ need to know the wire format.
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any
 
 # The cloud reports lat/lon as integer milliarcseconds. Convert to decimal
 # degrees with ``mas / 3_600_000`` — same scaling already used by
@@ -39,11 +39,11 @@ class Trackpoint:
     shouldn't drop the rest of the trip).
     """
 
-    lat: Optional[float] = None
+    lat: float | None = None
     """Latitude in decimal degrees (cloud reports milliarcseconds; we
     divide by 3,600,000)."""
 
-    lon: Optional[float] = None
+    lon: float | None = None
     """Longitude in decimal degrees, same scaling as :attr:`lat`."""
 
 

@@ -1,7 +1,7 @@
 """Log sanitization utilities to hide sensitive data from logs."""
 
 import re
-from typing import Any, Union
+from typing import Any
 
 # Fields that should be masked in log output
 SENSITIVE_FIELDS = frozenset(
@@ -169,7 +169,7 @@ def sanitize_log_data(data: Any) -> Any:
     return data
 
 
-def get_data_summary(data: dict, include_keys: Union[list, None] = None) -> str:
+def get_data_summary(data: dict, include_keys: list | None = None) -> str:
     """Create a concise summary of data for logging.
 
     Instead of logging the entire data object, this creates a brief summary

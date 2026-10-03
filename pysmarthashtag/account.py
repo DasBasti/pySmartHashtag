@@ -5,7 +5,6 @@ import datetime
 import json
 import logging
 from dataclasses import InitVar, dataclass, field
-from typing import Optional
 
 import httpx
 
@@ -60,7 +59,7 @@ _OTA_NO_DATA_CODE = "1003"
 _LOGGER = logging.getLogger(__name__)
 
 
-def _cloud_code(exc: httpx.HTTPStatusError) -> Optional[str]:
+def _cloud_code(exc: httpx.HTTPStatusError) -> str | None:
     """Return the cloud response code carried by ``exc``, if it has one.
 
     ``None`` means the failure came from the transport or the HTTP status
@@ -88,7 +87,7 @@ def _is_benign_empty(exc: httpx.HTTPStatusError) -> bool:
     return _cloud_code(exc) == _BENIGN_EMPTY_CODE
 
 
-def _unwrap_journal_page(body: dict) -> tuple[list, Optional[int]]:
+def _unwrap_journal_page(body: dict) -> tuple[list, int | None]:
     """Pull ``data.list`` and ``data.pagination.totleSize`` out of a journal body.
 
     Returns ``([], None)`` for missing/None ``data`` (the cloud
@@ -136,10 +135,10 @@ class SmartAccount:
     log_responses: InitVar[bool] = False
     """Optional. If set, all responses from the server will be logged to this directory."""
 
-    endpoint_urls: Optional[EndpointUrls] = None
+    endpoint_urls: EndpointUrls | None = None
     """Optional. Custom endpoint URLs for international API support."""
 
-    tracked_vins: Optional[list[str]] = None
+    tracked_vins: list[str] | None = None
     """Optional. If set, only these VIN(s) are fetched and tracked; any other
     vehicle on the account is ignored. ``None`` tracks all (previous behaviour)."""
 
@@ -191,7 +190,7 @@ class SmartAccount:
         _LOGGER.debug("Getting initial vehicle list")
         await self._ensure_ssl_context()
 
-        fetched_at = datetime.datetime.now(datetime.timezone.utc)
+        fetched_at = datetime.datetime.now(datetime.UTC)
 
         async with SmartClient(self.config) as client:
             params = {
@@ -236,7 +235,7 @@ class SmartAccount:
         """Add a vehicle to the account."""
         self.vehicles[vehicle.get("vin")] = SmartVehicle(self, vehicle, fetched_at=fetched_at)
 
-    def _vin_model_code(self, vin) -> Optional[str]:
+    def _vin_model_code(self, vin) -> str | None:
         """Return the VIN's ``matCode`` for the ``X-VEHICLE-*`` headers.
 
         ``None`` if the vehicle (or its model code) isn't known yet, so the
@@ -271,9 +270,7 @@ class SmartAccount:
                 try:
                     vehicle_ota_info = await self.get_vehicle_ota_info(vin)
                 except Exception:  # noqa: BLE001  # Best-effort: OTA failure must not break refresh.
-                    _LOGGER.debug(
-                        "OTA info fetch failed for %s", sanitize_log_data(vin), exc_info=True
-                    )
+                    _LOGGER.debug("OTA info fetch failed for %s", sanitize_log_data(vin), exc_info=True)
                 # Trip journal is best-effort: the endpoint can return 8153
                 # ("data unavailable") on vehicles where on-vehicle trip
                 # recording is OFF, or transiently when the per-session auth
@@ -284,18 +281,14 @@ class SmartAccount:
                     journal_response = await self.get_trip_journal(vin)
                 except Exception:  # noqa: BLE001
                     # Best-effort: any failure (8153, transport, parse) must not break refresh.
-                    _LOGGER.debug(
-                        "Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True
-                    )
+                    _LOGGER.debug("Trip journal fetch failed for %s", sanitize_log_data(vin), exc_info=True)
                 # Per-VIN TBox state flags (engine/journal/valet/etc.), best-effort,
                 # same reasoning as the journal call above.
                 state_response = None
                 try:
                     state_response = await self.get_vehicle_state(vin)
                 except Exception:  # noqa: BLE001  # Best-effort: state fetch must not break refresh.
-                    _LOGGER.debug(
-                        "Vehicle-state fetch failed for %s", sanitize_log_data(vin), exc_info=True
-                    )
+                    _LOGGER.debug("Vehicle-state fetch failed for %s", sanitize_log_data(vin), exc_info=True)
                 vehicle.combine_data(
                     vehicle_info,
                     charging_settings=vehicle_soc,
@@ -544,12 +537,14 @@ class SmartAccount:
         the token rotates (relogin, refresh, expiry — any reason).
 
         Args:
+        ----
             vin: Vehicle identification number.
             force: If True, ignore the cache and re-issue the grant.
                 Use this for explicit init flows where you want to be
                 certain the grant is fresh.
 
         Returns:
+        -------
             True if the grant succeeded (or was already cached);
             False if the POST failed.
 
@@ -588,9 +583,7 @@ class SmartAccount:
                         # Record the token under which this grant was accepted.
                         # Re-read after the POST since the server may have rotated
                         # it during the call.
-                        self._journal_grant_cache[vin] = (
-                            self.config.authentication.api_access_token
-                        )
+                        self._journal_grant_cache[vin] = self.config.authentication.api_access_token
                     return success
                 except SmartTokenRefreshNecessary:
                     _LOGGER.debug("Token refresh needed during auth-grant retry %d", retry)
@@ -662,7 +655,7 @@ class SmartAccount:
         """
         await self.grant_journal_authorization(vin)
         _LOGGER.debug("Getting trip journal for vehicle")
-        end_ms = int(datetime.datetime.now(datetime.timezone.utc).timestamp() * 1000)
+        end_ms = int(datetime.datetime.now(datetime.UTC).timestamp() * 1000)
         start_ms = end_ms - window_days * 86400 * 1000
 
         first = await self._fetch_journal_page(vin, 1, page_size, start_ms, end_ms)
@@ -689,9 +682,7 @@ class SmartAccount:
                 await asyncio.sleep(page_gap_seconds)
 
             try:
-                page = await self._fetch_journal_page(
-                    vin, page_index, page_size, start_ms, end_ms
-                )
+                page = await self._fetch_journal_page(vin, page_index, page_size, start_ms, end_ms)
             except httpx.HTTPStatusError as exc:
                 if _is_benign_empty(exc):
                     _LOGGER.debug(

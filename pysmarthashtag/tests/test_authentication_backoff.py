@@ -45,8 +45,7 @@ def _login_ok() -> dict:
         "api_access_token": "x",
         "api_refresh_token": "y",
         "api_user_id": "z",
-        "expires_at": datetime.datetime.now(datetime.timezone.utc)
-        + datetime.timedelta(hours=1),
+        "expires_at": datetime.datetime.now(datetime.UTC) + datetime.timedelta(hours=1),
     }
 
 
@@ -140,7 +139,7 @@ class TestAdaptiveBackoff:
         assert auth._state.backoff == before, "backoff grew on non-rate-limit failure"
         assert auth._state.quiet_until is not None
 
-        delta = auth._state.quiet_until - datetime.datetime.now(datetime.timezone.utc)
+        delta = auth._state.quiet_until - datetime.datetime.now(datetime.UTC)
         # Allow a small clock-skew tolerance below the configured suppress window.
         lower_bound = auth._OTHER_FAILURE_BACKOFF - datetime.timedelta(seconds=5)
         assert lower_bound < delta <= auth._OTHER_FAILURE_BACKOFF

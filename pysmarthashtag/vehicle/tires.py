@@ -3,7 +3,7 @@
 import logging
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Optional
+from typing import Any
 
 from pysmarthashtag.models import ValueWithUnit, VehicleDataBase, get_field_as_type
 
@@ -25,16 +25,16 @@ class TireLocation(Enum):
 class Tires(VehicleDataBase):
     """Provides an accessible version of the vehicle's battery data."""
 
-    temperature: Optional[list[ValueWithUnit]] = None
+    temperature: list[ValueWithUnit] | None = None
     """Temperature of the tires."""
 
-    temperature_warning: Optional[list[bool]] = None
+    temperature_warning: list[bool] | None = None
     """Temperature warning of the tires."""
 
-    temperature_pre_warning: Optional[list[bool]] = None
+    temperature_pre_warning: list[bool] | None = None
     """Temperature pre warning of the tires."""
 
-    tire_pressure: Optional[list[ValueWithUnit]] = None
+    tire_pressure: list[ValueWithUnit] | None = None
     """Temperature status of the tires."""
 
     @classmethod
@@ -46,7 +46,7 @@ class Tires(VehicleDataBase):
         return None
 
     @classmethod
-    def _parse_vehicle_data(cls, vehicle_data: dict) -> Optional[dict]:
+    def _parse_vehicle_data(cls, vehicle_data: dict) -> dict | None:
         """Parse the tire data based on Ids."""
         _LOGGER.debug("Parsing tire data")
         retval: dict[str, Any] = {}

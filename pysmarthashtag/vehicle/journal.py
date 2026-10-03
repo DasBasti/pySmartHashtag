@@ -19,7 +19,7 @@ can build sensors on top of it without further parsing.
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 from pysmarthashtag.models import ValueWithUnit, get_field_as_type
@@ -27,7 +27,7 @@ from pysmarthashtag.models import ValueWithUnit, get_field_as_type
 _LOGGER = logging.getLogger(__name__)
 
 
-def _parse_epoch_ms(value: Any) -> Optional[datetime]:
+def _parse_epoch_ms(value: Any) -> datetime | None:
     """Parse a millisecond epoch into a UTC-aware ``datetime``.
 
     Tz-aware so HA's TIMESTAMP device class (used by sensor entities that
@@ -37,7 +37,7 @@ def _parse_epoch_ms(value: Any) -> Optional[datetime]:
     if not value:
         return None
     try:
-        return datetime.fromtimestamp(int(value) / 1000, tz=timezone.utc)
+        return datetime.fromtimestamp(int(value) / 1000, tz=UTC)
     except (TypeError, ValueError, OSError):
         return None
 
@@ -49,31 +49,31 @@ class TripJournal:
     trip_id: str = ""
     """Cloud-assigned trip identifier."""
 
-    distance: Optional[ValueWithUnit] = None
+    distance: ValueWithUnit | None = None
     """Trip distance."""
 
-    duration: Optional[int] = None
+    duration: int | None = None
     """Trip duration in seconds (as the cloud reports it)."""
 
-    energy_consumption: Optional[ValueWithUnit] = None
+    energy_consumption: ValueWithUnit | None = None
     """Total energy consumed during the trip."""
 
-    avg_energy_consumption: Optional[ValueWithUnit] = None
+    avg_energy_consumption: ValueWithUnit | None = None
     """Average energy consumption (kWh / 100 km)."""
 
-    avg_speed: Optional[ValueWithUnit] = None
+    avg_speed: ValueWithUnit | None = None
     """Average trip speed."""
 
-    max_speed: Optional[ValueWithUnit] = None
+    max_speed: ValueWithUnit | None = None
     """Maximum trip speed."""
 
-    start_time: Optional[datetime] = None
+    start_time: datetime | None = None
     """Trip start time."""
 
-    end_time: Optional[datetime] = None
+    end_time: datetime | None = None
     """Trip end time."""
 
-    regenerated_energy: Optional[ValueWithUnit] = None
+    regenerated_energy: ValueWithUnit | None = None
     """Energy recovered via regenerative braking."""
 
     start_address: str = ""
@@ -89,19 +89,19 @@ class TripJournal:
     ``start_address`` — usually empty in EU.
     """
 
-    start_position: Optional[tuple[int, int]] = None
+    start_position: tuple[int, int] | None = None
     """Trip-start coordinates as ``(latitude, longitude)`` in raw
     milliarcseconds (divide each by 3,600,000 for WGS84 decimal degrees).
     Derived from ``trackpoints[0].position`` in the cloud response.
     Same scaling as :class:`pysmarthashtag.vehicle.position.Position`.
     """
 
-    end_position: Optional[tuple[int, int]] = None
+    end_position: tuple[int, int] | None = None
     """Trip-end coordinates as ``(latitude, longitude)`` in raw
     milliarcseconds. Derived from the last entry of ``trackpoints``.
     """
 
-    total_trips: Optional[int] = None
+    total_trips: int | None = None
     """Total number of trips known to the cloud (top-level on the response)."""
 
     @classmethod
@@ -154,12 +154,12 @@ class TripJournal:
         # Cloud doesn't include duration; compute from start/end timestamps.
         start_ms = get_field_as_type(first, "startTime", int)
         end_ms = get_field_as_type(first, "endTime", int)
-        duration_s: Optional[int] = None
+        duration_s: int | None = None
         if start_ms is not None and end_ms is not None and end_ms >= start_ms:
             duration_s = (end_ms - start_ms) // 1000
 
         # Compute total trip energy from avg consumption × distance / 100.
-        energy_total: Optional[float] = None
+        energy_total: float | None = None
         if avg_energy is not None and distance is not None:
             energy_total = round(avg_energy * distance / 100, 3)
 
@@ -167,8 +167,8 @@ class TripJournal:
         # Same isinstance guard as above — defensive against schema drift.
         trackpoints_raw = first.get("trackpoints")
         trackpoints = trackpoints_raw if isinstance(trackpoints_raw, list) else []
-        start_pos: Optional[tuple[int, int]] = None
-        end_pos: Optional[tuple[int, int]] = None
+        start_pos: tuple[int, int] | None = None
+        end_pos: tuple[int, int] | None = None
         if trackpoints:
             first_tp = (trackpoints[0] or {}).get("position") or {}
             last_tp = (trackpoints[-1] or {}).get("position") or {}
@@ -185,19 +185,13 @@ class TripJournal:
             trip_id=str(first.get("tripId", "")),
             distance=ValueWithUnit(distance, "km") if distance is not None else None,
             duration=duration_s,
-            energy_consumption=(
-                ValueWithUnit(energy_total, "kWh") if energy_total is not None else None
-            ),
-            avg_energy_consumption=(
-                ValueWithUnit(avg_energy, "kWh/100km") if avg_energy is not None else None
-            ),
+            energy_consumption=(ValueWithUnit(energy_total, "kWh") if energy_total is not None else None),
+            avg_energy_consumption=(ValueWithUnit(avg_energy, "kWh/100km") if avg_energy is not None else None),
             avg_speed=ValueWithUnit(avg_speed, "km/h") if avg_speed is not None else None,
             max_speed=None,  # Not provided by the cloud; would require trackpoint analysis.
             start_time=_parse_epoch_ms(start_ms),
             end_time=_parse_epoch_ms(end_ms),
-            regenerated_energy=(
-                ValueWithUnit(regen, "kWh") if regen is not None else None
-            ),
+            regenerated_energy=(ValueWithUnit(regen, "kWh") if regen is not None else None),
             start_address=str(first.get("tripStartAddr", "") or ""),
             end_address=str(first.get("tripEndAddr", "") or ""),
             start_position=start_pos,

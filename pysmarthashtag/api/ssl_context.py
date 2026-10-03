@@ -7,7 +7,6 @@ avoiding blocking calls in the async event loop.
 import asyncio
 import ssl
 from functools import lru_cache
-from typing import Optional
 
 
 def _create_ssl_context() -> ssl.SSLContext:
@@ -47,8 +46,8 @@ async def create_ssl_context_async() -> ssl.SSLContext:
 
 
 # Module-level SSL context cache with lock for thread safety
-_ssl_context_cache: Optional[ssl.SSLContext] = None
-_ssl_context_lock: Optional[asyncio.Lock] = None
+_ssl_context_cache: ssl.SSLContext | None = None
+_ssl_context_lock: asyncio.Lock | None = None
 
 
 async def get_ssl_context_async() -> ssl.SSLContext:

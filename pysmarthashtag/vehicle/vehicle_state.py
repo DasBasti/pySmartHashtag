@@ -29,7 +29,7 @@ Response shape (envelope is the standard ``{code, data, success, …}``):
 
 import logging
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any, Optional
 
 from pysmarthashtag.models import VehicleDataBase, get_field_as_type
@@ -41,74 +41,74 @@ _LOGGER = logging.getLogger(__name__)
 class VehicleState(VehicleDataBase):
     """Per-VIN TBox-side state flags from the GetCarState endpoint."""
 
-    journal_log_state: Optional[int] = None
+    journal_log_state: int | None = None
     """Trip recording on the TBox (0=off, 1=on). Toggled by Hello #'s
     'Record trips on vehicle' setting; required for ``journalLogV4`` to
     return populated trip data."""
 
-    position_upload_state: Optional[int] = None
+    position_upload_state: int | None = None
     """TBox uploading GPS position to cloud (0=off, 1=on)."""
 
-    car_locator_active: Optional[int] = None
+    car_locator_active: int | None = None
     """Car-locator GPS service active (0=off, 1=on)."""
 
-    next_wakeup_time: Optional[datetime] = None
+    next_wakeup_time: datetime | None = None
     """Next scheduled TBox wakeup. Useful operationally — remote commands
     sent before this time may be slow (TBox is asleep) or queued."""
 
-    engine_state: Optional[int] = None
+    engine_state: int | None = None
     """Engine on/off (0=off, 1=on). Note: integer encoding here is distinct
     from the string ``engineStatus`` (\"engine_off\" / \"engine_on\") in
     the full ``/vehicle/status/{vin}`` response."""
 
-    power_mode: Optional[str] = None
+    power_mode: str | None = None
     """Power mode reported as a string (e.g. \"0\", \"1\", \"2\")."""
 
-    valet_mode_state: Optional[int] = None
+    valet_mode_state: int | None = None
     """Valet mode active (0=off, 1=on)."""
 
-    camping_mode_active: Optional[int] = None
+    camping_mode_active: int | None = None
     """Camping mode (climate keeps running while parked)."""
 
-    drift_mode_active: Optional[int] = None
+    drift_mode_active: int | None = None
     """Drift mode (Smart 5 Brabus performance feature)."""
 
-    wash_car_mode_active: Optional[int] = None
+    wash_car_mode_active: int | None = None
     """Car-wash mode (sensors/windows prepped for car wash)."""
 
-    chat_video_main_active: Optional[int] = None
+    chat_video_main_active: int | None = None
     """In-car video-chat / front-camera mode active."""
 
-    park_comfort_state: Optional[int] = None
+    park_comfort_state: int | None = None
     """Park-comfort climate mode."""
 
-    privacy_mode: Optional[int] = None
+    privacy_mode: int | None = None
     """Privacy mode (cameras/microphones disabled)."""
 
-    pulse_heat_active: Optional[int] = None
+    pulse_heat_active: int | None = None
     """Battery pulse-heating active (winter preconditioning)."""
 
-    overheat_state: Optional[int] = None
+    overheat_state: int | None = None
     """Cabin overheat protection currently active."""
 
-    bt_active: Optional[int] = None
+    bt_active: int | None = None
     """Bluetooth main session active."""
 
-    bt_temp_active: Optional[int] = None
+    bt_temp_active: int | None = None
     """Bluetooth temporary session active."""
 
-    svt_state: Optional[int] = None
+    svt_state: int | None = None
     """Stolen Vehicle Tracking subsystem state."""
 
-    pnc_status: Optional[int] = None
+    pnc_status: int | None = None
     """Plug-and-Charge contract status."""
 
-    vstd_state: Optional[int] = None
+    vstd_state: int | None = None
     """VSTD subsystem state. Read from GetCarState; exact semantics are not
     fully reverse-engineered, surfaced as best-effort for downstream consumers
     that may have observed it in their own captures."""
 
-    vin: Optional[str] = None
+    vin: str | None = None
     """VIN echoed by the cloud (sanity check that response is for the
     requested vehicle)."""
 
@@ -134,13 +134,13 @@ class VehicleState(VehicleDataBase):
         if not data:
             return None
 
-        next_wake: Optional[datetime] = None
+        next_wake: datetime | None = None
         nw = data.get("nextWakeupTime")
         if nw is not None:
             try:
                 # Cloud reports as epoch milliseconds, sometimes as a string.
                 # Use UTC-aware datetime so HA's TIMESTAMP device_class accepts it.
-                next_wake = datetime.fromtimestamp(int(nw) / 1000, tz=timezone.utc)
+                next_wake = datetime.fromtimestamp(int(nw) / 1000, tz=UTC)
             except (TypeError, ValueError):
                 _LOGGER.debug("nextWakeupTime not parseable: %r", nw)
 

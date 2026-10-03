@@ -2,7 +2,7 @@
 
 import json
 from pathlib import Path
-from typing import Any, Union
+from typing import Any
 
 TEST_USERNAME = "some_user"
 TEST_PASSWORD = "my_secret"
@@ -11,7 +11,7 @@ TEST_PASSWORD = "my_secret"
 RESPONSE_DIR = Path(__file__).parent / "replys"
 
 
-def load_response(path: Union[Path, str]) -> Any:
+def load_response(path: Path | str) -> Any:
     """Load a stored response.
 
     Text fixtures (e.g. ``.url`` files) are stripped of surrounding
