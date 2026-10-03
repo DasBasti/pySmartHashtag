@@ -9,7 +9,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 class DoorLockControl:
-    """Provides an accessible control of the vehicle's door locks.
+    """Provides an accessible control of the vehicle's door and trunk locks.
 
     Uses the remote door lock (RDL_2) and remote door unlock (RDU_2)
     telematics services.
@@ -17,6 +17,7 @@ class DoorLockControl:
 
     LOCK_SERVICE_ID = "RDL_2"
     UNLOCK_SERVICE_ID = "RDU_2"
+    TRUNK_PARAMETER = {"key": "target", "value": "trunk"}
 
     def __init__(self, account: SmartAccount, vin: str):
         """Initialize the door lock control.
@@ -67,6 +68,28 @@ class DoorLockControl:
         """
         _LOGGER.debug("Unlocking all doors")
         return await self._send_command(self._get_payload(self.UNLOCK_SERVICE_ID, {"key": "door", "value": "all"}))
+
+    async def lock_trunk(self) -> bool:
+        """Lock the trunk (tailgate) of the vehicle.
+
+        Returns
+        -------
+            True if the command was accepted, False otherwise
+
+        """
+        _LOGGER.debug("Locking the trunk")
+        return await self._send_command(self._get_payload(self.LOCK_SERVICE_ID, self.TRUNK_PARAMETER))
+
+    async def unlock_trunk(self) -> bool:
+        """Unlock the trunk (tailgate) of the vehicle.
+
+        Returns
+        -------
+            True if the command was accepted, False otherwise
+
+        """
+        _LOGGER.debug("Unlocking the trunk")
+        return await self._send_command(self._get_payload(self.UNLOCK_SERVICE_ID, self.TRUNK_PARAMETER))
 
     async def _send_command(self, params: str) -> bool:
         """Send a door lock command to the vehicle."""

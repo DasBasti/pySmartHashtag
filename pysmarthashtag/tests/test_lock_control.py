@@ -23,6 +23,8 @@ def _last_telematics_payload(router: respx.Router) -> dict:
     [
         ("lock", "RDL_2", {"key": "door", "value": "all"}),
         ("unlock", "RDU_2", {"key": "door", "value": "all"}),
+        ("lock_trunk", "RDL_2", {"key": "target", "value": "trunk"}),
+        ("unlock_trunk", "RDU_2", {"key": "target", "value": "trunk"}),
     ],
 )
 async def test_door_lock_commands(smart_fixture: respx.Router, method: str, service_id: str, parameter: dict):
