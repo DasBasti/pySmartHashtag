@@ -108,6 +108,47 @@ class ClimateControll:
         _LOGGER.debug("Setting climate conditioning: active=%s, temp=%.1f", active, self.conditioning_temp)
         return await self._send_rce_command(self._get_payload(active))
 
+    def _get_heating_payload(self, active: bool, levels: dict[HeatingLocation, int]) -> str:
+        _payload = self.BASE_PAYLOAD_TEMPLATE.copy()
+        _payload["command"] = "start" if active else "stop"
+        _payload["timestamp"] = utils.create_correct_timestamp()
+        _payload["serviceParameters"] = []
+        if active:
+            for loc, level in levels.items():
+                _payload["serviceParameters"] += self._add_rce_heating_service(loc, f"{level}")
+        else:
+            # Same as the Hello Smart app: list every location, then level 0
+            for loc in levels:
+                _payload["serviceParameters"].append({"key": "rce.heat", "value": loc})
+            _payload["serviceParameters"].append({"key": "rce.level", "value": "0"})
+        return json.dumps(_payload).replace(" ", "")
+
+    async def set_heating(self, active: bool, levels: dict[HeatingLocation, int]) -> bool:
+        """Start or stop seat / steering wheel heating without climate conditioning.
+
+        Unlike set_climate_conditioning, the RCE_2 command carries no
+        rce.conditioner / rce.temp, so the air conditioning is not started.
+        The levels given here are used as-is and do not change heating_levels.
+
+        Args:
+        ----
+            active: True to start heating, False to stop it
+            levels: Heating level (1-3) per location; only the keys are used to stop
+
+        """
+        if not isinstance(active, bool):
+            raise TypeError("Heating state must be a boolean")
+        if not levels:
+            raise ValueError("At least one heating location is required.")
+        for level in levels.values():
+            if not isinstance(level, int):
+                raise TypeError("Heating level must be an integer")
+            if active and (level > 3 or level < 1):
+                raise ValueError("Heating level must be between 1 and 3 to start heating.")
+
+        _LOGGER.debug("Setting heating: active=%s, levels=%s", active, levels)
+        return await self._send_rce_command(self._get_heating_payload(active, levels))
+
     def _get_defrost_payload(self, active: bool) -> str:
         _payload = self.BASE_PAYLOAD_TEMPLATE.copy()
         _payload["command"] = "start" if active else "stop"

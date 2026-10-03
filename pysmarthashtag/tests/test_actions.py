@@ -148,3 +148,74 @@ async def test_rce_command_logs_payload_and_response(smart_fixture: respx.Router
     assert "Sending RCE command (seriesCodeVs=" in caplog.text
     assert '{"key":"rce.heat","value":"front-left"}' in caplog.text
     assert "RCE command response:" in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_set_heating_start_sends_heat_only(smart_fixture: respx.Router):
+    """Test that set_heating starts heating without climate conditioning parameters."""
+    account = await prepare_account_with_vehicles()
+    await account.get_vehicle_information("TestVIN0000000001")
+    climate_ctrl = account.vehicles["TestVIN0000000001"].climate_control
+
+    result = await climate_ctrl.set_heating(True, {HeatingLocation.DRIVER_SEAT: 3, HeatingLocation.PASSENGER_SEAT: 1})
+
+    assert result
+    payload = _last_telematics_payload(smart_fixture)
+    assert payload["serviceId"] == "RCE_2"
+    assert payload["command"] == "start"
+    assert payload["serviceParameters"] == [
+        {"key": "rce.heat", "value": "front-left"},
+        {"key": "rce.level", "value": "3"},
+        {"key": "rce.heat", "value": "front-right"},
+        {"key": "rce.level", "value": "1"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_set_heating_stop_sets_level_zero(smart_fixture: respx.Router):
+    """Test that set_heating stops all given locations with level 0."""
+    account = await prepare_account_with_vehicles()
+    await account.get_vehicle_information("TestVIN0000000001")
+    climate_ctrl = account.vehicles["TestVIN0000000001"].climate_control
+
+    await climate_ctrl.set_heating(False, {HeatingLocation.STEERING_WHEEL: 0})
+
+    payload = _last_telematics_payload(smart_fixture)
+    assert payload["command"] == "stop"
+    assert payload["serviceParameters"] == [
+        {"key": "rce.heat", "value": "steering_wheel"},
+        {"key": "rce.level", "value": "0"},
+    ]
+
+
+@pytest.mark.asyncio
+async def test_set_heating_does_not_change_conditioning_levels(smart_fixture: respx.Router):
+    """Test that set_heating leaves the levels used for climate conditioning untouched."""
+    account = await prepare_account_with_vehicles()
+    await account.get_vehicle_information("TestVIN0000000001")
+    climate_ctrl = account.vehicles["TestVIN0000000001"].climate_control
+
+    await climate_ctrl.set_heating(True, {HeatingLocation.DRIVER_SEAT: 3})
+
+    assert climate_ctrl.heating_levels[HeatingLocation.DRIVER_SEAT] == 0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("active", "levels", "exc"),
+    [
+        (True, {}, ValueError),
+        (True, {HeatingLocation.DRIVER_SEAT: 0}, ValueError),
+        (True, {HeatingLocation.DRIVER_SEAT: 4}, ValueError),
+        (True, {HeatingLocation.DRIVER_SEAT: "3"}, TypeError),
+        ("on", {HeatingLocation.DRIVER_SEAT: 3}, TypeError),
+    ],
+)
+async def test_set_heating_invalid_input(smart_fixture: respx.Router, active, levels, exc):
+    """Test that set_heating rejects invalid input."""
+    account = await prepare_account_with_vehicles()
+    await account.get_vehicle_information("TestVIN0000000001")
+    climate_ctrl = account.vehicles["TestVIN0000000001"].climate_control
+
+    with pytest.raises(exc):
+        await climate_ctrl.set_heating(active, levels)
