@@ -12,7 +12,7 @@ from pysmarthashtag.api import utils
 from pysmarthashtag.api.authentication import SmartAuthentication
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.api.log_sanitizer import sanitize_log_data
-from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, EndpointUrls
+from pysmarthashtag.const import API_CARS_URL, API_SELECT_CAR_URL, API_SEND_TO_CAR_URL, EndpointUrls
 from pysmarthashtag.models import (
     JournalTruncationError,
     SmartHumanCarConnectionError,
@@ -887,6 +887,77 @@ class SmartAccount:
                 page_size,
             )
         return trackpoints
+
+    async def send_destination_to_car(
+        self, vin: str, latitude: float, longitude: float, name: str, address: str = ""
+    ) -> bool:
+        """Send a destination to the navigation system of the vehicle.
+
+        ``POST /geelyTCAccess/tcservices/ihu/send/to/car?vin=<vin>`` with
+        ``{"lat": ..., "lon": ..., "name": ..., "address": ...}``.
+
+        Args:
+        ----
+            vin: Vehicle identification number
+            latitude: Latitude in decimal degrees
+            longitude: Longitude in decimal degrees
+            name: Name of the destination shown in the vehicle
+            address: Optional address shown in the vehicle
+
+        Returns:
+        -------
+            True if the destination was accepted, False otherwise
+
+        """
+        for value in (latitude, longitude):
+            if isinstance(value, bool) or not isinstance(value, int | float):
+                raise TypeError("Latitude and longitude must be numbers")
+        if not -90 <= latitude <= 90 or not -180 <= longitude <= 180:
+            raise ValueError("Latitude must be within -90..90 and longitude within -180..180 degrees.")
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("A destination name is required.")
+        if not isinstance(address, str):
+            raise TypeError("Address must be a string")
+
+        _LOGGER.debug("Sending destination to vehicle %s", sanitize_log_data(vin))
+        await self._ensure_ssl_context()
+        await self.select_active_vehicle(vin)
+
+        params = {"vin": vin}
+        body = json.dumps(
+            {"lat": float(latitude), "lon": float(longitude), "name": name, "address": address},
+            separators=(",", ":"),
+        )
+        async with SmartClient(self.config) as client:
+            for retry in range(3):
+                try:
+                    r = await client.post(
+                        self.vehicles[vin].base_url + API_SEND_TO_CAR_URL + "?" + utils.join_url_params(params),
+                        headers={
+                            **utils.generate_default_header(
+                                client.config.authentication.device_id,
+                                client.config.authentication.api_access_token,
+                                params=params,
+                                method="POST",
+                                url=API_SEND_TO_CAR_URL,
+                                body=body,
+                                vin=vin,
+                                model_code=self._vin_model_code(vin),
+                            )
+                        },
+                        content=body.encode("utf-8"),
+                    )
+                    payload = r.json()
+                    return bool(payload.get("success", str(payload.get("code")) == "1000"))
+                except SmartTokenRefreshNecessary:
+                    _LOGGER.debug("Session token expired; refreshing (retry %d)", retry)
+                    await self.config.authentication.refresh()
+                    continue
+                except (SmartHumanCarConnectionError, SmartVehicleNotInUseError):
+                    _LOGGER.debug("VIN binding lost (8006/4038); re-binding vehicle (retry %d)", retry)
+                    await self.select_active_vehicle(vin)
+                    continue
+        return False
 
     async def get_vehicle_ota_info(self, vin) -> dict:
         """Get information about a vehicle from OTA server."""
