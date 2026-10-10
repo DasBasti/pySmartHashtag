@@ -61,3 +61,34 @@ def test_invalid_level_and_legacy_rejected():
         ctrl.set_ventilation_level(VentilationLocation.DRIVER_SEAT, 4)
     with pytest.raises(NotImplementedError):
         _ctrl(use_zaf=False).set_ventilation_level(VentilationLocation.DRIVER_SEAT, 1)
+
+
+def test_rear_heating_and_all_keys_string_values():
+    from pysmarthashtag.control.climate import RearHeatingLocation
+
+    ctrl = _ctrl()
+    ctrl.set_rear_heating_level(RearHeatingLocation.REAR_LEFT, 2)
+    params = _params(ctrl._get_zaf_payload(True))
+    assert params["SH.21"] == "true" and params["SH.21.level"] == "2"
+    assert params["SH.29"] == "false" and "SH.29.level" not in params
+    with pytest.raises(ValueError):
+        ctrl.set_rear_heating_level(RearHeatingLocation.REAR_LEFT, 4)
+    with pytest.raises(NotImplementedError):
+        _ctrl(use_zaf=False).set_rear_heating_level(RearHeatingLocation.REAR_LEFT, 1)
+
+
+@pytest.mark.asyncio
+async def test_stop_works_with_corrupt_temperature(monkeypatch):
+    sent = []
+
+    async def fake_send(account, vin, payload):
+        sent.append(payload)
+        return True
+
+    monkeypatch.setattr("pysmarthashtag.control.climate.send_telematics_command", fake_send)
+    ctrl = _ctrl()
+    assert await ctrl.set_climate_conditioning("garbage", False) is True
+    assert all(p["value"] == "false" or p["key"] == "operation" for p in json.loads(sent[0])["serviceParameters"])
+    with pytest.raises(TypeError):
+        await ctrl.set_climate_conditioning("garbage", True)
+    assert len(sent) == 1
