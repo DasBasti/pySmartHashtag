@@ -15,6 +15,14 @@ Get this custom integration into homeassistant
 
 [![Project Maintenance][maintenance-shield]](https://platinenmacher.tech)
 
+## Credits
+
+The Smart #5 seat comfort functions (ZAF request format) exist thanks to community contributors:
+
+- [@radzatm](https://github.com/radzatm) captured the working ZAF seat heating request of the Smart #5 with a man-in-the-middle proxy and tested the debug builds ([SmartHashtag#478](https://github.com/DasBasti/SmartHashtag/issues/478)).
+- [@ooooli](https://github.com/ooooli) documented and confirmed the ZAF request format for climate, seat heating, steering wheel heating and front seat ventilation ([SmartHashtag#479](https://github.com/DasBasti/SmartHashtag/issues/479)).
+- [@krlimi69](https://github.com/krlimi69) reported the failing seat heating on the Smart #5 Brabus and tested the fixes ([SmartHashtag#478](https://github.com/DasBasti/SmartHashtag/issues/478)).
+
 ## AI Disclosure
 
 This project uses AI to assist with development.

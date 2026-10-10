@@ -162,7 +162,11 @@ class SmartVehicle:
 
         from pysmarthashtag.control.climate import ClimateControll
 
-        self.climate_control = ClimateControll(self.account, self.vin)
+        self.climate_control = ClimateControll(
+            self.account,
+            self.vin,
+            use_zaf=str(self.data.get("seriesCodeVs", "")).startswith(SERIES_CODE_PREFIX_SMART_5),
+        )
 
         from pysmarthashtag.control.charging import ChargingControl
 
