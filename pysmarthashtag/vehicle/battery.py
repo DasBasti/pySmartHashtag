@@ -304,6 +304,14 @@ class Battery(VehicleDataBase):
             if charger_conn is not None:
                 retval["charger_connection_status"] = charger_conn
                 retval["charger_connection_state"] = charger_connection_state_name(charger_conn)
+                # chargerState reports NOT_CHARGING for a plugged-in car that is not drawing power,
+                # so the connection code is the only reliable plug signal. See SmartHashtag issue #441.
+                if charger_conn in (
+                    ChargerConnectionState.DC_CONNECTED,
+                    ChargerConnectionState.PLUGGED_NOT_CHARGING,
+                    ChargerConnectionState.CHARGING,
+                ):
+                    retval["is_charger_connected"] = True
 
             charging_status = retval.get("charging_status")
             battery_percent = retval.get("remaining_battery_percent")

@@ -117,3 +117,28 @@ class TestChargerConnectionState:
         assert battery is not None
         assert battery.charger_connection_status is None
         assert battery.charger_connection_state is None
+
+
+class TestIsChargerConnected:
+    """The plug state must not depend on the car currently drawing power (issue #441)."""
+
+    def test_plugged_not_charging(self):
+        """Plugged in with chargerState NOT_CHARGING still counts as connected."""
+        battery = Battery.from_vehicle_data(create_vehicle_data("0", "2"))
+
+        assert battery is not None
+        assert battery.is_charger_connected is True
+
+    def test_not_connected(self):
+        """Unplugged stays disconnected."""
+        battery = Battery.from_vehicle_data(create_vehicle_data("0", "0"))
+
+        assert battery is not None
+        assert battery.is_charger_connected is False
+
+    def test_unknown_connection_code_does_not_connect(self):
+        """Codes the API adds later do not flip the plug state on their own."""
+        battery = Battery.from_vehicle_data(create_vehicle_data("0", "42"))
+
+        assert battery is not None
+        assert battery.is_charger_connected is False
