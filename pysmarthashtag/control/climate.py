@@ -47,7 +47,7 @@ class RearHeatingLocation(str, Enum):
 # ZAF service parameter keys of the Smart #5 comfort functions
 ZAF_HEATING_KEYS = {
     HeatingLocation.DRIVER_SEAT: "SH.11",
-    HeatingLocation.PASSENGER_SEAT: "SH.19",
+    HeatingLocation.PASSENGER_SEAT: "SH.12",
     HeatingLocation.STEERING_WHEEL: "SW",
 }
 ZAF_VENTILATION_KEYS = {
@@ -56,9 +56,10 @@ ZAF_VENTILATION_KEYS = {
 }
 ZAF_REAR_HEATING_KEYS = {
     RearHeatingLocation.REAR_LEFT: "SH.21",
-    RearHeatingLocation.REAR_RIGHT: "SH.29",
+    RearHeatingLocation.REAR_RIGHT: "SH.22",
 }
-ZAF_ALL_COMFORT_KEYS = ("AC", "SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11", "SV.19")
+ZAF_SEAT_HEATING_DURATION = "15"
+ZAF_ALL_COMFORT_KEYS = ("AC", "SH.11", "SH.12", "SH.21", "SH.22", "SW", "DF", "SV.11", "SV.19")
 
 
 class ClimateControll:
@@ -122,6 +123,10 @@ class ClimateControll:
         else:
             for key in ZAF_ALL_COMFORT_KEYS:
                 params[key] = "false"
+        return self._build_zaf_payload(params)
+
+    def _build_zaf_payload(self, params: dict[str, str]) -> str:
+        """Wrap ZAF service parameters in the request body. Start and stop both use ``command: start``."""
         payload = {
             "serviceId": "ZAF",
             "command": "start",
@@ -139,6 +144,13 @@ class ClimateControll:
             "serviceParameters": [{"key": k, "value": v} for k, v in params.items()],
         }
         return json.dumps(payload).replace(" ", "")
+
+    async def _send_zaf_command(self, params: str) -> bool:
+        """Send a ZAF request and log what was sent and what the cloud answered."""
+        _LOGGER.debug("Sending ZAF command: %s", params)
+        result = await send_telematics_command(self.account, self.vin, params)
+        _LOGGER.debug("ZAF command result: %s", result)
+        return result is True
 
     def set_ventilation_level(self, location: VentilationLocation, level: int):
         """Set the (Smart #5) seat ventilation level; selecting one clears the seat's heating."""
@@ -214,7 +226,7 @@ class ClimateControll:
 
         _LOGGER.debug("Setting climate conditioning: active=%s, temp=%s", active, temp)
         if self.use_zaf:
-            return (await send_telematics_command(self.account, self.vin, self._get_zaf_payload(active))) is True
+            return await self._send_zaf_command(self._get_zaf_payload(active))
         return await self._send_rce_command(self._get_payload(active))
 
     def _get_heating_payload(self, active: bool, levels: dict[HeatingLocation, int]) -> str:
@@ -256,7 +268,23 @@ class ClimateControll:
                 raise ValueError("Heating level must be between 1 and 3 to start heating.")
 
         _LOGGER.debug("Setting heating: active=%s, levels=%s", active, levels)
+        if self.use_zaf:
+            return await self._send_zaf_command(self._get_zaf_heating_payload(active, levels))
         return await self._send_rce_command(self._get_heating_payload(active, levels))
+
+    def _get_zaf_heating_payload(self, active: bool, levels: dict[HeatingLocation, int]) -> str:
+        """Build the Smart #5 ZAF request that only touches the given seats / steering wheel."""
+        params: dict[str, str] = {"operation": "4"}
+        for loc, level in levels.items():
+            key = ZAF_HEATING_KEYS[loc]
+            if active:
+                params[key] = "true"
+                params[f"{key}.level"] = str(level)
+                if loc != HeatingLocation.STEERING_WHEEL:
+                    params[f"{key}.duration"] = ZAF_SEAT_HEATING_DURATION
+            else:
+                params[key] = "false"
+        return self._build_zaf_payload(params)
 
     def _get_defrost_payload(self, active: bool) -> str:
         _payload = self.BASE_PAYLOAD_TEMPLATE.copy()
@@ -277,6 +305,9 @@ class ClimateControll:
         if not isinstance(active, bool):
             raise TypeError("Defrost state must be a boolean")
         _LOGGER.debug("Setting front windscreen defrost: active=%s", active)
+        if self.use_zaf:
+            params = {"operation": "4", "DF": "true" if active else "false"}
+            return await self._send_zaf_command(self._build_zaf_payload(params))
         return await self._send_rce_command(self._get_defrost_payload(active))
 
     async def _send_rce_command(self, params: str) -> bool:

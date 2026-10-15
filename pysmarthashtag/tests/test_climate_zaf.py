@@ -31,7 +31,7 @@ def test_start_with_ventilation():
     assert params["operation"] == "4"
     assert params["AC"] == "true" and params["AC.temp"] == "21.0"
     assert params["SV.11"] == "true" and params["SV.11.level"] == "2"
-    assert params["SH.19"] == "true" and params["SH.19.level"] == "3"
+    assert params["SH.12"] == "true" and params["SH.12.level"] == "3"
     assert params["SH.11"] == "false" and "SH.11.level" not in params
     assert params["SV.19"] == "false"
 
@@ -51,7 +51,7 @@ def test_stop_is_all_off():
     params = _params(ctrl._get_zaf_payload(False))
     assert json.loads(ctrl._get_zaf_payload(False))["command"] == "start"
     assert params["operation"] == "4"
-    for key in ("AC", "SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11", "SV.19"):
+    for key in ("AC", "SH.11", "SH.12", "SH.21", "SH.22", "SW", "DF", "SV.11", "SV.19"):
         assert params[key] == "false"
 
 
@@ -70,7 +70,7 @@ def test_rear_heating_and_all_keys_string_values():
     ctrl.set_rear_heating_level(RearHeatingLocation.REAR_LEFT, 2)
     params = _params(ctrl._get_zaf_payload(True))
     assert params["SH.21"] == "true" and params["SH.21.level"] == "2"
-    assert params["SH.29"] == "false" and "SH.29.level" not in params
+    assert params["SH.22"] == "false" and "SH.22.level" not in params
     with pytest.raises(ValueError):
         ctrl.set_rear_heating_level(RearHeatingLocation.REAR_LEFT, 4)
     with pytest.raises(NotImplementedError):
@@ -92,3 +92,50 @@ async def test_stop_works_with_corrupt_temperature(monkeypatch):
     with pytest.raises(TypeError):
         await ctrl.set_climate_conditioning("garbage", True)
     assert len(sent) == 1
+
+
+@pytest.mark.asyncio
+async def test_set_heating_on_smart5_uses_zaf_without_ac(monkeypatch):
+    sent = []
+
+    async def fake_send(account, vin, payload):
+        sent.append(payload)
+        return True
+
+    monkeypatch.setattr("pysmarthashtag.control.climate.send_telematics_command", fake_send)
+    ctrl = _ctrl()
+    levels = {HeatingLocation.DRIVER_SEAT: 3, HeatingLocation.PASSENGER_SEAT: 2}
+    assert await ctrl.set_heating(True, levels) is True
+    payload = json.loads(sent[0])
+    assert payload["serviceId"] == "ZAF"
+    params = _params(sent[0])
+    assert params == {
+        "operation": "4",
+        "SH.11": "true",
+        "SH.11.level": "3",
+        "SH.11.duration": "15",
+        "SH.12": "true",
+        "SH.12.level": "2",
+        "SH.12.duration": "15",
+    }
+    assert ctrl.heating_levels[HeatingLocation.DRIVER_SEAT] == 0
+
+    assert await ctrl.set_heating(False, {HeatingLocation.STEERING_WHEEL: 0}) is True
+    assert _params(sent[1]) == {"operation": "4", "SW": "false"}
+
+
+@pytest.mark.asyncio
+async def test_set_defrost_on_smart5_uses_zaf(monkeypatch):
+    sent = []
+
+    async def fake_send(account, vin, payload):
+        sent.append(payload)
+        return True
+
+    monkeypatch.setattr("pysmarthashtag.control.climate.send_telematics_command", fake_send)
+    ctrl = _ctrl()
+    assert await ctrl.set_defrost(True) is True
+    assert json.loads(sent[0])["serviceId"] == "ZAF"
+    assert _params(sent[0]) == {"operation": "4", "DF": "true"}
+    await ctrl.set_defrost(False)
+    assert _params(sent[1]) == {"operation": "4", "DF": "false"}
