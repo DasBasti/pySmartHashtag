@@ -161,3 +161,33 @@ async def test_set_defrost_on_smart5_uses_zaf(monkeypatch):
     assert _params(sent[0]) == {"operation": "4", "DF": "true"}
     await ctrl.set_defrost(False)
     assert _params(sent[1]) == {"operation": "4", "DF": "false"}
+
+
+@pytest.mark.asyncio
+async def test_set_rear_heating_sends_each_seat_by_itself(monkeypatch):
+    from pysmarthashtag.control.climate import RearHeatingLocation
+
+    sent = []
+
+    async def fake_send(account, vin, payload):
+        sent.append(payload)
+        return True
+
+    monkeypatch.setattr("pysmarthashtag.control.climate.send_telematics_command", fake_send)
+    ctrl = _ctrl()
+    levels = {RearHeatingLocation.REAR_LEFT: 2, RearHeatingLocation.REAR_RIGHT: 3}
+    assert await ctrl.set_rear_heating(True, levels) is True
+    assert [_params(raw) for raw in sent] == [
+        {"operation": "4", "SH.21": "true", "SH.21.level": "2", "SH.21.duration": "15"},
+        {"operation": "4", "SH.22": "true", "SH.22.level": "3", "SH.22.duration": "15"},
+    ]
+    assert ctrl.rear_heating_levels[RearHeatingLocation.REAR_LEFT] == 0
+
+    sent.clear()
+    assert await ctrl.set_rear_heating(False, {RearHeatingLocation.REAR_RIGHT: 0}) is True
+    assert [_params(raw) for raw in sent] == [{"operation": "4", "SH.22": "false"}]
+
+    with pytest.raises(ValueError):
+        await ctrl.set_rear_heating(True, {RearHeatingLocation.REAR_LEFT: 4})
+    with pytest.raises(NotImplementedError):
+        await _ctrl(use_zaf=False).set_rear_heating(True, levels)

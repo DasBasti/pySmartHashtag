@@ -276,6 +276,16 @@ class ClimateControll:
             levels: Heating level (1-3) per location; only the keys are used to stop
 
         """
+        self._check_heating_request(active, levels)
+
+        _LOGGER.debug("Setting heating: active=%s, levels=%s", active, levels)
+        if self.use_zaf:
+            return await self._send_zaf_commands(self._get_zaf_heating_payloads(active, levels))
+        return await self._send_rce_command(self._get_heating_payload(active, levels))
+
+    @staticmethod
+    def _check_heating_request(active: bool, levels: dict) -> None:
+        """Validate the arguments of set_heating / set_rear_heating."""
         if not isinstance(active, bool):
             raise TypeError("Heating state must be a boolean")
         if not levels:
@@ -286,16 +296,25 @@ class ClimateControll:
             if active and (level > 3 or level < 1):
                 raise ValueError("Heating level must be between 1 and 3 to start heating.")
 
-        _LOGGER.debug("Setting heating: active=%s, levels=%s", active, levels)
-        if self.use_zaf:
-            return await self._send_zaf_commands(self._get_zaf_heating_payloads(active, levels))
-        return await self._send_rce_command(self._get_heating_payload(active, levels))
+    async def set_rear_heating(self, active: bool, levels: dict[RearHeatingLocation, int]) -> bool:
+        """Start or stop the rear seat heating on its own (Smart #5 only).
 
-    def _get_zaf_heating_payloads(self, active: bool, levels: dict[HeatingLocation, int]) -> list[str]:
+        Every seat in ``levels`` is sent as its own request, without climate conditioning.
+        The levels given here are used as-is and do not change rear_heating_levels.
+        """
+        if not self.use_zaf:
+            raise NotImplementedError("Rear seat heating is only supported on the Smart #5")
+        self._check_heating_request(active, levels)
+        _LOGGER.debug("Setting rear heating: active=%s, levels=%s", active, levels)
+        return await self._send_zaf_commands(self._get_zaf_heating_payloads(active, levels))
+
+    def _get_zaf_heating_payloads(
+        self, active: bool, levels: dict[HeatingLocation, int] | dict[RearHeatingLocation, int]
+    ) -> list[str]:
         """Build one Smart #5 ZAF request per seat / steering wheel in ``levels``."""
         payloads = []
         for loc, level in levels.items():
-            key = ZAF_HEATING_KEYS[loc]
+            key = {**ZAF_HEATING_KEYS, **ZAF_REAR_HEATING_KEYS}[loc]
             if active:
                 params = self._zaf_level_params(key, level, loc != HeatingLocation.STEERING_WHEEL)
             else:
