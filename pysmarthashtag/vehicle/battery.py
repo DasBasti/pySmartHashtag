@@ -240,6 +240,9 @@ class Battery(VehicleDataBase):
     is_charger_connected: bool = False
     """Is the charger connected to the vehicle."""
 
+    is_charging_lid_open: bool | None = None
+    """Is the charging lid open. None when the vehicle does not report it."""
+
     charging_voltage: ValueWithUnit | None = ValueWithUnit(None, None)
     """Charging voltage of the vehicle."""
 
@@ -312,6 +315,12 @@ class Battery(VehicleDataBase):
                     ChargerConnectionState.CHARGING,
                 ):
                     retval["is_charger_connected"] = True
+
+            # "1" = open, as read by the Hello smart app. A missing value stays None so that a
+            # vehicle that does not report the lid never reads as closed.
+            charging_lid = get_field_as_type(evStatus, "chargeLidDcAcStatus", int, log_missing=False)
+            if charging_lid is not None:
+                retval["is_charging_lid_open"] = charging_lid == 1
 
             charging_status = retval.get("charging_status")
             battery_percent = retval.get("remaining_battery_percent")
