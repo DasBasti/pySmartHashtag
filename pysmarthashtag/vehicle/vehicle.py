@@ -88,6 +88,9 @@ class SmartVehicle:
     horn_light_control: Optional["HornLightControl"] = None  # noqa: F821
     """Control for honking the horn and flashing the lights."""
 
+    charging_lid_control: Optional["ChargingLidControl"] = None  # noqa: F821
+    """Control for opening/closing the charging lid. Smart #5 only, None on other models."""
+
     engine_state: str | None = None
     """The state of the engine."""
 
@@ -187,6 +190,14 @@ class SmartVehicle:
         from pysmarthashtag.control.horn_light import HornLightControl
 
         self.horn_light_control = HornLightControl(self.account, self.vin)
+
+        from pysmarthashtag.control.charging_lid import ChargingLidControl
+
+        # Only the #5 has a motorised charging lid
+        if str(self.data.get("seriesCodeVs", "")).startswith(SERIES_CODE_PREFIX_SMART_5):
+            self.charging_lid_control = ChargingLidControl(self.account, self.vin)
+        else:
+            self.charging_lid_control = None
 
     def _parse_data(self) -> None:
         self.vin = self.data.get("vin")

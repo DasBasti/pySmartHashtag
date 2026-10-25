@@ -30,6 +30,7 @@ def build_telematics_payload(
     command: str = "start",
     operation_scheduling: dict[str, Any] | None = None,
     timestamp_key: str = "timestamp",
+    user_id: str | None = None,
 ) -> str:
     """Create the compact JSON body of a remote telematics command.
 
@@ -40,6 +41,7 @@ def build_telematics_payload(
         command: "start" or "stop"
         operation_scheduling: Overrides the default operation scheduling
         timestamp_key: Name of the timestamp field ("timestamp" or "timeStamp")
+        user_id: Adds a "userId" field, for the services that require it
 
     Returns:
     -------
@@ -54,6 +56,8 @@ def build_telematics_payload(
         timestamp_key: utils.create_correct_timestamp(),
         "serviceParameters": parameters,
     }
+    if user_id is not None:
+        payload["userId"] = user_id
     return json.dumps(payload).replace(" ", "")
 
 
