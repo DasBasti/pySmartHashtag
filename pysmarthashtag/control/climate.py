@@ -47,7 +47,7 @@ class RearHeatingLocation(str, Enum):
 # ZAF service parameter keys of the Smart #5 comfort functions
 ZAF_HEATING_KEYS = {
     HeatingLocation.DRIVER_SEAT: "SH.11",
-    HeatingLocation.PASSENGER_SEAT: "SH.12",
+    HeatingLocation.PASSENGER_SEAT: "SH.19",
     HeatingLocation.STEERING_WHEEL: "SW",
 }
 ZAF_VENTILATION_KEYS = {
@@ -56,10 +56,10 @@ ZAF_VENTILATION_KEYS = {
 }
 ZAF_REAR_HEATING_KEYS = {
     RearHeatingLocation.REAR_LEFT: "SH.21",
-    RearHeatingLocation.REAR_RIGHT: "SH.22",
+    RearHeatingLocation.REAR_RIGHT: "SH.29",
 }
 ZAF_SEAT_HEATING_DURATION = "15"
-ZAF_ALL_COMFORT_KEYS = ("AC", "SH.11", "SH.12", "SH.21", "SH.22", "SW", "DF", "SV.11", "SV.19")
+ZAF_ALL_COMFORT_KEYS = ("SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11", "SV.19")
 
 
 class ClimateControll:
@@ -102,28 +102,37 @@ class ClimateControll:
             RearHeatingLocation.REAR_RIGHT: 0,
         }
 
-    def _get_zaf_payload(self, active: bool) -> str:
-        """Build the Smart #5 ZAF request. Start and stop both use ``command: start``."""
-        params: dict[str, str] = {"operation": "4"}
-        if active:
-            params["AC"] = "true"
-            params["AC.temp"] = f"{self.conditioning_temp:.1f}"
-            params["AC.duration"] = "180"
-            for key in ZAF_ALL_COMFORT_KEYS[1:]:
-                params[key] = "false"
-            comfort = {
-                **{ZAF_HEATING_KEYS[loc]: lvl for loc, lvl in self.heating_levels.items()},
-                **{ZAF_VENTILATION_KEYS[loc]: lvl for loc, lvl in self.ventilation_levels.items()},
-                **{ZAF_REAR_HEATING_KEYS[loc]: lvl for loc, lvl in self.rear_heating_levels.items()},
-            }
-            for key, level in comfort.items():
-                if level > 0:
-                    params[key] = "true"
-                    params[f"{key}.level"] = str(level)
-        else:
-            for key in ZAF_ALL_COMFORT_KEYS:
-                params[key] = "false"
-        return self._build_zaf_payload(params)
+    def _get_zaf_payloads(self, active: bool) -> list[str]:
+        """Build the Smart #5 ZAF requests, one per comfort function.
+
+        The cloud does not take several seats in one request, so every seat,
+        the steering wheel and the ventilation get their own request. The
+        air conditioning is not part of it. Start and stop both use
+        ``command: start``.
+        """
+        if not active:
+            return [self._build_zaf_payload({"operation": "4", key: "false"}) for key in ZAF_ALL_COMFORT_KEYS]
+        comfort = [
+            *(
+                (ZAF_HEATING_KEYS[loc], lvl, loc != HeatingLocation.STEERING_WHEEL)
+                for loc, lvl in self.heating_levels.items()
+            ),
+            *((ZAF_VENTILATION_KEYS[loc], lvl, False) for loc, lvl in self.ventilation_levels.items()),
+            *((ZAF_REAR_HEATING_KEYS[loc], lvl, True) for loc, lvl in self.rear_heating_levels.items()),
+        ]
+        return [
+            self._build_zaf_payload(self._zaf_level_params(key, level, with_duration))
+            for key, level, with_duration in comfort
+            if level > 0
+        ]
+
+    @staticmethod
+    def _zaf_level_params(key: str, level: int, with_duration: bool) -> dict[str, str]:
+        """Service parameters that switch a single comfort function on."""
+        params = {"operation": "4", key: "true", f"{key}.level": str(level)}
+        if with_duration:
+            params[f"{key}.duration"] = ZAF_SEAT_HEATING_DURATION
+        return params
 
     def _build_zaf_payload(self, params: dict[str, str]) -> str:
         """Wrap ZAF service parameters in the request body. Start and stop both use ``command: start``."""
@@ -145,12 +154,22 @@ class ClimateControll:
         }
         return json.dumps(payload).replace(" ", "")
 
-    async def _send_zaf_command(self, params: str) -> bool:
-        """Send a ZAF request and log what was sent and what the cloud answered."""
-        _LOGGER.debug("Sending ZAF command: %s", params)
-        result = await send_telematics_command(self.account, self.vin, params)
-        _LOGGER.debug("ZAF command result: %s", result)
-        return result is True
+    async def _send_zaf_commands(self, payloads: list[str]) -> bool:
+        """Send the ZAF requests one after the other and log what was sent and answered.
+
+        Every request is sent even if an earlier one failed, so a stop always
+        tries to switch everything off. Returns True only if all were accepted.
+        """
+        if not payloads:
+            _LOGGER.debug("No ZAF command to send")
+            return False
+        results = []
+        for params in payloads:
+            _LOGGER.debug("Sending ZAF command: %s", params)
+            result = await send_telematics_command(self.account, self.vin, params)
+            _LOGGER.debug("ZAF command result: %s", result)
+            results.append(result is True)
+        return all(results)
 
     def set_ventilation_level(self, location: VentilationLocation, level: int):
         """Set the (Smart #5) seat ventilation level; selecting one clears the seat's heating."""
@@ -226,7 +245,7 @@ class ClimateControll:
 
         _LOGGER.debug("Setting climate conditioning: active=%s, temp=%s", active, temp)
         if self.use_zaf:
-            return await self._send_zaf_command(self._get_zaf_payload(active))
+            return await self._send_zaf_commands(self._get_zaf_payloads(active))
         return await self._send_rce_command(self._get_payload(active))
 
     def _get_heating_payload(self, active: bool, levels: dict[HeatingLocation, int]) -> str:
@@ -257,6 +276,16 @@ class ClimateControll:
             levels: Heating level (1-3) per location; only the keys are used to stop
 
         """
+        self._check_heating_request(active, levels)
+
+        _LOGGER.debug("Setting heating: active=%s, levels=%s", active, levels)
+        if self.use_zaf:
+            return await self._send_zaf_commands(self._get_zaf_heating_payloads(active, levels))
+        return await self._send_rce_command(self._get_heating_payload(active, levels))
+
+    @staticmethod
+    def _check_heating_request(active: bool, levels: dict) -> None:
+        """Validate the arguments of set_heating / set_rear_heating."""
         if not isinstance(active, bool):
             raise TypeError("Heating state must be a boolean")
         if not levels:
@@ -267,24 +296,31 @@ class ClimateControll:
             if active and (level > 3 or level < 1):
                 raise ValueError("Heating level must be between 1 and 3 to start heating.")
 
-        _LOGGER.debug("Setting heating: active=%s, levels=%s", active, levels)
-        if self.use_zaf:
-            return await self._send_zaf_command(self._get_zaf_heating_payload(active, levels))
-        return await self._send_rce_command(self._get_heating_payload(active, levels))
+    async def set_rear_heating(self, active: bool, levels: dict[RearHeatingLocation, int]) -> bool:
+        """Start or stop the rear seat heating on its own (Smart #5 only).
 
-    def _get_zaf_heating_payload(self, active: bool, levels: dict[HeatingLocation, int]) -> str:
-        """Build the Smart #5 ZAF request that only touches the given seats / steering wheel."""
-        params: dict[str, str] = {"operation": "4"}
+        Every seat in ``levels`` is sent as its own request, without climate conditioning.
+        The levels given here are used as-is and do not change rear_heating_levels.
+        """
+        if not self.use_zaf:
+            raise NotImplementedError("Rear seat heating is only supported on the Smart #5")
+        self._check_heating_request(active, levels)
+        _LOGGER.debug("Setting rear heating: active=%s, levels=%s", active, levels)
+        return await self._send_zaf_commands(self._get_zaf_heating_payloads(active, levels))
+
+    def _get_zaf_heating_payloads(
+        self, active: bool, levels: dict[HeatingLocation, int] | dict[RearHeatingLocation, int]
+    ) -> list[str]:
+        """Build one Smart #5 ZAF request per seat / steering wheel in ``levels``."""
+        payloads = []
         for loc, level in levels.items():
-            key = ZAF_HEATING_KEYS[loc]
+            key = {**ZAF_HEATING_KEYS, **ZAF_REAR_HEATING_KEYS}[loc]
             if active:
-                params[key] = "true"
-                params[f"{key}.level"] = str(level)
-                if loc != HeatingLocation.STEERING_WHEEL:
-                    params[f"{key}.duration"] = ZAF_SEAT_HEATING_DURATION
+                params = self._zaf_level_params(key, level, loc != HeatingLocation.STEERING_WHEEL)
             else:
-                params[key] = "false"
-        return self._build_zaf_payload(params)
+                params = {"operation": "4", key: "false"}
+            payloads.append(self._build_zaf_payload(params))
+        return payloads
 
     def _get_defrost_payload(self, active: bool) -> str:
         _payload = self.BASE_PAYLOAD_TEMPLATE.copy()
@@ -307,7 +343,7 @@ class ClimateControll:
         _LOGGER.debug("Setting front windscreen defrost: active=%s", active)
         if self.use_zaf:
             params = {"operation": "4", "DF": "true" if active else "false"}
-            return await self._send_zaf_command(self._build_zaf_payload(params))
+            return await self._send_zaf_commands([self._build_zaf_payload(params)])
         return await self._send_rce_command(self._get_defrost_payload(active))
 
     async def _send_rce_command(self, params: str) -> bool:
