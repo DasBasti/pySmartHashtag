@@ -33,7 +33,7 @@ def test_start_with_ventilation():
     assert params["SV.11"] == "true" and params["SV.11.level"] == "2"
     assert params["SH.12"] == "true" and params["SH.12.level"] == "3"
     assert params["SH.11"] == "false" and "SH.11.level" not in params
-    assert params["SV.19"] == "false"
+    assert params["SV.12"] == "false"
 
 
 def test_heating_and_ventilation_are_exclusive():
@@ -51,7 +51,7 @@ def test_stop_is_all_off():
     params = _params(ctrl._get_zaf_payload(False))
     assert json.loads(ctrl._get_zaf_payload(False))["command"] == "start"
     assert params["operation"] == "4"
-    for key in ("AC", "SH.11", "SH.12", "SH.21", "SH.22", "SW", "DF", "SV.11", "SV.19"):
+    for key in ("AC", "SH.11", "SH.12", "SH.21", "SH.22", "SW", "DF", "SV.11", "SV.12"):
         assert params[key] == "false"
 
 
