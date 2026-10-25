@@ -47,7 +47,7 @@ class RearHeatingLocation(str, Enum):
 # ZAF service parameter keys of the Smart #5 comfort functions
 ZAF_HEATING_KEYS = {
     HeatingLocation.DRIVER_SEAT: "SH.11",
-    HeatingLocation.PASSENGER_SEAT: "SH.12",
+    HeatingLocation.PASSENGER_SEAT: "SH.19",
     HeatingLocation.STEERING_WHEEL: "SW",
 }
 ZAF_VENTILATION_KEYS = {
@@ -56,7 +56,7 @@ ZAF_VENTILATION_KEYS = {
 }
 ZAF_REAR_HEATING_KEYS = {
     RearHeatingLocation.REAR_LEFT: "SH.21",
-    RearHeatingLocation.REAR_RIGHT: "SH.22",
+    RearHeatingLocation.REAR_RIGHT: "SH.29",
 }
 ZAF_SEAT_HEATING_DURATION = "15"
 ZAF_ALL_COMFORT_KEYS = ("SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11", "SV.19")
