@@ -59,7 +59,7 @@ ZAF_REAR_HEATING_KEYS = {
     RearHeatingLocation.REAR_RIGHT: "SH.22",
 }
 ZAF_SEAT_HEATING_DURATION = "15"
-ZAF_ALL_COMFORT_KEYS = ("SH.11", "SH.12", "SH.21", "SH.22", "SW", "DF", "SV.11", "SV.19")
+ZAF_ALL_COMFORT_KEYS = ("SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11", "SV.19")
 
 
 class ClimateControll:

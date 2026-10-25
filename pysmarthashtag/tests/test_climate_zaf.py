@@ -30,7 +30,7 @@ def test_start_sends_each_seat_by_itself_without_ac():
         assert payload["userId"] == "42"
         assert payload["latest"] is False
     assert [_params(p) for p in payloads] == [
-        {"operation": "4", "SH.12": "true", "SH.12.level": "3", "SH.12.duration": "15"},
+        {"operation": "4", "SH.19": "true", "SH.19.level": "3", "SH.19.duration": "15"},
         {"operation": "4", "SV.11": "true", "SV.11.level": "2"},
     ]
 
@@ -54,7 +54,7 @@ def test_stop_switches_every_function_off_separately():
     payloads = ctrl._get_zaf_payloads(False)
     assert all(json.loads(p)["command"] == "start" for p in payloads)
     assert [_params(p) for p in payloads] == [
-        {"operation": "4", key: "false"} for key in ("SH.11", "SH.12", "SH.21", "SH.22", "SW", "DF", "SV.11", "SV.19")
+        {"operation": "4", key: "false"} for key in ("SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11", "SV.19")
     ]
 
 
@@ -139,7 +139,7 @@ async def test_set_heating_on_smart5_uses_zaf_without_ac(monkeypatch):
     assert len(sent) == 2
     assert json.loads(sent[0])["serviceId"] == "ZAF"
     assert _params(sent[0]) == {"operation": "4", "SH.11": "true", "SH.11.level": "3", "SH.11.duration": "15"}
-    assert _params(sent[1]) == {"operation": "4", "SH.12": "true", "SH.12.level": "2", "SH.12.duration": "15"}
+    assert _params(sent[1]) == {"operation": "4", "SH.19": "true", "SH.19.level": "2", "SH.19.duration": "15"}
     assert ctrl.heating_levels[HeatingLocation.DRIVER_SEAT] == 0
 
     assert await ctrl.set_heating(False, {HeatingLocation.STEERING_WHEEL: 0}) is True
@@ -179,13 +179,13 @@ async def test_set_rear_heating_sends_each_seat_by_itself(monkeypatch):
     assert await ctrl.set_rear_heating(True, levels) is True
     assert [_params(raw) for raw in sent] == [
         {"operation": "4", "SH.21": "true", "SH.21.level": "2", "SH.21.duration": "15"},
-        {"operation": "4", "SH.22": "true", "SH.22.level": "3", "SH.22.duration": "15"},
+        {"operation": "4", "SH.29": "true", "SH.29.level": "3", "SH.29.duration": "15"},
     ]
     assert ctrl.rear_heating_levels[RearHeatingLocation.REAR_LEFT] == 0
 
     sent.clear()
     assert await ctrl.set_rear_heating(False, {RearHeatingLocation.REAR_RIGHT: 0}) is True
-    assert [_params(raw) for raw in sent] == [{"operation": "4", "SH.22": "false"}]
+    assert [_params(raw) for raw in sent] == [{"operation": "4", "SH.29": "false"}]
 
     with pytest.raises(ValueError):
         await ctrl.set_rear_heating(True, {RearHeatingLocation.REAR_LEFT: 4})
