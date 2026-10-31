@@ -1,11 +1,14 @@
 """Provides an accessible controll of the vehicle's climate functions."""
 
+import asyncio
 import json
 import logging
 from enum import Enum
 from typing import TypedDict
 
-from pysmarthashtag.account import SmartAccount
+import httpx
+
+from pysmarthashtag.account import SmartAccount, _cloud_code
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
 from pysmarthashtag.const import API_TELEMATICS_URL
@@ -60,6 +63,15 @@ ZAF_REAR_HEATING_KEYS = {
 }
 ZAF_SEAT_HEATING_DURATION = "15"
 ZAF_ALL_COMFORT_KEYS = ("SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11", "SV.19")
+# Cabin air conditioning of the Smart #5 (format from DasBasti/SmartHashtag#479)
+ZAF_AC_KEY = "AC"
+ZAF_AC_DURATION = "180"
+
+# Cloud code: "The last request has not yet been executed, please send the command later!"
+# The #5 takes one ZAF request at a time, so the next one has to wait.
+ZAF_PENDING_CODE = "8070"
+ZAF_PENDING_RETRIES = 5
+ZAF_PENDING_DELAY = 3.0
 
 
 class ClimateControll:
@@ -102,16 +114,8 @@ class ClimateControll:
             RearHeatingLocation.REAR_RIGHT: 0,
         }
 
-    def _get_zaf_payloads(self, active: bool) -> list[str]:
-        """Build the Smart #5 ZAF requests, one per comfort function.
-
-        The cloud does not take several seats in one request, so every seat,
-        the steering wheel and the ventilation get their own request. The
-        air conditioning is not part of it. Start and stop both use
-        ``command: start``.
-        """
-        if not active:
-            return [self._build_zaf_payload({"operation": "4", key: "false"}) for key in ZAF_ALL_COMFORT_KEYS]
+    def _selected_comfort(self) -> list[tuple[str, int, bool]]:
+        """Comfort functions with a level > 0 as (ZAF key, level, with duration)."""
         comfort = [
             *(
                 (ZAF_HEATING_KEYS[loc], lvl, loc != HeatingLocation.STEERING_WHEEL)
@@ -120,10 +124,36 @@ class ClimateControll:
             *((ZAF_VENTILATION_KEYS[loc], lvl, False) for loc, lvl in self.ventilation_levels.items()),
             *((ZAF_REAR_HEATING_KEYS[loc], lvl, True) for loc, lvl in self.rear_heating_levels.items()),
         ]
+        return [entry for entry in comfort if entry[1] > 0]
+
+    def _get_zaf_payloads(self, active: bool) -> list[str]:
+        """Build the Smart #5 ZAF requests for climate conditioning.
+
+        The air conditioning is its own request and always comes first, then
+        one request per selected seat, the steering wheel and the ventilation
+        (the cloud does not take several of them in one request).
+
+        A stop switches the air conditioning off, then every comfort function
+        that a start with the current selection switched on. Start and stop
+        both use ``command: start``.
+        """
+        if not active:
+            return [
+                self._build_zaf_payload({"operation": "4", ZAF_AC_KEY: "false"}),
+                *(self._build_zaf_payload({"operation": "4", key: "false"}) for key, _, _ in self._selected_comfort()),
+            ]
+        ac_params = {
+            "operation": "4",
+            ZAF_AC_KEY: "true",
+            f"{ZAF_AC_KEY}.temp": f"{self.conditioning_temp:.1f}",
+            f"{ZAF_AC_KEY}.duration": ZAF_AC_DURATION,
+        }
         return [
-            self._build_zaf_payload(self._zaf_level_params(key, level, with_duration))
-            for key, level, with_duration in comfort
-            if level > 0
+            self._build_zaf_payload(ac_params),
+            *(
+                self._build_zaf_payload(self._zaf_level_params(key, level, with_duration))
+                for key, level, with_duration in self._selected_comfort()
+            ),
         ]
 
     @staticmethod
@@ -157,6 +187,10 @@ class ClimateControll:
     async def _send_zaf_commands(self, payloads: list[str]) -> bool:
         """Send the ZAF requests one after the other and log what was sent and answered.
 
+        The #5 takes one ZAF request at a time: while the previous one is not
+        executed yet the cloud answers 8070. Such a request is sent again
+        after a short pause instead of failing the whole call.
+
         Every request is sent even if an earlier one failed, so a stop always
         tries to switch everything off. Returns True only if all were accepted.
         """
@@ -166,10 +200,33 @@ class ClimateControll:
         results = []
         for params in payloads:
             _LOGGER.debug("Sending ZAF command: %s", params)
-            result = await send_telematics_command(self.account, self.vin, params)
+            result = await self._send_zaf_command_when_free(params)
             _LOGGER.debug("ZAF command result: %s", result)
             results.append(result is True)
         return all(results)
+
+    async def _send_zaf_command_when_free(self, params: str) -> bool:
+        """Send one ZAF request, repeating it while the cloud reports 8070."""
+        for attempt in range(ZAF_PENDING_RETRIES + 1):
+            try:
+                return await send_telematics_command(self.account, self.vin, params)
+            except httpx.HTTPStatusError as exc:
+                if _cloud_code(exc) != ZAF_PENDING_CODE:
+                    raise
+                if attempt == ZAF_PENDING_RETRIES:
+                    _LOGGER.warning(
+                        "Smart #5 still busy with the previous request after %d retries (8070), giving up: %s",
+                        ZAF_PENDING_RETRIES,
+                        params,
+                    )
+                    return False
+                _LOGGER.debug(
+                    "Previous request not executed yet (8070), retry %d in %.0f s",
+                    attempt + 1,
+                    ZAF_PENDING_DELAY,
+                )
+                await asyncio.sleep(ZAF_PENDING_DELAY)
+        return False
 
     def set_ventilation_level(self, location: VentilationLocation, level: int):
         """Set the (Smart #5) seat ventilation level; selecting one clears the seat's heating."""
