@@ -190,3 +190,72 @@ class TestAdaptiveBackoff:
                 await a2._login()
 
         assert calls["n"] == 0, "shared quiet window did not suppress second instance"
+
+
+def _gigya_error(code: int):
+    from pysmarthashtag.models import SmartAuthError
+
+    err = SmartAuthError(f"Gigya login error (code={code})")
+    err.gigya_code = code
+    return err
+
+
+class TestGigyaAuthErrors:
+    """Gigya credential/lockout errors must not be retried."""
+
+    @pytest.mark.asyncio
+    async def test_invalid_credentials_block_until_password_changes(self):
+        from pysmarthashtag.models import SmartAuthError
+
+        auth = _make_auth("gigya-bad@example.com")
+        calls = 0
+
+        async def failing():
+            nonlocal calls
+            calls += 1
+            raise _gigya_error(403042)
+
+        with patch.object(auth, "_do_login", side_effect=failing):
+            with pytest.raises(SmartAuthError):
+                await auth._login()
+            # Suppressed attempt: no new network call, still an auth error.
+            with pytest.raises(SmartAuthError):
+                await auth._login()
+        assert calls == 1
+        assert auth._state.quiet_until - datetime.datetime.now(datetime.UTC) > datetime.timedelta(hours=1)
+
+        # New password lifts the block.
+        auth2 = SmartAuthentication(username="gigya-bad@example.com", password="new")
+        with patch.object(auth2, "_do_login", return_value=_login_ok()):
+            await auth2._login()
+        assert auth2._state.quiet_until is None
+
+    @pytest.mark.asyncio
+    async def test_lockout_uses_lockout_window(self):
+        from pysmarthashtag.models import SmartAuthError
+
+        auth = _make_auth("gigya-lock@example.com")
+        with patch.object(auth, "_do_login", side_effect=_gigya_error(403120)):
+            with pytest.raises(SmartAuthError):
+                await auth._login()
+        remaining = auth._state.quiet_until - datetime.datetime.now(datetime.UTC)
+        assert datetime.timedelta(minutes=25) < remaining <= auth._LOCKOUT_BACKOFF
+        assert auth._state.backoff == auth._BACKOFF_FLOOR
+
+
+@pytest.mark.asyncio
+async def test_non_gigya_failure_keeps_active_gigya_block():
+    auth = _make_auth("gigya-keep@example.com")
+    with patch.object(auth, "_do_login", side_effect=_gigya_error(403120)):
+        with pytest.raises(SmartAPIError):
+            await auth._login()
+    until = auth._state.quiet_until
+    auth._on_login_failure(SmartAPIError("boom"))
+    assert auth._state.auth_blocked is True
+    assert auth._state.quiet_until == until
+
+    # Once the block has expired, a non-Gigya failure replaces it.
+    auth._state.quiet_until = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=1)
+    auth._on_login_failure(SmartAPIError("boom"))
+    assert auth._state.auth_blocked is False
+    assert auth._state.quiet_until > datetime.datetime.now(datetime.UTC)
