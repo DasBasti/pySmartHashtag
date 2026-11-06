@@ -77,7 +77,9 @@ class SmartAPIError(Exception):
 
 
 class SmartAuthError(SmartAPIError):
-    """Auth-related error from Smart web API (HTTP status codes 401 and 403)."""
+    """Auth-related error from Smart web API (HTTP 401/403, or Gigya credential/lockout errors)."""
+
+    gigya_code: int | None = None
 
 
 class SmartTokenRefreshNecessary(SmartAPIError):

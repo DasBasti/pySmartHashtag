@@ -24,7 +24,7 @@ from pysmarthashtag.const import (
     WEBVIEW_USER_AGENT,
     EndpointUrls,
 )
-from pysmarthashtag.models import SmartAPIError, SmartMainTokenExpiredError
+from pysmarthashtag.models import SmartAPIError, SmartAuthError, SmartMainTokenExpiredError
 
 EXPIRES_AT_OFFSET = datetime.timedelta(seconds=HTTPX_TIMEOUT * 2)
 
@@ -36,11 +36,23 @@ _LOGGER = logging.getLogger(__name__)
 # window. Keyed by username — state persists for the lifetime of the
 # Python process.
 class _BackoffState:
-    __slots__ = ("backoff", "quiet_until")
+    __slots__ = ("backoff", "quiet_until", "auth_blocked", "blocked_password")
 
     def __init__(self, backoff: datetime.timedelta) -> None:
         self.backoff: datetime.timedelta = backoff
         self.quiet_until: datetime.datetime | None = None
+        # True when the quiet window was caused by a Gigya credential/lockout
+        # error, so suppressed attempts keep raising SmartAuthError.
+        self.auth_blocked: bool = False
+        # Password that was rejected; a different password lifts the block.
+        self.blocked_password: str | None = None
+
+
+# Gigya error codes that mean the credentials are wrong. Retrying only risks
+# locking the account, so these must not be retried automatically.
+GIGYA_INVALID_CREDENTIAL_CODES = frozenset({403042, 403043})
+# Gigya error code for a temporarily locked-out account.
+GIGYA_LOCKOUT_CODE = 403120
 
 
 _BACKOFF_REGISTRY: dict[str, _BackoffState] = {}
@@ -58,6 +70,10 @@ class SmartAuthentication(httpx.Auth):
     _BACKOFF_GROW = 1.5
     _BACKOFF_SHRINK = datetime.timedelta(minutes=1)
     _OTHER_FAILURE_BACKOFF = datetime.timedelta(seconds=60)
+    # Wrong credentials: don't retry until the password changes (or this long).
+    _INVALID_CREDENTIALS_BACKOFF = datetime.timedelta(hours=6)
+    # Gigya "temporarily locked out": wait before touching the account again.
+    _LOCKOUT_BACKOFF = datetime.timedelta(minutes=30)
 
     def __init__(
         self,
@@ -205,9 +221,18 @@ class SmartAuthentication(httpx.Auth):
             successes shrink it additively.
         """
         now = datetime.datetime.now(datetime.UTC)
+        if (
+            self._state.auth_blocked
+            and self._state.blocked_password is not None
+            and self._state.blocked_password != self.password
+        ):
+            # The user supplied a new password (e.g. via reauth): lift the block.
+            self._state.quiet_until = None
+            self._state.auth_blocked = False
+            self._state.blocked_password = None
         if self._state.quiet_until is not None and now < self._state.quiet_until:
             wait_s = int((self._state.quiet_until - now).total_seconds())
-            raise SmartAPIError(
+            raise (SmartAuthError if self._state.auth_blocked else SmartAPIError)(
                 "Smart API in adaptive quiet window for another "
                 f"{wait_s}s (until "
                 f"{self._state.quiet_until.isoformat(timespec='seconds')}, "
@@ -225,6 +250,23 @@ class SmartAuthentication(httpx.Auth):
     def _on_login_failure(self, exc: Exception) -> None:
         """Update backoff state after a failed login attempt."""
         now = datetime.datetime.now(datetime.UTC)
+        gigya_code = getattr(exc, "gigya_code", None)
+        if isinstance(exc, SmartAuthError) and gigya_code is not None:
+            if gigya_code == GIGYA_LOCKOUT_CODE:
+                window = self._LOCKOUT_BACKOFF
+                self._state.blocked_password = None
+            else:
+                window = self._INVALID_CREDENTIALS_BACKOFF
+                self._state.blocked_password = self.password
+            self._state.auth_blocked = True
+            self._state.quiet_until = now + window
+            _LOGGER.warning(
+                "Smart login rejected (Gigya code %s). Not retrying until %s",
+                gigya_code,
+                self._state.quiet_until.isoformat(timespec="seconds"),
+            )
+            return
+        self._state.auth_blocked = False
         if self._is_rate_limit_error(exc):
             new_backoff = min(self._state.backoff * self._BACKOFF_GROW, self._BACKOFF_CAP)
             self._state.backoff = new_backoff
@@ -249,6 +291,8 @@ class SmartAuthentication(httpx.Auth):
         new_backoff = max(self._state.backoff - self._BACKOFF_SHRINK, self._BACKOFF_FLOOR)
         self._state.backoff = new_backoff
         self._state.quiet_until = None
+        self._state.auth_blocked = False
+        self._state.blocked_password = None
         if prev > self._BACKOFF_FLOOR:
             _LOGGER.info("Smart API login succeeded; backoff %s -> %s", prev, new_backoff)
 
@@ -427,11 +471,19 @@ class SmartAuthentication(httpx.Auth):
             if login_result.get("errorCode", 0) != 0:
                 gigya_code = login_result.get("errorCode")
                 gigya_message = login_result.get("errorMessage", "")
-                _LOGGER.error(
+                is_auth_error = gigya_code in GIGYA_INVALID_CREDENTIAL_CODES or gigya_code == GIGYA_LOCKOUT_CODE
+                # Credential/lockout errors are surfaced to the caller (and
+                # logged by the HA config flow), so don't log them at ERROR.
+                _LOGGER.log(
+                    logging.WARNING if is_auth_error else logging.ERROR,
                     "Gigya login error: code=%s message=%s",
                     gigya_code,
                     sanitize_log_data(gigya_message),
                 )
+                if is_auth_error:
+                    auth_err = SmartAuthError(f"Gigya login error (code={gigya_code}): {gigya_message}")
+                    auth_err.gigya_code = gigya_code
+                    raise auth_err
                 raise SmartAPIError(f"Gigya login error (code={gigya_code}): {gigya_message}")
 
             try:
