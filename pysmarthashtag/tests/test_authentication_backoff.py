@@ -241,3 +241,21 @@ class TestGigyaAuthErrors:
         remaining = auth._state.quiet_until - datetime.datetime.now(datetime.UTC)
         assert datetime.timedelta(minutes=25) < remaining <= auth._LOCKOUT_BACKOFF
         assert auth._state.backoff == auth._BACKOFF_FLOOR
+
+
+@pytest.mark.asyncio
+async def test_non_gigya_failure_keeps_active_gigya_block():
+    auth = _make_auth("gigya-keep@example.com")
+    with patch.object(auth, "_do_login", side_effect=_gigya_error(403120)):
+        with pytest.raises(SmartAPIError):
+            await auth._login()
+    until = auth._state.quiet_until
+    auth._on_login_failure(SmartAPIError("boom"))
+    assert auth._state.auth_blocked is True
+    assert auth._state.quiet_until == until
+
+    # Once the block has expired, a non-Gigya failure replaces it.
+    auth._state.quiet_until = datetime.datetime.now(datetime.UTC) - datetime.timedelta(seconds=1)
+    auth._on_login_failure(SmartAPIError("boom"))
+    assert auth._state.auth_blocked is False
+    assert auth._state.quiet_until > datetime.datetime.now(datetime.UTC)

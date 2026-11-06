@@ -266,7 +266,12 @@ class SmartAuthentication(httpx.Auth):
                 self._state.quiet_until.isoformat(timespec="seconds"),
             )
             return
+        if self._state.auth_blocked and self._state.quiet_until is not None and now < self._state.quiet_until:
+            # A concurrent non-Gigya failure must not shorten or replace an
+            # active Gigya block; keep it (and its caller suppression) intact.
+            return
         self._state.auth_blocked = False
+        self._state.blocked_password = None
         if self._is_rate_limit_error(exc):
             new_backoff = min(self._state.backoff * self._BACKOFF_GROW, self._BACKOFF_CAP)
             self._state.backoff = new_backoff
