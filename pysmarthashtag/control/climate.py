@@ -1,16 +1,24 @@
 """Provides an accessible controll of the vehicle's climate functions."""
 
+import asyncio
 import json
 import logging
 from enum import Enum
 from typing import TypedDict
 
+import httpx
+
 from pysmarthashtag.account import SmartAccount
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
 from pysmarthashtag.const import API_TELEMATICS_URL
-from pysmarthashtag.control.telematics import send_telematics_command
-from pysmarthashtag.models import SmartHumanCarConnectionError, SmartTokenRefreshNecessary
+from pysmarthashtag.control.telematics import COMMAND_PENDING_DELAY, send_telematics_command
+from pysmarthashtag.models import (
+    SmartAPIError,
+    SmartCommandPendingError,
+    SmartHumanCarConnectionError,
+    SmartTokenRefreshNecessary,
+)
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -59,7 +67,7 @@ ZAF_REAR_HEATING_KEYS = {
     RearHeatingLocation.REAR_RIGHT: "SH.29",
 }
 ZAF_SEAT_HEATING_DURATION = "15"
-ZAF_ALL_COMFORT_KEYS = ("SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11", "SV.19")
+ZAF_AC_DURATION = "180"
 
 
 class ClimateControll:
@@ -103,15 +111,15 @@ class ClimateControll:
         }
 
     def _get_zaf_payloads(self, active: bool) -> list[str]:
-        """Build the Smart #5 ZAF requests, one per comfort function.
+        """Build the Smart #5 ZAF requests of the climate conditioning.
 
-        The cloud does not take several seats in one request, so every seat,
-        the steering wheel and the ventilation get their own request. The
-        air conditioning is not part of it. Start and stop both use
-        ``command: start``.
+        The cloud does not take several functions in one request, so the air
+        conditioning, every seat, the steering wheel and the ventilation get
+        their own request. The air conditioning comes first. A stop switches
+        off the air conditioning and the selected comfort functions; the cloud
+        takes one command at a time, so nothing else is sent. Start and stop
+        both use ``command: start``.
         """
-        if not active:
-            return [self._build_zaf_payload({"operation": "4", key: "false"}) for key in ZAF_ALL_COMFORT_KEYS]
         comfort = [
             *(
                 (ZAF_HEATING_KEYS[loc], lvl, loc != HeatingLocation.STEERING_WHEEL)
@@ -120,10 +128,23 @@ class ClimateControll:
             *((ZAF_VENTILATION_KEYS[loc], lvl, False) for loc, lvl in self.ventilation_levels.items()),
             *((ZAF_REAR_HEATING_KEYS[loc], lvl, True) for loc, lvl in self.rear_heating_levels.items()),
         ]
+        selected = [(key, level, with_duration) for key, level, with_duration in comfort if level > 0]
+        if not active:
+            return [
+                self._build_zaf_payload({"operation": "4", key: "false"}) for key in ("AC", *(c[0] for c in selected))
+            ]
+        ac_params = {
+            "operation": "4",
+            "AC": "true",
+            "AC.temp": f"{self.conditioning_temp:.1f}",
+            "AC.duration": ZAF_AC_DURATION,
+        }
         return [
-            self._build_zaf_payload(self._zaf_level_params(key, level, with_duration))
-            for key, level, with_duration in comfort
-            if level > 0
+            self._build_zaf_payload(ac_params),
+            *(
+                self._build_zaf_payload(self._zaf_level_params(key, level, with_duration))
+                for key, level, with_duration in selected
+            ),
         ]
 
     @staticmethod
@@ -166,7 +187,11 @@ class ClimateControll:
         results = []
         for params in payloads:
             _LOGGER.debug("Sending ZAF command: %s", params)
-            result = await send_telematics_command(self.account, self.vin, params)
+            try:
+                result = await send_telematics_command(self.account, self.vin, params)
+            except (SmartAPIError, httpx.HTTPError) as err:
+                _LOGGER.warning("ZAF command failed: %s", err)
+                result = False
             _LOGGER.debug("ZAF command result: %s", result)
             results.append(result is True)
         return all(results)
@@ -235,7 +260,7 @@ class ClimateControll:
     async def set_climate_conditioning(self, temp: float, active: bool) -> bool:
         """Set the climate conditioning."""
 
-        # A complete stop on the #5 sends all comfort functions off and needs no temperature
+        # A stop on the #5 only switches functions off and needs no temperature
         if active or not self.use_zaf:
             if not isinstance(temp, (int, float)):
                 raise TypeError("Temperature must be a number")
@@ -377,5 +402,9 @@ class ClimateControll:
                     continue
                 except SmartHumanCarConnectionError:
                     _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                    continue
+                except SmartCommandPendingError:
+                    _LOGGER.debug("Previous command not yet executed (8070), retry: %d", retry)
+                    await asyncio.sleep(COMMAND_PENDING_DELAY)
                     continue
         return False

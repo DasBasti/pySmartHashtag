@@ -105,3 +105,21 @@ async def test_door_lock_rebinds_vehicle_before_retry(smart_fixture: respx.Route
     # Once before the first attempt, once more before the retry
     assert select.await_count == 2
     select.assert_awaited_with("TestVIN0000000001")
+
+
+@pytest.mark.asyncio
+async def test_command_waits_while_previous_command_is_pending(smart_fixture: respx.Router):
+    """Test that 8070 is retried after a pause and given up on eventually."""
+    account = await prepare_account_with_vehicles()
+    await account.get_vehicle_information("TestVIN0000000001")
+    pending = httpx.Response(200, json={"code": "8070", "message": "The last request has not yet been executed"})
+    route = smart_fixture.put(TELEMATICS_URL).mock(side_effect=[pending, pending, httpx.Response(200, json=SUCCESS)])
+
+    with patch("pysmarthashtag.control.telematics.asyncio.sleep", new=AsyncMock()) as sleep:
+        assert await account.vehicles["TestVIN0000000001"].door_lock_control.lock()
+        assert sleep.await_count == 2
+
+        route.mock(return_value=pending)
+        assert not await account.vehicles["TestVIN0000000001"].door_lock_control.lock()
+        # 3 requests of the first command, then 1 + 6 retries of the second
+        assert route.call_count == 10

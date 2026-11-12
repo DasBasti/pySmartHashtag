@@ -13,6 +13,7 @@ from pysmarthashtag.const import (
 )
 from pysmarthashtag.models import (
     AnonymizedResponse,
+    SmartCommandPendingError,
     SmartHumanCarConnectionError,
     SmartMainTokenExpiredError,
     SmartNonceError,
@@ -138,6 +139,8 @@ class SmartClient(httpx.AsyncClient):
                 raise SmartNonceError(f"Request nonce repeated (code=1443): {message}")
             if code == "8160":
                 raise SmartNoPermissionError(f"No permission (code=8160): {message}")
+            if code == "8070":
+                raise SmartCommandPendingError(f"Previous command not yet executed (code=8070): {message}")
             raise httpx.HTTPStatusError(
                 response=response,
                 request=response.request,

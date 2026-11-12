@@ -13,16 +13,20 @@ def _ctrl(use_zaf: bool = True) -> ClimateControll:
     return ClimateControll(account, "VIN", use_zaf=use_zaf)
 
 
+AC_ON = {"operation": "4", "AC": "true", "AC.temp": "21.0", "AC.duration": "180"}
+
+
 def _params(payload: str) -> dict:
     return {p["key"]: p["value"] for p in json.loads(payload)["serviceParameters"]}
 
 
-def test_start_sends_each_seat_by_itself_without_ac():
+def test_start_sends_ac_first_and_each_seat_by_itself():
     ctrl = _ctrl()
+    ctrl.conditioning_temp = 21.0
     ctrl.set_ventilation_level(VentilationLocation.DRIVER_SEAT, 2)
     ctrl.set_heating_level(HeatingLocation.PASSENGER_SEAT, 3)
     payloads = ctrl._get_zaf_payloads(True)
-    assert len(payloads) == 2
+    assert len(payloads) == 3
     for raw in payloads:
         payload = json.loads(raw)
         assert payload["serviceId"] == "ZAF"
@@ -30,13 +34,16 @@ def test_start_sends_each_seat_by_itself_without_ac():
         assert payload["userId"] == "42"
         assert payload["latest"] is False
     assert [_params(p) for p in payloads] == [
+        AC_ON,
         {"operation": "4", "SH.19": "true", "SH.19.level": "3", "SH.19.duration": "15"},
         {"operation": "4", "SV.11": "true", "SV.11.level": "2"},
     ]
 
 
-def test_start_without_selection_sends_nothing():
-    assert _ctrl()._get_zaf_payloads(True) == []
+def test_start_without_selection_sends_only_ac():
+    ctrl = _ctrl()
+    ctrl.conditioning_temp = 21.0
+    assert [_params(p) for p in ctrl._get_zaf_payloads(True)] == [AC_ON]
 
 
 def test_heating_and_ventilation_are_exclusive():
@@ -48,14 +55,14 @@ def test_heating_and_ventilation_are_exclusive():
     assert ctrl.ventilation_levels[VentilationLocation.DRIVER_SEAT] == 0
 
 
-def test_stop_switches_every_function_off_separately():
+def test_stop_switches_ac_and_selected_functions_off_separately():
     ctrl = _ctrl()
+    assert [_params(p) for p in ctrl._get_zaf_payloads(False)] == [{"operation": "4", "AC": "false"}]
     ctrl.set_ventilation_level(VentilationLocation.DRIVER_SEAT, 2)
+    ctrl.set_heating_level(HeatingLocation.STEERING_WHEEL, 1)
     payloads = ctrl._get_zaf_payloads(False)
     assert all(json.loads(p)["command"] == "start" for p in payloads)
-    assert [_params(p) for p in payloads] == [
-        {"operation": "4", key: "false"} for key in ("SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11", "SV.19")
-    ]
+    assert [_params(p) for p in payloads] == [{"operation": "4", key: "false"} for key in ("AC", "SW", "SV.11")]
 
 
 def test_invalid_level_and_legacy_rejected():
@@ -71,7 +78,7 @@ def test_rear_heating_is_its_own_request():
 
     ctrl = _ctrl()
     ctrl.set_rear_heating_level(RearHeatingLocation.REAR_LEFT, 2)
-    assert [_params(p) for p in ctrl._get_zaf_payloads(True)] == [
+    assert [_params(p) for p in ctrl._get_zaf_payloads(True)][1:] == [
         {"operation": "4", "SH.21": "true", "SH.21.level": "2", "SH.21.duration": "15"}
     ]
     with pytest.raises(ValueError):
@@ -91,11 +98,10 @@ async def test_stop_works_with_corrupt_temperature(monkeypatch):
     monkeypatch.setattr("pysmarthashtag.control.climate.send_telematics_command", fake_send)
     ctrl = _ctrl()
     assert await ctrl.set_climate_conditioning("garbage", False) is True
-    assert len(sent) == 8
-    assert all(v == "false" for raw in sent for k, v in _params(raw).items() if k != "operation")
+    assert [_params(raw) for raw in sent] == [{"operation": "4", "AC": "false"}]
     with pytest.raises(TypeError):
         await ctrl.set_climate_conditioning("garbage", True)
-    assert len(sent) == 8
+    assert len(sent) == 1
 
 
 @pytest.mark.asyncio
@@ -115,13 +121,33 @@ async def test_start_sends_one_request_per_seat_and_reports_failure(monkeypatch)
     # the first request fails, the second is still sent
     assert await ctrl.set_climate_conditioning(21.0, True) is False
     assert [_params(raw) for raw in sent] == [
+        AC_ON,
         {"operation": "4", "SH.11": "true", "SH.11.level": "1", "SH.11.duration": "15"},
         {"operation": "4", "SH.21": "true", "SH.21.level": "2", "SH.21.duration": "15"},
     ]
 
-    sent.clear()
-    assert await _ctrl().set_climate_conditioning(21.0, True) is False
-    assert sent == []
+    # without any seat selected the air conditioning still starts
+    assert await _ctrl().set_climate_conditioning(21.0, True) is True
+    assert [_params(raw) for raw in sent[3:]] == [AC_ON]
+
+
+@pytest.mark.asyncio
+async def test_failing_request_does_not_stop_the_following_ones(monkeypatch):
+    from pysmarthashtag.models import SmartAPIError
+
+    sent = []
+
+    async def fake_send(account, vin, payload):
+        sent.append(payload)
+        if len(sent) == 1:
+            raise SmartAPIError("boom")
+        return True
+
+    monkeypatch.setattr("pysmarthashtag.control.climate.send_telematics_command", fake_send)
+    ctrl = _ctrl()
+    ctrl.set_heating_level(HeatingLocation.DRIVER_SEAT, 1)
+    assert await ctrl.set_climate_conditioning(21.0, False) is False
+    assert [_params(raw) for raw in sent] == [{"operation": "4", "AC": "false"}, {"operation": "4", "SH.11": "false"}]
 
 
 @pytest.mark.asyncio

@@ -25,6 +25,7 @@ from pysmarthashtag.api.authentication import _BACKOFF_REGISTRY, SmartAuthentica
 from pysmarthashtag.api.client import SmartClient, SmartClientConfiguration
 from pysmarthashtag.models import (
     SmartAPIError,
+    SmartCommandPendingError,
     SmartHumanCarConnectionError,
     SmartMainTokenExpiredError,
     SmartNonceError,
@@ -368,6 +369,7 @@ class TestClientRouting:
             ("8040", SmartVehicleUnboundError),
             ("1443", SmartNonceError),
             ("8160", SmartNoPermissionError),
+            ("8070", SmartCommandPendingError),
         ],
     )
     async def test_error_codes_map_to_typed_exceptions(self, code, exc):

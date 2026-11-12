@@ -130,6 +130,14 @@ class SmartNoPermissionError(SmartAPIError):
     """Caller lacks permission for the requested resource (Response Code 8160)."""
 
 
+class SmartCommandPendingError(SmartAPIError):
+    """The vehicle has not executed the previous remote command yet (Response Code 8070).
+
+    Transient: the cloud takes one remote command per vehicle at a time.
+    Remedy is to wait a few seconds and send the command again.
+    """
+
+
 class SmartQuotaError(SmartAPIError):
     """Quota exceeded on Smart web API."""
 
