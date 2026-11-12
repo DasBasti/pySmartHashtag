@@ -12,8 +12,12 @@ from pysmarthashtag.account import SmartAccount, _cloud_code
 from pysmarthashtag.api import utils
 from pysmarthashtag.api.client import SmartClient
 from pysmarthashtag.const import API_TELEMATICS_URL
-from pysmarthashtag.control.telematics import send_telematics_command
-from pysmarthashtag.models import SmartHumanCarConnectionError, SmartTokenRefreshNecessary
+from pysmarthashtag.control.telematics import (
+    COMMAND_PENDING_CODE,
+    COMMAND_PENDING_DELAY,
+    send_telematics_command,
+)
+from pysmarthashtag.models import SmartAPIError, SmartHumanCarConnectionError, SmartTokenRefreshNecessary
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -66,12 +70,6 @@ ZAF_ALL_COMFORT_KEYS = ("SH.11", "SH.19", "SH.21", "SH.29", "SW", "DF", "SV.11",
 # Cabin air conditioning of the Smart #5 (format from DasBasti/SmartHashtag#479)
 ZAF_AC_KEY = "AC"
 ZAF_AC_DURATION = "180"
-
-# Cloud code: "The last request has not yet been executed, please send the command later!"
-# The #5 takes one ZAF request at a time, so the next one has to wait.
-ZAF_PENDING_CODE = "8070"
-ZAF_PENDING_RETRIES = 5
-ZAF_PENDING_DELAY = 3.0
 
 
 class ClimateControll:
@@ -187,12 +185,11 @@ class ClimateControll:
     async def _send_zaf_commands(self, payloads: list[str]) -> bool:
         """Send the ZAF requests one after the other and log what was sent and answered.
 
-        The #5 takes one ZAF request at a time: while the previous one is not
-        executed yet the cloud answers 8070. Such a request is sent again
-        after a short pause instead of failing the whole call.
+        The #5 takes one ZAF request at a time; send_telematics_command waits
+        while the previous one is not executed yet (8070).
 
-        Every request is sent even if an earlier one failed, so a stop always
-        tries to switch everything off. Returns True only if all were accepted.
+        Every request is sent even if an earlier one failed or raised, so a
+        stop always tries to switch everything off. Returns True only if all were accepted.
         """
         if not payloads:
             _LOGGER.debug("No ZAF command to send")
@@ -200,33 +197,14 @@ class ClimateControll:
         results = []
         for params in payloads:
             _LOGGER.debug("Sending ZAF command: %s", params)
-            result = await self._send_zaf_command_when_free(params)
+            try:
+                result = await send_telematics_command(self.account, self.vin, params)
+            except (SmartAPIError, httpx.HTTPError) as err:
+                _LOGGER.warning("ZAF command failed: %s", err)
+                result = False
             _LOGGER.debug("ZAF command result: %s", result)
             results.append(result is True)
         return all(results)
-
-    async def _send_zaf_command_when_free(self, params: str) -> bool:
-        """Send one ZAF request, repeating it while the cloud reports 8070."""
-        for attempt in range(ZAF_PENDING_RETRIES + 1):
-            try:
-                return await send_telematics_command(self.account, self.vin, params)
-            except httpx.HTTPStatusError as exc:
-                if _cloud_code(exc) != ZAF_PENDING_CODE:
-                    raise
-                if attempt == ZAF_PENDING_RETRIES:
-                    _LOGGER.warning(
-                        "Smart #5 still busy with the previous request after %d retries (8070), giving up: %s",
-                        ZAF_PENDING_RETRIES,
-                        params,
-                    )
-                    return False
-                _LOGGER.debug(
-                    "Previous request not executed yet (8070), retry %d in %.0f s",
-                    attempt + 1,
-                    ZAF_PENDING_DELAY,
-                )
-                await asyncio.sleep(ZAF_PENDING_DELAY)
-        return False
 
     def set_ventilation_level(self, location: VentilationLocation, level: int):
         """Set the (Smart #5) seat ventilation level; selecting one clears the seat's heating."""
@@ -434,5 +412,11 @@ class ClimateControll:
                     continue
                 except SmartHumanCarConnectionError:
                     _LOGGER.debug("Got Human Car Connection Error, retry: %d", retry)
+                    continue
+                except httpx.HTTPStatusError as exc:
+                    if _cloud_code(exc) != COMMAND_PENDING_CODE:
+                        raise
+                    _LOGGER.debug("Previous command not executed yet (8070), retry: %d", retry)
+                    await asyncio.sleep(COMMAND_PENDING_DELAY)
                     continue
         return False
