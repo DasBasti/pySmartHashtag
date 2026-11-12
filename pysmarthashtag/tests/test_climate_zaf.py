@@ -6,13 +6,7 @@ from types import SimpleNamespace
 import httpx
 import pytest
 
-from pysmarthashtag.control.climate import (
-    ZAF_PENDING_DELAY,
-    ZAF_PENDING_RETRIES,
-    ClimateControll,
-    HeatingLocation,
-    VentilationLocation,
-)
+from pysmarthashtag.control.climate import ClimateControll, HeatingLocation, VentilationLocation
 
 
 def _ctrl(use_zaf: bool = True) -> ClimateControll:
@@ -149,76 +143,24 @@ async def test_start_without_seats_sends_the_ac(monkeypatch):
     assert [_params(raw) for raw in sent] == [{"operation": "4", "AC": "true", "AC.temp": "26.0", "AC.duration": "180"}]
 
 
-def _pending_error() -> httpx.HTTPStatusError:
-    request = httpx.Request("PUT", "https://example.invalid/remote-control/vehicle/telematics/VIN")
-    response = httpx.Response(
-        200,
-        request=request,
-        json={"code": 8070, "message": "The last request has not yet been executed, please send the command later!"},
-    )
-    return httpx.HTTPStatusError(response=response, request=request, message="8070: pending")
-
-
 @pytest.mark.asyncio
-async def test_pending_request_is_sent_again_after_a_pause(monkeypatch):
-    sent = []
-    sleeps = []
-
-    async def fake_send(account, vin, payload):
-        sent.append(payload)
-        # the cloud is busy for the first two tries of the second request
-        if len(sent) in (2, 3):
-            raise _pending_error()
-        return True
-
-    async def fake_sleep(seconds):
-        sleeps.append(seconds)
-
-    monkeypatch.setattr("pysmarthashtag.control.climate.send_telematics_command", fake_send)
-    monkeypatch.setattr("pysmarthashtag.control.climate.asyncio.sleep", fake_sleep)
-    ctrl = _ctrl()
-    ctrl.set_heating_level(HeatingLocation.DRIVER_SEAT, 2)
-    assert await ctrl.set_climate_conditioning(21.0, False) is True
-    assert [_params(raw) for raw in sent] == [AC_OFF] + [{"operation": "4", "SH.11": "false"}] * 3
-    assert sleeps == [ZAF_PENDING_DELAY, ZAF_PENDING_DELAY]
-
-
-@pytest.mark.asyncio
-async def test_pending_request_gives_up_but_sends_the_rest(monkeypatch):
+async def test_cloud_error_does_not_stop_the_following_requests(monkeypatch):
     sent = []
 
     async def fake_send(account, vin, payload):
         sent.append(payload)
-        if _params(payload) == AC_OFF:
-            raise _pending_error()
+        if len(sent) == 1:
+            request = httpx.Request("PUT", "https://example.invalid/x")
+            response = httpx.Response(200, request=request, json={"code": 9999, "message": "other"})
+            raise httpx.HTTPStatusError(response=response, request=request, message="9999: other")
         return True
 
-    async def fake_sleep(seconds):
-        return None
-
     monkeypatch.setattr("pysmarthashtag.control.climate.send_telematics_command", fake_send)
-    monkeypatch.setattr("pysmarthashtag.control.climate.asyncio.sleep", fake_sleep)
     ctrl = _ctrl()
     ctrl.set_heating_level(HeatingLocation.DRIVER_SEAT, 2)
+    # the AC-off request raises, the seat is still switched off
     assert await ctrl.set_climate_conditioning(21.0, False) is False
-    assert len(sent) == ZAF_PENDING_RETRIES + 1 + 1
-    assert _params(sent[-1]) == {"operation": "4", "SH.11": "false"}
-
-
-@pytest.mark.asyncio
-async def test_other_cloud_errors_are_not_retried(monkeypatch):
-    calls = []
-
-    async def fake_send(account, vin, payload):
-        calls.append(payload)
-        request = httpx.Request("PUT", "https://example.invalid/x")
-        response = httpx.Response(200, request=request, json={"code": 9999, "message": "other"})
-        raise httpx.HTTPStatusError(response=response, request=request, message="9999: other")
-
-    monkeypatch.setattr("pysmarthashtag.control.climate.send_telematics_command", fake_send)
-    with pytest.raises(httpx.HTTPStatusError):
-        await _ctrl().set_climate_conditioning(21.0, True)
-    assert len(calls) == 1
+    assert [_params(raw) for raw in sent] == [AC_OFF, {"operation": "4", "SH.11": "false"}]
 
 
 @pytest.mark.asyncio
